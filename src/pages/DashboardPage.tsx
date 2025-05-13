@@ -12,7 +12,8 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { estimateCreditsFromText } from '../utils/creditUtils';
 import { cn } from '@/lib/utils';
 import { Separator } from "@/components/ui/separator";
-import { CreditCard, PlayCircle } from 'lucide-react';
+import { CreditCard, PlayCircle, Wallet } from 'lucide-react';
+import { useLocation } from "react-router-dom";
 
 // Definir um tipo para Locutor (opcional, mas recomendado)
 interface Locutor {
@@ -34,11 +35,12 @@ interface Pedido {
   status: 'pendente' | 'gravando' | 'concluido' | 'cancelado';
   audio_final_url: string | null;
   downloaded_at: string | null;
+  cliente_notificado_em: string | null;
   locutores: { nome: string } | null; // <-- CORRIGIDO: objeto simples ou null
 }
 
 function DashboardPage() {
-  const { signOut, user, profile, isLoading, isFetchingProfile, refreshProfile } = useAuth();
+  const { signOut, user, profile, isLoading, isFetchingProfile, refreshProfile, refreshNotifications } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   // Estados para locutores
   const [locutores, setLocutores] = useState<Locutor[]>([]);
@@ -51,6 +53,7 @@ function DashboardPage() {
   // <-- Novos estados para pedidos -->
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loadingPedidos, setLoadingPedidos] = useState(true);
+  const location = useLocation();
 
   // Calcular créditos em tempo real
   useEffect(() => {
@@ -94,7 +97,7 @@ function DashboardPage() {
 
   // <-- Função para buscar pedidos -->
   const fetchPedidos = async () => {
-    if (!profile?.id) return; // Não buscar se não tiver ID do perfil
+    if (!profile?.id) return;
 
     console.log("DashboardPage: Iniciando busca de pedidos para user:", profile.id);
     setLoadingPedidos(true);
@@ -109,6 +112,7 @@ function DashboardPage() {
           status,
           audio_final_url,
           downloaded_at,
+          cliente_notificado_em,
           locutores ( nome ) 
         `)
         .eq('user_id', profile.id)
@@ -116,20 +120,48 @@ function DashboardPage() {
 
       if (error) {
         console.error('Erro detalhado ao buscar pedidos:', error);
-        throw error; // Re-lança para o catch abaixo
+        throw error;
       }
-      console.log('Dados brutos dos pedidos recebidos do Supabase:', data); // <-- Logar dados brutos
+      console.log('Dados brutos dos pedidos recebidos do Supabase:', data);
       
-      // <-- Mapear dados para garantir a estrutura correta -->
       const mappedPedidos: Pedido[] = (data || []).map((pedido: any) => ({
         ...pedido,
         locutores: Array.isArray(pedido.locutores) 
-                      ? pedido.locutores[0] // Pega o primeiro se for array (fallback)
-                      : pedido.locutores, // Mantém se já for objeto
+                      ? pedido.locutores[0]
+                      : pedido.locutores,
       }));
       
       setPedidos(mappedPedidos);
-      console.log('Pedidos carregados:', mappedPedidos); // <-- Logar dados mapeados
+      console.log('Pedidos carregados:', mappedPedidos);
+
+      // Marcar pedidos como notificados/visualizados
+      if (mappedPedidos && mappedPedidos.length > 0) {
+        const now = new Date().toISOString();
+        const pedidosToMarkAsNotified = mappedPedidos
+          .filter(p => p.status === 'concluido' && p.cliente_notificado_em === null)
+          .map(p => p.id);
+
+        if (pedidosToMarkAsNotified.length > 0) {
+          console.log("DashboardPage: Marcando pedidos como notificados:", pedidosToMarkAsNotified);
+          const { error: updateError } = await supabase
+            .from('pedidos')
+            .update({ cliente_notificado_em: now })
+            .in('id', pedidosToMarkAsNotified);
+
+          if (updateError) {
+            console.error("DashboardPage: Erro ao marcar pedidos como notificados:", updateError);
+          } else {
+            console.log("DashboardPage: Pedidos marcados como notificados. Tentando atualizar contagem de notificações após um pequeno atraso...");
+            if (refreshNotifications) {
+              setTimeout(() => {
+                console.log("DashboardPage: Chamando refreshNotifications após atraso.");
+                refreshNotifications();
+              }, 1000);
+            }
+          }
+        }
+      }
+
     } catch (err: any) {
       console.error('Erro no bloco try/catch ao buscar pedidos:', err);
       toast.error("Erro ao Carregar Histórico", { description: err.message || "Não foi possível carregar seus pedidos." });
@@ -160,10 +192,20 @@ function DashboardPage() {
     }
   };
 
+  useEffect(() => {
+    if (location.hash) {
+      const id = location.hash.replace('#', '');
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }, [location]);
+
   if (isLoading || isFetchingProfile) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div>Carregando dados do painel...</div>
+        <div className="text-gray-600">Carregando dados do painel...</div>
       </div>
     );
   }
@@ -171,7 +213,7 @@ function DashboardPage() {
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div>Redirecionando para o login...</div>
+        <div className="text-gray-600">Redirecionando para o login...</div>
       </div>
     ); // ProtectedRoute deve cuidar disso, mas é um fallback visual
   }
@@ -329,24 +371,17 @@ function DashboardPage() {
               </div>
             </div>
             
-            {/* Card de Créditos Reestilizado */}
             <Card className="bg-card shadow-none border border-border/50 rounded-lg">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Meus Créditos
-                </CardTitle>
-                <div className={`p-1.5 rounded-full bg-[hsl(var(--status-green))]/10`}>
-                  <CreditCard className="h-5 w-5 text-status-green" />
+              <CardContent className="flex flex-col items-center justify-center p-6">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Wallet className="h-6 w-6" /> 
                 </div>
-              </CardHeader>
-              <CardContent className="pb-4 px-4">
-                <div className="text-2xl font-bold text-foreground">
+                <div className="text-3xl font-bold text-foreground">
                   {typeof profile?.credits === 'number' ? profile.credits : <span className="text-muted-foreground">...</span>}
                 </div>
-                <p className="text-xs text-muted-foreground pt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Disponíveis para gravação
                 </p>
-                {/* <Button size="sm" variant="outline" className="mt-3 w-full">Comprar Mais Créditos</Button> */}
               </CardContent>
             </Card>
           </div>
@@ -365,7 +400,6 @@ function DashboardPage() {
         {loadingLocutores ? (
           <div className="text-center py-8">
             <p>Carregando locutores...</p>
-            {/* Você pode adicionar um componente Spinner aqui do shadcn/ui se desejar */}
           </div>
         ) : locutores.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -373,48 +407,42 @@ function DashboardPage() {
               <Card 
                 key={locutor.id} 
                 className={cn(
-                  "flex flex-col overflow-hidden transition-all duration-150 ease-in-out rounded-lg",
-                  "hover:shadow-xl",
-                  selectedLocutorId === locutor.id ? "ring-2 ring-primary shadow-xl" : "shadow-md"
+                  "flex flex-col overflow-hidden transition-all duration-150 ease-in-out rounded-lg shadow-md hover:shadow-xl",
+                  selectedLocutorId === locutor.id ? "ring-2 ring-primary" : ""
                 )}
-                onClick={() => handleActualSelectLocutor(locutor.id)}
               >
-                <CardHeader className="flex flex-col items-center p-4 text-center space-y-2 bg-card">
+                <CardHeader className="flex flex-row items-center gap-4 p-4 bg-card">
                   <Avatar className="h-20 w-20 border-2 border-primary/20">
                     <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome} />
                     <AvatarFallback className="text-2xl">{locutor.nome.split(' ').map(n => n[0]).join('').toUpperCase().substring(0,2)}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
                     <CardTitle className="text-lg font-semibold text-foreground">{locutor.nome}</CardTitle>
+                    <CardDescription className="text-sm text-muted-foreground line-clamp-2">
+                      {locutor.descricao || "Locutor profissional com voz versátil."}
+                    </CardDescription>
                   </div>
                 </CardHeader>
                 <CardContent className="p-4 flex-grow space-y-3 bg-background/30">
-                  <p className="text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem]">
-                    {locutor.descricao || "Locutor profissional com voz versátil."}
-                  </p>
                   {locutor.amostra_audio_url && (
-                    <Button 
-                      variant="outline"
-                      size="sm" 
-                      className="w-full text-sm hover:bg-muted/80"
-                      onClick={(e: React.MouseEvent) => {
-                        e.stopPropagation();
-                        handlePlaySample(locutor.amostra_audio_url);
-                      }}
-                    >
-                      <PlayCircle className="h-4 w-4 mr-2" />
-                      Ouvir Demonstração
-                    </Button>
+                    <div className="space-y-2">
+                      <Label htmlFor={`audio-player-${locutor.id}`} className="text-xs text-muted-foreground">Ouça uma demonstração:</Label>
+                      <audio 
+                        id={`audio-player-${locutor.id}`} 
+                        controls 
+                        src={locutor.amostra_audio_url} 
+                        className="w-full h-10 rounded-md"
+                      >
+                        Seu navegador não suporta o elemento de áudio.
+                      </audio>
+                    </div>
                   )}
                 </CardContent>
                 <CardFooter className="p-4 bg-card border-t">
                    <Button 
-                     className="w-full font-semibold"
+                     className="w-full font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
                      variant={selectedLocutorId === locutor.id ? "default" : "outline"}
-                     onClick={(e: React.MouseEvent) => {
-                       e.stopPropagation();
-                       handleActualSelectLocutor(locutor.id);
-                     }}
+                     onClick={() => handleActualSelectLocutor(locutor.id)}
                    >
                      {selectedLocutorId === locutor.id ? 'Selecionado' : `Selecionar ${locutor.nome.split(' ')[0]}`}
                    </Button>

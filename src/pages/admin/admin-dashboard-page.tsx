@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Hook e tipo customizado
 import { useFetchAdminDashboardStats } from '../../hooks/queries/use-fetch-admin-dashboard-stats.hook';
@@ -190,45 +191,36 @@ function AdminDashboardPage() {
             const tagText = cardInfo.isLoading ? null : (cardInfo.tagKey && stats ? stats[cardInfo.tagKey as keyof AdminDashboardStats] : cardInfo.tagText);
 
             return (
-              <Card key={`stat-${index}`} className={`shadow-sm hover:shadow-md transition-shadow rounded-lg ${cardInfo.isLoading ? '' : ''}`}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  {cardInfo.isLoading ? (
-                    <div className="h-5 bg-muted rounded w-3/5 animate-pulse"></div>
-                  ) : (
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      {cardInfo.title}
-                    </CardTitle>
-                  )}
-                  {cardInfo.isLoading ? (
-                    <Loader2 className="h-6 w-6 text-muted animate-spin" />
-                  ) : (
-                    <div className={`p-1.5 rounded-full bg-[hsl(var(${cardInfo.iconColorClass.replace('text-','--')}))]/10`}>
-                      <Icon className={`h-5 w-5 ${cardInfo.iconColorClass}`} />
+              <Card key={`stat-${index}`} className={`shadow-sm hover:shadow-md transition-shadow rounded-lg`}>
+                {cardInfo.isLoading ? (
+                  <CardContent className="flex flex-col items-center justify-center p-6">
+                    <Skeleton className="h-12 w-12 rounded-full mb-3" /> 
+                    <Skeleton className="h-8 w-1/2 mb-2" />      
+                    <Skeleton className="h-4 w-3/4" />         
+                  </CardContent>
+                ) : (
+                  <CardContent className="flex flex-col items-center justify-center p-6">
+                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <Icon className="h-6 w-6" />
                     </div>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  {cardInfo.isLoading ? (
-                    <>
-                      <div className="h-8 bg-muted rounded w-1/2 mb-2 animate-pulse"></div>
-                      <div className="h-3 bg-muted rounded w-full animate-pulse"></div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-2xl font-bold text-foreground">
-                        {value !== undefined && value !== null ? value.toLocaleString('pt-BR') : (cardInfo.valueKey === undefined && !cardInfo.fixedValue) ? '-' : '0'}
+                    <div className="text-3xl font-bold text-foreground">
+                      {value !== undefined && value !== null ? value.toLocaleString('pt-BR') : (cardInfo.valueKey === undefined && !cardInfo.fixedValue) ? '-' : '0'}
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground mt-1 text-center">
+                      {cardInfo.title}
+                    </p>
+                    {cardInfo.subtext && (
+                       <p className="text-xs text-muted-foreground text-center">
+                         {cardInfo.subtext}
+                       </p>
+                    )}
+                    {tagText !== undefined && tagText !== null && (cardInfo.tagKey || cardInfo.tagText) && (
+                      <div className={`mt-2 inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${cardInfo.tagColorClass ? cardInfo.tagColorClass : 'bg-muted text-muted-foreground'}`}>
+                        {tagText} {cardInfo.tagKey && cardInfo.title.includes("Pedidos") ? (String(tagText) === '1' ? " Pedido" : " Pedidos") : ""}
                       </div>
-                      <p className="text-xs text-muted-foreground pt-1">
-                        {cardInfo.subtext}
-                      </p>
-                      {tagText !== undefined && tagText !== null && (cardInfo.tagKey || cardInfo.tagText) && (
-                        <div className={`mt-2 inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${cardInfo.tagColorClass}`}>
-                          {tagText} {cardInfo.tagKey && cardInfo.title.includes("Pedidos") ? (String(tagText) === '1' ? " Pedido" : " Pedidos") : ""}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </CardContent>
+                    )}
+                  </CardContent>
+                )}
               </Card>
             );
           })}

@@ -25,12 +25,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-        <BrowserRouter>
-          <AuthProvider>
-            <App />
-            <Sonner />
-          </AuthProvider>
-        </BrowserRouter>
+    <BrowserRouter>
+      <AuthProvider>
+        <App />
+        <Sonner />
+      </AuthProvider>
+    </BrowserRouter>
       </ThemeProvider>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>

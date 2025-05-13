@@ -1,28 +1,53 @@
+const flattenColorPalette = require("tailwindcss/lib/util/flattenColorPalette").default;
+
+// This plugin adds each Tailwind color as a global CSS variable, e.g. var(--gray-200).
+function addVariablesForColors({ addBase, theme }) {
+  let allColors = flattenColorPalette(theme("colors"));
+  let newVars = Object.fromEntries(
+    Object.entries(allColors).map(([key, val]) => [`--${key}`, val])
+  );
+
+  addBase({
+    ":root": newVars,
+  });
+}
+
 module.exports = {
     darkMode: ["class"],
     content: [
       './pages/**/*.{ts,tsx}',
       './components/**/*.{ts,tsx}',
-      './app/**/*.{ts,tsx}', 
+      './app/**/*.{ts,tsx}',
       './src/**/*.{ts,tsx}',
-      "./index.html" 
+      "./index.html"
+      // Considere adicionar './**/*.mdx' se for usar MDX no futuro
     ],
   theme: {
   	extend: {
+      backgroundImage: { // Adicionado do template
+        "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
+        "gradient-conic":
+          "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
+      },
       colors: {
         border: "hsl(var(--border))",
-        input: "hsl(var(--input))", 
-        ring: "hsl(var(--ring))",   
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        primary: {
+        primary: { // Mantém sua estrutura, mas as cores do template podem precisar de mapeamento
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
         },
-        secondary: {
+        secondary: { // Mantém sua estrutura
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
         },
+        // Cores do template (primary: "var(--neutral-700)", secondary: "var(--neutral-500)")
+        // serão resolvidas se 'addVariablesForColors' funcionar como esperado
+        // ou se você definir --neutral-700 e --neutral-500 em seu CSS global.
+        // Por enquanto, não vamos sobrescrever suas definições de 'primary' e 'secondary'.
+        // Vamos ver como os componentes do template se comportam.
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
@@ -65,5 +90,9 @@ module.exports = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    require("@tailwindcss/typography"), // Adicionado
+    addVariablesForColors // Adicionado
+  ],
 } 

@@ -28,6 +28,8 @@ interface AuthContextProps {
   signOut: () => Promise<void>;
   signUp: (credentials: SignUpWithPasswordCredentials) => Promise<{ error: AuthError | null }>;
   refreshProfile: () => Promise<void>;
+  unreadNotificationsCount: number;
+  refreshNotifications: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -44,6 +46,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isFetchingProfile, setIsFetchingProfile] = useState(false);
   const [error, setError] = useState<AuthError | null>(null);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+
+  const fetchUnreadNotifications = async (userId: string | undefined) => {
+    if (!userId) {
+      setUnreadNotificationsCount(0);
+      return;
+    }
+    try {
+      const { count, error: notificationError } = await supabase
+        .from('pedidos')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('status', 'concluido')
+        .is('cliente_notificado_em', null);
+
+      if (notificationError) {
+        console.error("AuthContext: Erro ao buscar contagem de notificações:", notificationError);
+        setUnreadNotificationsCount(0); // Resetar em caso de erro para evitar contagem antiga
+      } else {
+        console.log("AuthContext: Contagem de notificações não lidas:", count);
+        setUnreadNotificationsCount(count || 0);
+      }
+    } catch (err) {
+      console.error("AuthContext: Exceção ao buscar contagem de notificações:", err);
+      setUnreadNotificationsCount(0);
+    }
+  };
 
   const fetchProfileAndUpdateState = async (userId: string) => {
     if (isFetchingProfile) {
@@ -108,6 +137,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       if (result === null || typeof result === 'string') {
         console.warn('AuthContext: fetchProfile - Resultado nulo ou timeout antes da query completar.');
+        setProfile(null); // Limpar perfil se a busca falhar ou der timeout
+        await fetchUnreadNotifications(undefined); // Limpar contagem de notificações
       } else {
         const { data, error: fetchError, status } = result;
 
@@ -115,25 +146,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
           console.error('AuthContext: fetchProfile - Erro da query Supabase:', fetchError);
           setError(new AuthError(`Erro ao buscar perfil: ${fetchError.message}`));
           setProfile(null);
+          await fetchUnreadNotifications(undefined); // Limpar contagem
         } else if (data) {
           console.log('AuthContext: fetchProfile - Perfil encontrado:', data as Profile);
           setProfile(data as Profile);
+          await fetchUnreadNotifications(userId); // BUSCAR CONTAGEM APÓS PERFIL
         } else if (status === 406) {
           console.warn('AuthContext: fetchProfile - Perfil não encontrado (status 406), usuário pode precisar criar um.');
           setProfile(null);
+          await fetchUnreadNotifications(undefined); // Limpar contagem
         } else {
           console.log('AuthContext: fetchProfile - Nenhum dado ou erro específico (status 406) da query.');
+          setProfile(null); // Garantir que perfil seja nulo se não houver dados válidos
+          await fetchUnreadNotifications(undefined); // Limpar contagem
         }
       }
     } catch (err: any) {
       console.error('AuthContext: fetchProfile - Erro INESPERADO no try/catch:', err);
       setError(new AuthError(`Erro inesperado ao buscar perfil: ${err.message}`));
       setProfile(null);
-      if (timeoutId) clearTimeout(timeoutId); // Garante limpeza em caso de erro inesperado
+      await fetchUnreadNotifications(undefined); // Limpar contagem
+      if (timeoutId) clearTimeout(timeoutId); 
     } finally {
       setIsFetchingProfile(false);
       console.log('AuthContext: fetchProfileAndUpdateState - FINALIZANDO busca.');
-      if (timeoutId) clearTimeout(timeoutId); // Garante limpeza no finally
+      if (timeoutId) clearTimeout(timeoutId); 
     }
   };
 
@@ -175,6 +212,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         console.log('AuthContext: Estado session, user e profile limpos após evento que resultou em sessão nula (ex: SIGNED_OUT).');
         initialSessionHandled = false; // Reseta flags para o próximo login
         initialSignInHandled = false;
+        fetchUnreadNotifications(undefined); // Limpar contagem ao deslogar (ou user se torna undefined)
       }
       
       // Define isLoading como false após o primeiro evento (INITIAL_SESSION) ser tratado
@@ -286,17 +324,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const refreshProfile = async () => {
-    if (!user) {
-      console.warn("AuthContext: refreshProfile - Usuário não logado, não é possível atualizar perfil.");
-      return;
+    if (user?.id) {
+      console.log('AuthContext: refreshProfile - Solicitado refresh para userId:', user.id);
+      await fetchProfileAndUpdateState(user.id); 
+      // fetchProfileAndUpdateState já chama fetchUnreadNotifications
+    } else {
+      console.warn('AuthContext: refreshProfile - Tentativa de refresh sem usuário logado.');
+      setProfile(null);
+      fetchUnreadNotifications(undefined);
     }
-    if (isFetchingProfile) {
-      console.log("AuthContext: refreshProfile - Busca de perfil já em andamento. Ignorando.");
-      return;
+  };
+
+  const refreshNotifications = async () => {
+    if (user?.id) {
+      await fetchUnreadNotifications(user.id);
+    } else {
+       setUnreadNotificationsCount(0); // Se não há usuário, não há notificações
     }
-    console.log("AuthContext: refreshProfile - Iniciando atualização de perfil para userId:", user.id);
-    await fetchProfileAndUpdateState(user.id);
-    console.log("AuthContext: refreshProfile - Atualização de perfil finalizada.");
   };
 
   const value = {
@@ -311,6 +355,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signOut,
     signUp,
     refreshProfile,
+    unreadNotificationsCount,
+    refreshNotifications,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
