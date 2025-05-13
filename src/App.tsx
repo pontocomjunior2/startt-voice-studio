@@ -1,14 +1,66 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Routes, Route, Navigate } from 'react-router-dom';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import DashboardPage from './pages/DashboardPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
+import AdminLocutoresPage from './pages/admin/AdminLocutoresPage';
+import ProtectedRoute from './components/ProtectedRoute';
+import AuthRedirector from './components/AuthRedirector';
+import AppLayout from './components/AppLayout';
+import { useAuth } from './contexts/AuthContext';
 
 function App() {
+  // Remover useAuth daqui, pois AuthRedirector cuidará da lógica inicial
+  // const { session, isLoading } = useAuth(); 
+
+  // Não precisamos mais do loader aqui, AuthRedirector tem o seu
+  // if (isLoading) { ... }
+
   return (
-    <div>
-      {/* Rotas serão adicionadas aqui */}
-      <h1>App</h1>
-    </div>
+    <Routes>
+      <Route 
+        path="/" 
+        element={<AuthRedirector />}
+      />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignupPage />} />
+      
+      {/* Rotas Protegidas DENTRO do Layout */}
+      <Route element={<AppLayout />}>
+        {/* Rota para Dashboard Cliente */}
+        <Route 
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Rota para Admin Dashboard */}
+        <Route 
+          path="/admin"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Nova rota para gerenciar locutores */}
+        <Route 
+          path="/admin/locutores"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminLocutoresPage />
+            </ProtectedRoute>
+          }
+        />
+      </Route>
+
+      {/* Rota para Not Found (Opcional) */}
+      {/* <Route path="*" element={<div>Página não encontrada</div>} /> */}
+    </Routes>
   );
 }
 

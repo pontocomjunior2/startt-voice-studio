@@ -1,0 +1,15 @@
+// tsconfig.server.json
+{
+  "extends": "./tsconfig.json", // Herda configurações base como paths e moduleResolution
+  "compilerOptions": {
+    // Garante que estas opções sejam aplicadas especificamente ao servidor
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "isolatedModules": false, // Mantido como false
+    "outDir": "./dist-server", // Diretório para arquivos JS compilados
+    "noEmit": false, // Garantir que a compilação gere arquivos (padrão, mas explícito)
+    "sourceMap": true // Opcional: gerar source maps para debugging
+  },
+  "include": ["server/**/*.ts"], // Inclui apenas os arquivos do servidor
+  "exclude": ["node_modules", "src", "dist"] // Exclui outras pastas
+} 
