@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Definir tipo para Pedido com dados relacionados (ajuste conforme necessário)
 interface AdminPedido {
@@ -55,6 +56,12 @@ function AdminDashboardPage() {
   const [adminNotes, setAdminNotes] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [audioFile, setAudioFile] = useState<File | null>(null);
+
+  // Novos estados para as métricas dos cards
+  const [totalClientesAtivos, setTotalClientesAtivos] = useState(0);
+  const [totalCreditosEmCirculacao, setTotalCreditosEmCirculacao] = useState(0);
+  const [totalPedidosPendentes, setTotalPedidosPendentes] = useState(0);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   // Função para buscar pedidos pendentes
   const fetchPendingPedidos = async () => {
@@ -104,7 +111,46 @@ function AdminDashboardPage() {
   // useEffect para buscar pedidos na montagem
   useEffect(() => {
     fetchPendingPedidos();
+    fetchDashboardStats();
   }, []);
+
+  // Nova função para buscar estatísticas do dashboard
+  const fetchDashboardStats = async () => {
+    setLoadingStats(true);
+    try {
+      // 1. Contar clientes ativos (role='cliente')
+      const { count: clientesCount, error: clientesError } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'cliente');
+
+      if (clientesError) throw clientesError;
+      setTotalClientesAtivos(clientesCount || 0);
+
+      // 2. Somar todos os créditos dos clientes
+      const { data: clientesData, error: creditosError } = await supabase
+        .from('profiles')
+        .select('credits')
+        .eq('role', 'cliente');
+
+      if (creditosError) throw creditosError;
+      const totalCreditos = clientesData?.reduce((acc, cliente) => acc + (cliente.credits || 0), 0) || 0;
+      setTotalCreditosEmCirculacao(totalCreditos);
+
+      // 3. Contagem de pedidos pendentes é atualizada pelo useEffect abaixo que observa pendingPedidos
+
+    } catch (err: any) {
+      console.error("Erro ao buscar estatísticas do dashboard:", err);
+      toast.error("Erro Estatísticas", { description: err.message });
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  // Atualizar totalPedidosPendentes quando pendingPedidos mudar
+  useEffect(() => {
+    setTotalPedidosPendentes(pendingPedidos.length);
+  }, [pendingPedidos]);
 
   // Função de Logout (similar à DashboardPage)
   const handleLogout = async () => {
@@ -222,6 +268,51 @@ function AdminDashboardPage() {
         <Button onClick={handleLogout} variant="outline" disabled={isLoggingOut}>
           {isLoggingOut ? 'Saindo...' : 'Sair'}
         </Button>
+      </div>
+
+      {/* Seção de Cards de Estatísticas Adicionada */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Clientes Ativos</CardTitle>
+            {/* Ícone opcional: <Users className="h-4 w-4 text-muted-foreground" /> */}
+          </CardHeader>
+          <CardContent>
+            {loadingStats ? (
+              <Skeleton className="h-8 w-1/2" />
+            ) : (
+              <div className="text-2xl font-bold">{totalClientesAtivos}</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Créditos (Clientes)</CardTitle>
+            {/* Ícone opcional: <CreditCard className="h-4 w-4 text-muted-foreground" /> */}
+          </CardHeader>
+          <CardContent>
+            {loadingStats ? (
+              <Skeleton className="h-8 w-1/2" />
+            ) : (
+              <div className="text-2xl font-bold">{totalCreditosEmCirculacao}</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pedidos Pendentes</CardTitle>
+            {/* Ícone opcional: <Activity className="h-4 w-4 text-muted-foreground" /> */}
+          </CardHeader>
+          <CardContent>
+            {(loadingStats && !pendingPedidos.length) || (loadingPending && !pendingPedidos.length) ? (
+              <Skeleton className="h-8 w-1/2" />
+            ) : (
+              <div className="text-2xl font-bold">{totalPedidosPendentes}</div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Seção de Navegação Adicionada */}

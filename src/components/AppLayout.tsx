@@ -30,7 +30,7 @@ const AppLayout: React.FC = () => {
     { href: '/admin/locutores', label: 'Gerenciar Locutores', icon: <Users className="h-5 w-5" />, roles: ['admin'] },
     {
       label: 'Gerenciar Clientes',
-      href: '/admin/clientes',
+      href: '/admin/usuarios',
       icon: <UsersRound className="h-4 w-4" />,
       roles: ['admin'],
     },
