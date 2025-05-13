@@ -7,15 +7,32 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { ThemeProvider } from './components/theme-provider';
 import './index.css'
 
+// Importações do React Query
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'; // Opcional, mas útil
+
+// Crie uma instância do QueryClient
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutos, por exemplo
+      refetchOnWindowFocus: false, // Ajuste conforme necessidade
+    },
+  },
+});
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-      <BrowserRouter>
-        <AuthProvider>
-          <App />
-          <Sonner />
-        </AuthProvider>
-      </BrowserRouter>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <BrowserRouter>
+          <AuthProvider>
+            <App />
+            <Sonner />
+          </AuthProvider>
+        </BrowserRouter>
+      </ThemeProvider>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
   </React.StrictMode>,
 )

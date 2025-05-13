@@ -5,6 +5,7 @@
     // Garante que estas opções sejam aplicadas especificamente ao servidor
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
     "isolatedModules": false, // Mantido como false
     "outDir": "./dist-server", // Diretório para arquivos JS compilados
     "noEmit": false, // Garantir que a compilação gere arquivos (padrão, mas explícito)

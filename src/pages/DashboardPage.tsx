@@ -12,6 +12,7 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { estimateCreditsFromText } from '../utils/creditUtils';
 import { cn } from '@/lib/utils';
 import { Separator } from "@/components/ui/separator";
+import { CreditCard, PlayCircle } from 'lucide-react';
 
 // Definir um tipo para Locutor (opcional, mas recomendado)
 interface Locutor {
@@ -313,22 +314,42 @@ function DashboardPage() {
       <Card id="meu-perfil">
         <CardHeader>
           <CardTitle id="meu-perfil-heading">Meu Perfil</CardTitle>
-          <CardDescription>Informações da sua conta e créditos.</CardDescription>
+          <CardDescription>Informações da sua conta e seus créditos para gravação.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">Nome Completo:</p>
-            <p className="text-lg">{profile?.full_name || user?.user_metadata?.full_name || 'N/A'}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Nome Completo:</p>
+                <p className="text-lg">{profile?.full_name || user?.user_metadata?.full_name || 'N/A'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Email (Login):</p>
+                <p className="text-lg">{user?.email || profile?.username || 'N/A'}</p>
+              </div>
+            </div>
+            
+            {/* Card de Créditos Reestilizado */}
+            <Card className="bg-card shadow-none border border-border/50 rounded-lg">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Meus Créditos
+                </CardTitle>
+                <div className={`p-1.5 rounded-full bg-[hsl(var(--status-green))]/10`}>
+                  <CreditCard className="h-5 w-5 text-status-green" />
+                </div>
+              </CardHeader>
+              <CardContent className="pb-4 px-4">
+                <div className="text-2xl font-bold text-foreground">
+                  {typeof profile?.credits === 'number' ? profile.credits : <span className="text-muted-foreground">...</span>}
+                </div>
+                <p className="text-xs text-muted-foreground pt-1">
+                  Disponíveis para gravação
+                </p>
+                {/* <Button size="sm" variant="outline" className="mt-3 w-full">Comprar Mais Créditos</Button> */}
+              </CardContent>
+            </Card>
           </div>
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">Email (Login):</p>
-            <p className="text-lg">{user?.email || profile?.username || 'N/A'}</p>
-          </div>
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">Créditos Disponíveis:</p>
-            <p className="text-lg font-semibold">{typeof profile?.credits === 'number' ? profile.credits : 'Carregando...'}</p>
-          </div>
-          {/* Mais detalhes ou um botão para editar perfil podem ser adicionados aqui */}
         </CardContent>
         <CardFooter className="flex justify-end">
            <Button onClick={handleLogout} variant="outline" disabled={isLoggingOut}>
@@ -352,34 +373,46 @@ function DashboardPage() {
               <Card 
                 key={locutor.id} 
                 className={cn(
-                  "flex flex-col cursor-pointer transition-all",
-                  selectedLocutorId === locutor.id && "ring-2 ring-primary shadow-lg"
+                  "flex flex-col overflow-hidden transition-all duration-150 ease-in-out rounded-lg",
+                  "hover:shadow-xl",
+                  selectedLocutorId === locutor.id ? "ring-2 ring-primary shadow-xl" : "shadow-md"
                 )}
                 onClick={() => handleActualSelectLocutor(locutor.id)}
               >
-                <CardHeader className="flex flex-row items-start gap-3 space-y-0 pb-3">
-                  <Avatar className="h-12 w-12 border">
+                <CardHeader className="flex flex-col items-center p-4 text-center space-y-2 bg-card">
+                  <Avatar className="h-20 w-20 border-2 border-primary/20">
                     <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome} />
-                    <AvatarFallback>{locutor.nome.split(' ').map(n => n[0]).join('').toUpperCase().substring(0,2)}</AvatarFallback>
+                    <AvatarFallback className="text-2xl">{locutor.nome.split(' ').map(n => n[0]).join('').toUpperCase().substring(0,2)}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <CardTitle className="text-lg">{locutor.nome}</CardTitle>
-                    {locutor.amostra_audio_url && (
-                      <Button variant="link" size="sm" className="p-0 h-auto text-xs -mt-1" onClick={() => handlePlaySample(locutor.amostra_audio_url)}>
-                        Ouvir amostra
-                      </Button>
-                    )}
+                    <CardTitle className="text-lg font-semibold text-foreground">{locutor.nome}</CardTitle>
                   </div>
                 </CardHeader>
-                <CardContent className="flex-grow">
-                  <p className="text-sm text-muted-foreground line-clamp-3">{locutor.descricao || "Sem descrição disponível."}</p>
+                <CardContent className="p-4 flex-grow space-y-3 bg-background/30">
+                  <p className="text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem]">
+                    {locutor.descricao || "Locutor profissional com voz versátil."}
+                  </p>
+                  {locutor.amostra_audio_url && (
+                    <Button 
+                      variant="outline"
+                      size="sm" 
+                      className="w-full text-sm hover:bg-muted/80"
+                      onClick={(e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        handlePlaySample(locutor.amostra_audio_url);
+                      }}
+                    >
+                      <PlayCircle className="h-4 w-4 mr-2" />
+                      Ouvir Demonstração
+                    </Button>
+                  )}
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="p-4 bg-card border-t">
                    <Button 
-                     className="w-full" 
+                     className="w-full font-semibold"
                      variant={selectedLocutorId === locutor.id ? "default" : "outline"}
                      onClick={(e: React.MouseEvent) => {
-                       e.stopPropagation(); // Evitar que o clique no card seja acionado novamente
+                       e.stopPropagation();
                        handleActualSelectLocutor(locutor.id);
                      }}
                    >
@@ -441,7 +474,7 @@ function DashboardPage() {
 
       <section id="meus-audios">
         <h2 className="text-xl font-semibold mb-3">3. Meus Áudios Gravados</h2>
-        <Card> {/* Envolver a tabela em um Card para consistência visual */} 
+        <Card> 
           <CardHeader>
             <CardTitle>Histórico de Pedidos</CardTitle>
             <CardDescription>Veja o status e baixe seus áudios concluídos.</CardDescription>
@@ -450,22 +483,20 @@ function DashboardPage() {
             {loadingPedidos ? (
               <div className="text-center p-4">Carregando histórico...</div>
             ) : (
-              <div className="overflow-x-auto relative border rounded-md">
+              <div className="overflow-x-auto relative border border-border rounded-md">
                 <Table>
-                  <TableCaption>Seu histórico de gravações.</TableCaption>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Locutor</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Créditos</TableHead>
-                      <TableHead className="text-center">Download</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                  <TableCaption className="py-3">Seu histórico de gravações.</TableCaption>
+                  <TableHeader className="bg-muted/50"><TableRow>
+                      <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Data</TableHead>
+                      <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Locutor</TableHead>
+                      <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</TableHead>
+                      <TableHead className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Créditos</TableHead>
+                      <TableHead className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Download</TableHead>
+                    </TableRow></TableHeader>
+                  <TableBody className="bg-card divide-y divide-border">
                     {pedidos.length === 0 ? (
                       <TableRow className="hover:bg-muted/50 odd:bg-muted/20">
-                        <TableCell colSpan={5} className="h-24 text-center">
+                        <TableCell colSpan={5} className="h-24 text-center px-4 py-4">
                           Nenhum pedido encontrado.
                         </TableCell>
                       </TableRow>
@@ -474,30 +505,36 @@ function DashboardPage() {
                         console.log(`Pedido ID: ${pedido.id}, Status: ${pedido.status}, URL: ${pedido.audio_final_url}`); 
                         return (
                           <TableRow key={pedido.id} className="hover:bg-muted/50 odd:bg-muted/20">
-                            <TableCell className="font-medium">
+                            <TableCell className="font-medium px-4 py-3 whitespace-nowrap">
                               {`${new Date(pedido.created_at).toLocaleDateString('pt-BR')} ${new Date(pedido.created_at).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute:'2-digit' })}`}
                             </TableCell>
-                            <TableCell>
-                              {/* {pedido.locutores && pedido.locutores.length > 0 ? pedido.locutores[0].nome : 'N/A'} */}
-                              {pedido.locutores?.nome ?? 'N/A'} {/* <-- CORRIGIDO: acesso direto à propriedade nome */}
+                            <TableCell className="px-4 py-3 whitespace-nowrap">
+                              {pedido.locutores?.nome ?? 'N/A'} 
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="px-4 py-3 whitespace-nowrap">
                               <Badge 
                                 variant={pedido.status === 'concluido' ? 'default' : pedido.status === 'cancelado' ? 'destructive' : 'secondary'}
+                                className={cn(
+                                  "text-xs font-semibold px-2 py-0.5 rounded-full",
+                                  pedido.status === 'concluido' && "bg-status-green text-white",
+                                  pedido.status === 'pendente' && "bg-status-orange text-white",
+                                  pedido.status === 'gravando' && "bg-status-blue text-white",
+                                  pedido.status === 'cancelado' && "bg-status-red text-white",
+                                )}
                               >
-                                {pedido.status.charAt(0).toUpperCase() + pedido.status.slice(1)} {/* Capitaliza status */}
+                                {pedido.status.charAt(0).toUpperCase() + pedido.status.slice(1)} 
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-right">{pedido.creditos_debitados}</TableCell>
-                            <TableCell className="text-center">
+                            <TableCell className="text-right px-4 py-3 whitespace-nowrap">{pedido.creditos_debitados}</TableCell>
+                            <TableCell className="text-center px-4 py-3 whitespace-nowrap">
                               {pedido.status === 'concluido' && pedido.audio_final_url ? (
                                 <Button 
                                   variant="outline" 
                                   size="sm"
-                                  onClick={() => handleDownload(pedido)} // <-- Chamar handleDownload
-                                  disabled={!!pedido.downloaded_at} // <-- Desabilitar se já baixado
+                                  onClick={() => handleDownload(pedido)} 
+                                  disabled={!!pedido.downloaded_at} 
                                 >
-                                  {pedido.downloaded_at ? "Baixado ✓" : "Baixar Áudio"} {/* <-- Mudar texto se já baixado */}
+                                  {pedido.downloaded_at ? "Baixado ✓" : "Baixar Áudio"} 
                                 </Button>
                               ) : (
                                 <span>-</span>

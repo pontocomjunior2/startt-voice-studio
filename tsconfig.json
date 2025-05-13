@@ -12,6 +12,7 @@
       ]
     },
     "module": "ESNext",
-    "moduleResolution": "NodeNext"
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true
   }
 }

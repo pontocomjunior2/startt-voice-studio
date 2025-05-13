@@ -8,56 +8,61 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --background: 220 20% 97%; /* Cinza muito claro, levemente azulado */
+    --foreground: 220 25% 10%; /* Preto/Cinza escuro para texto */
+    --card: 0 0% 100%;          /* Branco para cards */
+    --card-foreground: 220 25% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --popover-foreground: 220 25% 10%;
+    --primary: 221 83% 53%;    /* Azul principal da sidebar/referência (Ex: #3b82f6) */
+    --primary-foreground: 0 0% 100%; /* Branco para texto sobre o primário */
+    --secondary: 220 15% 90%;  /* Cinza um pouco mais escuro para elementos secundários */
+    --secondary-foreground: 220 25% 25%;
+    --muted: 220 15% 90%;
+    --muted-foreground: 220 15% 45%; /* Cinza para texto muted */
+    --accent: 210 90% 60%;     /* Um azul mais claro para acentos, se necessário */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 75% 55%;   /* Vermelho para destrutivo */
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 20% 88%;     /* Borda sutil */
+    --input: 220 20% 88%;
+    --ring: 221 83% 53%;       /* Azul primário para anel de foco */
     --radius: 0.5rem;
+
+    /* Cores de Status (pode adicionar mais conforme necessário) */
+    --status-green: 130 60% 45%;
+    --status-orange: 30 90% 60%;
+    --status-red: 0 80% 65%;
+    --status-blue: 210 80% 60%;
+    --status-pink-badge: 340 80% 70%;
   }
+
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --background: 220 25% 10%;  /* Fundo escuro, azulado */
+    --foreground: 0 0% 95%;     /* Texto claro */
+    --card: 220 20% 13%;      /* Cards escuros, levemente azulados */
+    --card-foreground: 0 0% 95%;
+    --popover: 220 20% 13%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 221 83% 60%;    /* Azul primário um pouco mais claro para dark */
+    --primary-foreground: 220 20% 10%; /* Texto escuro sobre primário */
+    --secondary: 220 15% 20%;  /* Cinza escuro para secundário */
+    --secondary-foreground: 0 0% 90%;
+    --muted: 220 15% 20%;
+    --muted-foreground: 0 0% 60%; /* Texto muted claro */
+    --accent: 210 90% 65%;
+    --accent-foreground: 220 20% 10%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 95%;
+    --border: 220 15% 25%;     /* Borda escura */
+    --input: 220 15% 25%;
+    --ring: 221 83% 65%;
+
+    /* Cores de Status para Dark (podem ser as mesmas ou ajustadas) */
+    --status-green: 130 60% 50%; /* Renomeado para evitar conflito, usando o mesmo nome para sobrescrever */
+    --status-orange: 30 90% 65%;
+    --status-red: 0 80% 70%;
+    --status-blue: 210 80% 65%;
+    --status-pink-badge: 340 80% 75%;
   }
 }
