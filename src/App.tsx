@@ -7,8 +7,9 @@ import AdminLocutoresPage from './pages/admin/AdminLocutoresPage';
 import AdminUsuariosPage from './pages/admin/AdminUsuariosPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import AuthRedirector from './components/AuthRedirector';
-import AppLayout from './components/AppLayout';
+import AppLayout from './components/layout/AppLayout';
 import { useAuth } from './contexts/AuthContext';
+import NotFoundPage from './pages/NotFoundPage';
 
 function App() {
   // Remover useAuth daqui, pois AuthRedirector cuidará da lógica inicial
@@ -70,7 +71,7 @@ function App() {
       </Route>
 
       {/* Rota para Not Found (Opcional) */}
-      {/* <Route path="*" element={<div>Página não encontrada</div>} /> */}
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

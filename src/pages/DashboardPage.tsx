@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { estimateCreditsFromText } from '../utils/creditUtils';
 import { cn } from '@/lib/utils';
+import { Separator } from "@/components/ui/separator";
 
 // Definir um tipo para Locutor (opcional, mas recomendado)
 interface Locutor {
@@ -309,7 +310,7 @@ function DashboardPage() {
 
   return (
     <div className="p-4 md:p-8 space-y-8 max-w-6xl mx-auto">
-      <Card>
+      <Card id="meu-perfil">
         <CardHeader>
           <CardTitle className="text-2xl md:text-3xl">Bem-vindo(a), {displayName}!</CardTitle>
           {profile && <CardDescription>{profile.role || 'Usuário'}</CardDescription>}
@@ -329,7 +330,9 @@ function DashboardPage() {
         </CardFooter>
       </Card>
 
-      <section>
+      <Separator className="my-6" />
+
+      <section id="novo-pedido">
         <h2 className="text-xl font-semibold mb-4">1. Escolha seu Locutor</h2>
         {loadingLocutores ? (
           <div className="text-center py-8">
@@ -427,7 +430,9 @@ function DashboardPage() {
         </section>
       )}
 
-      <section>
+      <Separator className="my-6" />
+
+      <section id="meus-audios">
         <h2 className="text-xl font-semibold mb-3">3. Meus Áudios Gravados</h2>
         <Card> {/* Envolver a tabela em um Card para consistência visual */} 
           <CardHeader>

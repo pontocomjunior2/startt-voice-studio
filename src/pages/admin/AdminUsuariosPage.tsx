@@ -31,6 +31,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"; // Adicionado para o Select de Role
 import { Link } from 'react-router-dom';
+import { Loader2 } from 'lucide-react'; // Adicionado Loader2
+import { Separator } from "@/components/ui/separator"; // Adicionado Separator
 
 interface UserProfile {
   id: string;
@@ -161,6 +163,8 @@ function AdminUsuariosPage() {
         <h1 className="text-3xl font-bold">Gerenciar Usuários</h1>
       </div>
 
+      <Separator className="my-4" />
+
       {loadingUsers ? (
         <p>Carregando usuários...</p>
       ) : (
@@ -235,6 +239,7 @@ function AdminUsuariosPage() {
               <Button type="button" variant="outline" disabled={isUpdatingCredits}>Cancelar</Button>
             </DialogClose>
             <Button type="button" onClick={handleUpdateUserCredits} disabled={isUpdatingCredits}>
+              {isUpdatingCredits && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isUpdatingCredits ? 'Salvando...' : 'Salvar Ajuste'}
             </Button>
           </DialogFooter>
@@ -281,7 +286,8 @@ function AdminUsuariosPage() {
               <Button type="button" variant="outline" disabled={isUpdatingRole}>Cancelar</Button>
             </DialogClose>
             <Button type="button" onClick={handleUpdateUserRole} disabled={isUpdatingRole}>
-              {isUpdatingRole ? 'Salvando...' : 'Salvar Nova Role'}
+              {isUpdatingRole && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isUpdatingRole ? 'Salvando...' : 'Salvar Alteração de Role'}
             </Button>
           </DialogFooter>
         </DialogContent>

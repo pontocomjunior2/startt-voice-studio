@@ -23,6 +23,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Loader2 } from 'lucide-react';
+import { Separator } from "@/components/ui/separator";
 
 // Definir tipo para Pedido com dados relacionados (ajuste conforme necessário)
 interface AdminPedido {
@@ -102,7 +104,7 @@ function AdminDashboardPage() {
       console.log('Pedidos pendentes carregados:', mappedPedidos);
     } catch (err: any) {
       console.error('Erro no bloco try/catch ao buscar pedidos pendentes:', err);
-      toast.error("Erro ao Carregar Pedidos", { description: err.message || "Não foi possível carregar os pedidos pendentes." });
+      toast.error("Erro ao Carregar Pedidos" + (err.message ? `: ${err.message}` : ''));
     } finally {
       setLoadingPending(false);
     }
@@ -141,7 +143,9 @@ function AdminDashboardPage() {
 
     } catch (err: any) {
       console.error("Erro ao buscar estatísticas do dashboard:", err);
-      toast.error("Erro Estatísticas", { description: err.message });
+      toast.error("Erro ao Carregar Estatísticas", { 
+        description: err.message || "Não foi possível carregar as estatísticas."
+      });
     } finally {
       setLoadingStats(false);
     }
@@ -161,8 +165,10 @@ function AdminDashboardPage() {
       // Navegação para login é gerenciada pelo ProtectedRoute/App.tsx
     } catch (error) {
       console.error("Erro ao fazer logout (admin):", error);
-      toast.error("Erro ao Sair", { description: "Não foi possível completar o logout." });
-      setIsLoggingOut(false); // Reseta o estado em caso de erro
+      toast.error("Erro ao Sair", { 
+        description: "Não foi possível completar o logout. Tente novamente."
+      });
+      setIsLoggingOut(false);
     }
   };
 
@@ -248,14 +254,19 @@ function AdminDashboardPage() {
         throw updateError;
       }
 
-      toast.success("Pedido atualizado e áudio enviado (se aplicável).");
+      toast.success("Pedido Atualizado", {
+        description: "O status do pedido e o áudio (se aplicável) foram atualizados com sucesso."
+      });
       setIsModalOpen(false);
       fetchPendingPedidos();
 
     } catch (err: any) {
       console.error("Erro ao atualizar pedido/upload:", err);
-      const message = uploadError ? `Falha no Upload: ${err.message}` : `Falha na Atualização DB: ${err.message}`;
-      toast.error(message, { description: "Verifique o console para mais detalhes." });
+      const toastTitle = uploadError ? "Falha no Upload do Áudio" : "Falha ao Atualizar Pedido";
+      const toastDescription = `${err.message}. Verifique o console para mais detalhes.`
+      toast.error(toastTitle, { 
+        description: toastDescription
+      });
     } finally {
       setIsUpdating(false);
     }
@@ -315,6 +326,8 @@ function AdminDashboardPage() {
         </Card>
       </div>
 
+      <Separator className="my-6" />
+
       {/* Seção de Navegação Adicionada */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
@@ -340,6 +353,8 @@ function AdminDashboardPage() {
           </CardContent>
         </Card>
       </section>
+
+      <Separator className="my-6" />
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <section>
@@ -472,6 +487,7 @@ function AdminDashboardPage() {
                 <Button type="button" variant="outline" disabled={isUpdating}>Cancelar</Button>
               </DialogClose>
               <Button type="button" onClick={handleUpdatePedido} disabled={isUpdating}>
+                {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isUpdating ? 'Salvando...' : 'Salvar Alterações'}
               </Button>
             </DialogFooter>
