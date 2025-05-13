@@ -57,6 +57,8 @@ function AdminLocutoresPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [locutorToDelete, setLocutorToDelete] = useState<Locutor | null>(null);
 
+  const [locutorFilter, setLocutorFilter] = useState('');
+
   // Estados para o formulário do locutor
   const [nome, setNome] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -181,6 +183,10 @@ function AdminLocutoresPage() {
     }
   };
 
+  const filteredLocutores = locutores.filter(locutor =>
+    locutor.nome.toLowerCase().includes(locutorFilter.toLowerCase())
+  );
+
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-5xl mx-auto">
       <div className="flex justify-between items-center">
@@ -188,36 +194,48 @@ function AdminLocutoresPage() {
         <Button onClick={() => handleOpenModal(null)}>Adicionar Novo Locutor</Button>
       </div>
 
+      <div className="mb-4 mt-4">
+        <Input 
+          type="text"
+          placeholder="Filtrar por nome..."
+          value={locutorFilter}
+          onChange={(e) => setLocutorFilter(e.target.value)}
+          className="max-w-sm"
+        />
+      </div>
+
       {/* Tabela de Locutores */}
       {loadingLocutores ? (
         <p>Carregando locutores...</p>
       ) : (
-        <Table>
-          <TableCaption>Lista de todos os locutores cadastrados.</TableCaption>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Descrição (início)</TableHead>
-              <TableHead className="text-center">Ativo?</TableHead>
-              <TableHead className="text-center">Amostra?</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {locutores.map((locutor) => (
-              <TableRow key={locutor.id}>
-                <TableCell className="font-medium">{locutor.nome}</TableCell>
-                <TableCell>{locutor.descricao?.substring(0, 50)}{locutor.descricao && locutor.descricao.length > 50 ? '...' : ''}</TableCell>
-                <TableCell className="text-center">{locutor.ativo ? 'Sim' : 'Não'}</TableCell>
-                <TableCell className="text-center">{locutor.amostra_audio_url ? 'Sim' : 'Não'}</TableCell>
-                <TableCell className="text-right space-x-2">
-                  <Button variant="outline" size="sm" onClick={() => handleOpenModal(locutor)}>Editar</Button>
-                  <Button variant="destructive" size="sm" onClick={() => setLocutorToDelete(locutor)} disabled={!locutor.ativo}>Desativar</Button>
-                </TableCell>
+        <div className="overflow-x-auto relative border rounded-md">
+          <Table>
+            <TableCaption>Lista de todos os locutores cadastrados.</TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead>Descrição (início)</TableHead>
+                <TableHead className="text-center">Ativo?</TableHead>
+                <TableHead className="text-center">Amostra?</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {filteredLocutores.map((locutor) => (
+                <TableRow key={locutor.id} className="hover:bg-muted/50 odd:bg-muted/20">
+                  <TableCell className="font-medium">{locutor.nome}</TableCell>
+                  <TableCell>{locutor.descricao?.substring(0, 50)}{locutor.descricao && locutor.descricao.length > 50 ? '...' : ''}</TableCell>
+                  <TableCell className="text-center">{locutor.ativo ? 'Sim' : 'Não'}</TableCell>
+                  <TableCell className="text-center">{locutor.amostra_audio_url ? 'Sim' : 'Não'}</TableCell>
+                  <TableCell className="text-right space-x-2">
+                    <Button variant="outline" size="sm" onClick={() => handleOpenModal(locutor)}>Editar</Button>
+                    <Button variant="destructive" size="sm" onClick={() => setLocutorToDelete(locutor)} disabled={!locutor.ativo}>Desativar</Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       {/* Modal de Adicionar/Editar Locutor */}

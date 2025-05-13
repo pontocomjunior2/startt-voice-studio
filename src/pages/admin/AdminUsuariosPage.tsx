@@ -58,6 +58,8 @@ function AdminUsuariosPage() {
   const [newUserRole, setNewUserRole] = useState<'cliente' | 'admin'>('cliente');
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
 
+  const [userFilter, setUserFilter] = useState('');
+
   const fetchAllUsers = async () => {
     setLoadingUsers(true);
     try {
@@ -157,6 +159,11 @@ function AdminUsuariosPage() {
     }
   };
 
+  const filteredUsers = users.filter(user => 
+    (user.full_name?.toLowerCase().includes(userFilter.toLowerCase())) ||
+    (user.username?.toLowerCase().includes(userFilter.toLowerCase()))
+  );
+
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center">
@@ -165,43 +172,55 @@ function AdminUsuariosPage() {
 
       <Separator className="my-4" />
 
+      <div className="mb-4">
+        <Input 
+          type="text"
+          placeholder="Filtrar por nome ou email..."
+          value={userFilter}
+          onChange={(e) => setUserFilter(e.target.value)}
+          className="max-w-sm"
+        />
+      </div>
+
       {loadingUsers ? (
         <p>Carregando usuários...</p>
       ) : (
-        <Table>
-          <TableCaption>Lista de todos os usuários (clientes e administradores).</TableCaption>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome Completo</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role Atual</TableHead>
-              <TableHead className="text-center">Créditos</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell className="font-medium">{user.full_name || user.username || 'N/A'}</TableCell>
-                <TableCell>{user.username || 'N/A'}</TableCell>
-                <TableCell>{user.role || 'N/A'}</TableCell>
-                <TableCell className="text-center">
-                  {user.role !== 'admin' ? (user.credits ?? 0) : 'N/A (Admin)'}
-                </TableCell>
-                <TableCell className="text-right space-x-2">
-                  {user.role !== 'admin' && (
-                    <Button variant="outline" size="sm" onClick={() => openCreditModal(user)}>
-                      Ajustar Créditos
-                    </Button>
-                  )}
-                  <Button variant="secondary" size="sm" onClick={() => openRoleModal(user)}>
-                    Alterar Role
-                  </Button>
-                </TableCell>
+        <div className="overflow-x-auto relative border rounded-md">
+          <Table>
+            <TableCaption>Lista de todos os usuários (clientes e administradores).</TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome Completo</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role Atual</TableHead>
+                <TableHead className="text-center">Créditos</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {filteredUsers.map((user) => (
+                <TableRow key={user.id} className="hover:bg-muted/50 odd:bg-muted/20">
+                  <TableCell className="font-medium">{user.full_name || user.username || 'N/A'}</TableCell>
+                  <TableCell>{user.username || 'N/A'}</TableCell>
+                  <TableCell>{user.role || 'N/A'}</TableCell>
+                  <TableCell className="text-center">
+                    {user.role !== 'admin' ? (user.credits ?? 0) : 'N/A (Admin)'}
+                  </TableCell>
+                  <TableCell className="text-right space-x-2">
+                    {user.role !== 'admin' && (
+                      <Button variant="outline" size="sm" onClick={() => openCreditModal(user)}>
+                        Ajustar Créditos
+                      </Button>
+                    )}
+                    <Button variant="secondary" size="sm" onClick={() => openRoleModal(user)}>
+                      Alterar Role
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       <Dialog open={isCreditModalOpen} onOpenChange={(isOpen) => {

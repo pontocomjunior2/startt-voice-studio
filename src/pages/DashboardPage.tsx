@@ -312,16 +312,23 @@ function DashboardPage() {
     <div className="p-4 md:p-8 space-y-8 max-w-6xl mx-auto">
       <Card id="meu-perfil">
         <CardHeader>
-          <CardTitle className="text-2xl md:text-3xl">Bem-vindo(a), {displayName}!</CardTitle>
-          {profile && <CardDescription>{profile.role || 'Usuário'}</CardDescription>}
+          <CardTitle id="meu-perfil-heading">Meu Perfil</CardTitle>
+          <CardDescription>Informações da sua conta e créditos.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4">
-          <div>
-            <p><strong>Email:</strong> {userEmail}</p>
+        <CardContent className="space-y-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-muted-foreground">Nome Completo:</p>
+            <p className="text-lg">{profile?.full_name || user?.user_metadata?.full_name || 'N/A'}</p>
           </div>
-          <div>
-            <p><strong>Créditos Restantes:</strong> <Badge variant="secondary" className="ml-2">{userCredits}</Badge></p>
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-muted-foreground">Email (Login):</p>
+            <p className="text-lg">{user?.email || profile?.username || 'N/A'}</p>
           </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-muted-foreground">Créditos Disponíveis:</p>
+            <p className="text-lg font-semibold">{typeof profile?.credits === 'number' ? profile.credits : 'Carregando...'}</p>
+          </div>
+          {/* Mais detalhes ou um botão para editar perfil podem ser adicionados aqui */}
         </CardContent>
         <CardFooter className="flex justify-end">
            <Button onClick={handleLogout} variant="outline" disabled={isLoggingOut}>
@@ -443,64 +450,66 @@ function DashboardPage() {
             {loadingPedidos ? (
               <div className="text-center p-4">Carregando histórico...</div>
             ) : (
-              <Table>
-                <TableCaption>Seu histórico de gravações.</TableCaption>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Locutor</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Créditos</TableHead>
-                    <TableHead className="text-center">Download</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pedidos.length === 0 ? (
+              <div className="overflow-x-auto relative border rounded-md">
+                <Table>
+                  <TableCaption>Seu histórico de gravações.</TableCaption>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center">
-                        Nenhum pedido encontrado.
-                      </TableCell>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Locutor</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Créditos</TableHead>
+                      <TableHead className="text-center">Download</TableHead>
                     </TableRow>
-                  ) : (
-                    pedidos.map((pedido) => {
-                      console.log(`Pedido ID: ${pedido.id}, Status: ${pedido.status}, URL: ${pedido.audio_final_url}`); 
-                      return (
-                        <TableRow key={pedido.id}>
-                          <TableCell className="font-medium">
-                            {`${new Date(pedido.created_at).toLocaleDateString('pt-BR')} ${new Date(pedido.created_at).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute:'2-digit' })}`}
-                          </TableCell>
-                          <TableCell>
-                            {/* {pedido.locutores && pedido.locutores.length > 0 ? pedido.locutores[0].nome : 'N/A'} */}
-                            {pedido.locutores?.nome ?? 'N/A'} {/* <-- CORRIGIDO: acesso direto à propriedade nome */}
-                          </TableCell>
-                          <TableCell>
-                            <Badge 
-                              variant={pedido.status === 'concluido' ? 'default' : pedido.status === 'cancelado' ? 'destructive' : 'secondary'}
-                            >
-                              {pedido.status.charAt(0).toUpperCase() + pedido.status.slice(1)} {/* Capitaliza status */}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">{pedido.creditos_debitados}</TableCell>
-                          <TableCell className="text-center">
-                            {pedido.status === 'concluido' && pedido.audio_final_url ? (
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => handleDownload(pedido)} // <-- Chamar handleDownload
-                                disabled={!!pedido.downloaded_at} // <-- Desabilitar se já baixado
+                  </TableHeader>
+                  <TableBody>
+                    {pedidos.length === 0 ? (
+                      <TableRow className="hover:bg-muted/50 odd:bg-muted/20">
+                        <TableCell colSpan={5} className="h-24 text-center">
+                          Nenhum pedido encontrado.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      pedidos.map((pedido) => {
+                        console.log(`Pedido ID: ${pedido.id}, Status: ${pedido.status}, URL: ${pedido.audio_final_url}`); 
+                        return (
+                          <TableRow key={pedido.id} className="hover:bg-muted/50 odd:bg-muted/20">
+                            <TableCell className="font-medium">
+                              {`${new Date(pedido.created_at).toLocaleDateString('pt-BR')} ${new Date(pedido.created_at).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute:'2-digit' })}`}
+                            </TableCell>
+                            <TableCell>
+                              {/* {pedido.locutores && pedido.locutores.length > 0 ? pedido.locutores[0].nome : 'N/A'} */}
+                              {pedido.locutores?.nome ?? 'N/A'} {/* <-- CORRIGIDO: acesso direto à propriedade nome */}
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={pedido.status === 'concluido' ? 'default' : pedido.status === 'cancelado' ? 'destructive' : 'secondary'}
                               >
-                                {pedido.downloaded_at ? "Baixado ✓" : "Baixar Áudio"} {/* <-- Mudar texto se já baixado */}
-                              </Button>
-                            ) : (
-                              <span>-</span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
+                                {pedido.status.charAt(0).toUpperCase() + pedido.status.slice(1)} {/* Capitaliza status */}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">{pedido.creditos_debitados}</TableCell>
+                            <TableCell className="text-center">
+                              {pedido.status === 'concluido' && pedido.audio_final_url ? (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleDownload(pedido)} // <-- Chamar handleDownload
+                                  disabled={!!pedido.downloaded_at} // <-- Desabilitar se já baixado
+                                >
+                                  {pedido.downloaded_at ? "Baixado ✓" : "Baixar Áudio"} {/* <-- Mudar texto se já baixado */}
+                                </Button>
+                              ) : (
+                                <span>-</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>

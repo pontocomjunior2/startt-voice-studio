@@ -15,6 +15,7 @@ import {
   ListMusic,
   User
 } from 'lucide-react';
+import { ThemeToggle } from '../theme-toggle';
 
 // Tipo para os itens de navegação
 interface NavItem {
@@ -95,7 +96,7 @@ const AppLayout: React.FC = () => {
 
       <div className="flex flex-1 flex-col">
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
-          <div className="md:hidden">
+          <div className="flex items-center gap-2 md:hidden">
             <Sheet>
               <SheetTrigger asChild>
                 <Button size="icon" variant="outline">
@@ -123,11 +124,15 @@ const AppLayout: React.FC = () => {
                   </div>
               </SheetContent>
             </Sheet>
+            <Link to="/" className="flex items-center gap-2 font-semibold truncate md:hidden">
+              {profile?.full_name || user?.email || 'PontoComAudio'}
+            </Link>
           </div>
           
-          <div className="hidden md:flex items-center gap-4 ml-auto">
-            <span className="text-sm font-medium truncate">{profile?.full_name || user?.email}</span>
-            <Button variant="outline" size="sm" onClick={handleLogout} disabled={isLoggingOut}>
+          <div className="flex items-center gap-4 ml-auto">
+            <ThemeToggle />
+            <span className="hidden md:inline-block text-sm font-medium truncate">{profile?.full_name || user?.email}</span>
+            <Button variant="outline" size="sm" onClick={handleLogout} disabled={isLoggingOut} className="hidden md:inline-flex">
               <LogOut className="mr-2 h-4 w-4" />
               {isLoggingOut ? 'Saindo...' : 'Sair'}
             </Button>
