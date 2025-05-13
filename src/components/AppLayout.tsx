@@ -3,7 +3,7 @@ import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
-import { Home, LayoutDashboard, Users, FileText, LogOut, Menu as MenuIcon, Settings, ShieldCheck } from 'lucide-react'; // Ícones
+import { Home, LayoutDashboard, Users, FileText, LogOut, Menu as MenuIcon, Settings, ShieldCheck, UsersRound } from 'lucide-react'; // Ícones
 
 const AppLayout: React.FC = () => {
   const { profile, signOut } = useAuth();
@@ -28,6 +28,12 @@ const AppLayout: React.FC = () => {
     { href: '/admin', label: 'Admin Dashboard', icon: <ShieldCheck className="h-5 w-5" />, roles: ['admin'] },
     // Novo link para Gerenciar Locutores
     { href: '/admin/locutores', label: 'Gerenciar Locutores', icon: <Users className="h-5 w-5" />, roles: ['admin'] },
+    {
+      label: 'Gerenciar Clientes',
+      href: '/admin/clientes',
+      icon: <UsersRound className="h-4 w-4" />,
+      roles: ['admin'],
+    },
     // Adicionar mais links conforme necessário
     // { href: '/pedidos', label: 'Meus Pedidos', icon: <FileText className="h-5 w-5" />, roles: ['cliente'] },
     // { href: '/configuracoes', label: 'Configurações', icon: <Settings className="h-5 w-5" />, roles: ['cliente', 'admin'] },

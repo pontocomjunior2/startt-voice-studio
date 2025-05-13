@@ -4,6 +4,7 @@ import SignupPage from './pages/SignupPage';
 import DashboardPage from './pages/DashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminLocutoresPage from './pages/admin/AdminLocutoresPage';
+import AdminUsuariosPage from './pages/admin/AdminUsuariosPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import AuthRedirector from './components/AuthRedirector';
 import AppLayout from './components/AppLayout';
@@ -53,6 +54,16 @@ function App() {
           element={
             <ProtectedRoute requiredRole="admin">
               <AdminLocutoresPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Nova rota para gerenciar clientes */}
+        <Route 
+          path="/admin/usuarios"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminUsuariosPage />
             </ProtectedRoute>
           }
         />

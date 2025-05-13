@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Link } from 'react-router-dom';
 // Importar componentes do Dialog
 import {
   Dialog,
@@ -222,6 +223,32 @@ function AdminDashboardPage() {
           {isLoggingOut ? 'Saindo...' : 'Sair'}
         </Button>
       </div>
+
+      {/* Seção de Navegação Adicionada */}
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Gerenciar Usuários</CardTitle>
+            <CardDescription>Altere roles e gerencie os usuários da plataforma.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link to="/admin/usuarios">
+              <Button className="w-full">Acessar Gerenciamento de Usuários</Button>
+            </Link>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Gerenciar Locutores</CardTitle>
+            <CardDescription>Adicione, edite ou remova locutores.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link to="/admin/locutores">
+              <Button className="w-full">Acessar Gerenciamento de Locutores</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </section>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <section>
