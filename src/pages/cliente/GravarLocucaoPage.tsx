@@ -30,7 +30,7 @@ import {
   calcularTempoEstimadoSegundos,
   formatarSegundosParaMMSS,
 } from "@/utils/locutionTimeUtils";
-import { type Locutor, type Pedido } from '@/types';
+import { type Locutor } from '@/types';
 import { useSpring, animated } from 'react-spring';
 import { gerarIdReferenciaUnico } from '@/utils/pedidoUtils';
 import { obterMensagemSucessoAleatoria } from '@/utils/messageUtils';
@@ -96,7 +96,7 @@ function GravarLocucaoPage() {
   const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
 
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState<number>(1);
   const [locutores, setLocutores] = useState<Locutor[]>([]);
   const [loadingLocutores, setLoadingLocutores] = useState(true);
   const [errorLocutores, setErrorLocutores] = useState<string | null>(null);
@@ -106,6 +106,10 @@ function GravarLocucaoPage() {
   const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
   const [velocidadeSelecionada, setVelocidadeSelecionada] = useState<VelocidadeLocucaoTipo>(VELOCIDADE_LOCUCAO.NORMAL);
   const [tempoEstimadoSegundos, setTempoEstimadoSegundos] = useState(0);
+
+  // Estados para paginação de locutores
+  const [currentPageLocutores, setCurrentPageLocutores] = useState(1);
+  const LOCUTORES_PER_PAGE = 4;
 
   const { animatedSeconds } = useSpring({
     reset: true,
@@ -128,12 +132,18 @@ function GravarLocucaoPage() {
     },
   });
 
-  const { control, handleSubmit, setValue, reset, formState: { isSubmitting, errors, isValid: isFormValid }, watch, trigger, getValues, setError: setFormError } = formHook;
+  const { control, handleSubmit, setValue, reset, formState: { isSubmitting, isValid: isFormValid }, watch, trigger, getValues, setError: setFormError } = formHook;
 
   const watchedTipoAudio = watch("tipoAudio");
   const watchedLocutorId = watch("locutorId");
   const watchedEstiloLocucao = watch("estiloLocucao");
   const watchedScriptText = watch("scriptText");
+
+  // Calcular locutores para a página atual
+  const indexOfLastLocutor = currentPageLocutores * LOCUTORES_PER_PAGE;
+  const indexOfFirstLocutor = indexOfLastLocutor - LOCUTORES_PER_PAGE;
+  const currentLocutoresToDisplay = locutores.slice(indexOfFirstLocutor, indexOfLastLocutor);
+  const totalLocutoresPages = Math.ceil(locutores.length / LOCUTORES_PER_PAGE);
 
   const fetchLocutores = useCallback(async () => {
     if (!user) {
@@ -171,6 +181,15 @@ function GravarLocucaoPage() {
     const credits = estimateCreditsFromText(currentScript);
     setEstimatedCredits(credits);
   }, [watchedScriptText, velocidadeSelecionada, getValues]);
+
+  // Funções de navegação para paginação de locutores
+  const handleNextLocutoresPage = () => {
+    setCurrentPageLocutores((prevPage) => Math.min(prevPage + 1, totalLocutoresPages));
+  };
+
+  const handlePreviousLocutoresPage = () => {
+    setCurrentPageLocutores((prevPage) => Math.max(prevPage - 1, 1));
+  };
 
   const handlePlayPreview = (locutor: Locutor) => {
     if (audioPreviewRef.current) {
@@ -308,9 +327,6 @@ function GravarLocucaoPage() {
   const handlePreviousStep = () => {
     setCurrentStep(prev => prev - 1);
   };
-  
-  const isLoadingInitialData = loadingLocutores && currentStep === 2;
-
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -420,64 +436,139 @@ function GravarLocucaoPage() {
 
               {/* ETAPA 2: SELEÇÃO DE LOCUTOR */}
               {currentStep === 2 && (
-                <div className="space-y-6 animate-fadeIn">
-                  <h3 className="text-xl font-semibold text-center mb-6">Escolha o Locutor</h3>
-                  {isLoadingInitialData && (
-                    <div className="flex justify-center items-center min-h-[200px]">
-                      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <h2 className="text-2xl font-semibold">Selecione o Locutor</h2>
+                    <p className="text-muted-foreground">Escolha a voz para o seu projeto.</p>
+                  </div>
+                  {loadingLocutores && (
+                    <div className="flex justify-center items-center py-10">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <p className="ml-3">Carregando locutores...</p>
                     </div>
                   )}
-                  {!isLoadingInitialData && errorLocutores && (
-                    <div className="text-center">
-                      <p className="text-destructive text-lg">{errorLocutores}</p>
-                      <Button onClick={fetchLocutores} className="mt-4">Tentar Novamente</Button>
+                  {errorLocutores && (
+                    <div className="text-center py-10 text-red-600">
+                      <Users className="mx-auto h-12 w-12 text-red-500" />
+                      <p className="mt-2 font-semibold">Erro ao carregar locutores</p>
+                      <p className="text-sm text-muted-foreground">{errorLocutores}</p>
+                      <Button onClick={fetchLocutores} variant="outline" className="mt-4">
+                        Tentar Novamente
+                      </Button>
                     </div>
                   )}
-                  {!isLoadingInitialData && !errorLocutores && locutores.length === 0 && (
-                     <p className="text-center text-muted-foreground py-4">Nenhum locutor ativo encontrado.</p>
+                  {!loadingLocutores && !errorLocutores && locutores.length === 0 && (
+                     <div className="text-center py-10">
+                        <Users className="mx-auto h-12 w-12 text-muted-foreground" />
+                        <p className="mt-2 font-semibold">Nenhum locutor disponível</p>
+                        <p className="text-sm text-muted-foreground">Não há locutores cadastrados ou ativos no momento.</p>
+                      </div>
                   )}
-                  {!isLoadingInitialData && !errorLocutores && locutores.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto pr-2">
-                      {locutores.map((locutor) => (
-                        <Card
-                          key={locutor.id}
-                          className={cn(
-                            "cursor-pointer transition-all duration-200 ease-in-out hover:shadow-lg flex flex-col",
-                            watchedLocutorId === locutor.id ? "ring-2 ring-primary shadow-lg border-primary" : "border-border/40 hover:border-primary/60"
-                          )}
-                          onClick={() => {
-                            setValue("locutorId", locutor.id, { shouldValidate: true, shouldDirty: true });
-                            // setSelectedLocutor(locutor); // selectedLocutor é definido no handleNextStep
-                          }}
-                        >
-                          <CardHeader className="flex flex-row items-center space-x-4 pb-2">
-                             <Avatar className="w-16 h-16">
-                               <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome} />
-                               <AvatarFallback>{locutor.nome.substring(0, 2).toUpperCase()}</AvatarFallback>
-                             </Avatar>
-                            <div className="flex-1">
-                              <CardTitle className="text-lg">{locutor.nome}</CardTitle>
-                              <CardDescription className="text-xs h-8 overflow-hidden">
-                                {locutor.tipo_voz || 'Locutor Profissional'}
-                              </CardDescription>
-                            </div>
-                          </CardHeader>
-                          <CardContent className="pt-0 flex-grow flex flex-col justify-end">
-                            {locutor.audio_preview_url && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={(e) => { e.stopPropagation(); handlePlayPreview(locutor); }}
-                                className="w-full mt-2 border-border/60 hover:border-primary/80"
-                              >
-                                <PlayCircle className={`mr-2 h-4 w-4 ${isPlayingPreview === locutor.id ? 'text-primary animate-pulse' : 'text-muted-foreground group-hover:text-primary'}`} />
-                                {isPlayingPreview === locutor.id ? 'Pausar' : 'Ouvir Demo'}
-                              </Button>
+                  {!loadingLocutores && !errorLocutores && locutores.length > 0 && (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {currentLocutoresToDisplay.map((locutor) => (
+                          <Card
+                            key={locutor.id}
+                            onClick={() => {
+                              setSelectedLocutor(locutor);
+                              setValue("locutorId", locutor.id, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+                            }}
+                            className={cn(
+                              "cursor-pointer transition-all duration-200 ease-in-out transform hover:shadow-xl hover:-translate-y-1 focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2",
+                              watchedLocutorId === locutor.id && "ring-2 ring-primary shadow-xl -translate-y-1",
+                              "flex flex-col h-full"
                             )}
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setSelectedLocutor(locutor);
+                                setValue("locutorId", locutor.id, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+                              }
+                            }}
+                          >
+                            <CardContent className="p-0 flex flex-col flex-grow">
+                              <CardHeader className="p-3 flex-shrink-0">
+                                <div className="flex items-center space-x-3">
+                                  <Avatar className="h-12 w-12 border-2 border-muted">
+                                    <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome} />
+                                    <AvatarFallback className="text-xs">
+                                      {locutor.nome.substring(0, 2).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1 min-w-0">
+                                    <CardTitle className="text-base font-semibold truncate" title={locutor.nome}>
+                                      {locutor.nome}
+                                    </CardTitle>
+                                    <CardDescription className="text-xs line-clamp-2 h-8 leading-tight">
+                                      {locutor.descricao || locutor.tipo_voz || 'Voz profissional'}
+                                    </CardDescription>
+                                  </div>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="p-3 pt-0 text-center flex-grow flex flex-col justify-end">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-full text-xs mt-auto"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handlePlayPreview(locutor);
+                                  }}
+                                  disabled={!locutor.audio_preview_url}
+                                >
+                                  <PlayCircle className={cn("mr-1.5 h-3.5 w-3.5", isPlayingPreview === locutor.id && "animate-pulse text-primary")} />
+                                  {isPlayingPreview === locutor.id ? 'Pausar' : 'Ouvir Demo'}
+                                </Button>
+                              </CardContent>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                      {totalLocutoresPages > 1 && (
+                        <div className="flex justify-center items-center space-x-2 mt-6 pt-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handlePreviousLocutoresPage}
+                            disabled={currentPageLocutores === 1}
+                            aria-label="Página anterior de locutores"
+                          >
+                            <ChevronLeft className="h-5 w-5" />
+                          </Button>
+
+                          {/* Container para os pontos */}
+                          <div className="flex items-center space-x-1.5">
+                            {Array.from({ length: totalLocutoresPages }, (_, i) => (
+                              <button
+                                key={i}
+                                onClick={() => setCurrentPageLocutores(i + 1)} // Navegação direta
+                                className={cn(
+                                  "h-2 w-2 rounded-full transition-all duration-150 ease-in-out",
+                                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2", // Estilo de foco melhorado
+                                  currentPageLocutores === i + 1
+                                    ? "bg-primary scale-125 transform" // Ponto ativo: cor primária e um pouco maior
+                                    : "bg-muted hover:bg-muted-foreground/70" // Ponto inativo
+                                )}
+                                aria-label={`Ir para página ${i + 1}`}
+                                aria-current={currentPageLocutores === i + 1 ? "page" : undefined}
+                              />
+                            ))}
+                          </div>
+
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleNextLocutoresPage}
+                            disabled={currentPageLocutores === totalLocutoresPages}
+                            aria-label="Próxima página de locutores"
+                          >
+                            <ChevronRight className="h-5 w-5" />
+                          </Button>
+                        </div>
+                      )}
+                    </>
                   )}
                   <FormField control={control} name="locutorId" render={({ field }) => ( <FormItem><FormControl><Input type="hidden" {...field} /></FormControl><FormMessage className="text-center pt-2" /></FormItem> )} />
                 </div>
