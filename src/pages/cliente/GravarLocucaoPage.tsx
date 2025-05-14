@@ -1,318 +1,541 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext'; // Ajustar caminho se necessário
+import React, { useState, useEffect, useRef, useContext, useCallback } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
-import { supabase } from '../../lib/supabaseClient'; // Ajustar caminho se necessário
+import { toast } from 'sonner';
+import { supabase } from '@/lib/supabaseClient';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { estimateCreditsFromText } from '../../utils/creditUtils'; // Ajustar caminho se necessário
+import { Input } from "@/components/ui/input";
+import { estimateCreditsFromText } from '@/utils/creditUtils';
 import { cn } from '@/lib/utils';
-import { PlayCircle, Send } from 'lucide-react'; // Adicionado Send para o botão
-import { Separator } from "@/components/ui/separator"; // Adicionar importação do Separator
+import { PlayCircle, Send, Loader2, UserCircle, Users } from 'lucide-react';
+import { Separator } from "@/components/ui/separator";
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { Form, FormControl, FormField, FormItem, FormMessage, FormLabel } from '@/components/ui/form';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  VELOCIDADE_LOCUCAO,
+  type VelocidadeLocucaoTipo,
+  calcularTempoEstimadoSegundos,
+  formatarSegundosParaMMSS,
+} from "@/utils/locutionTimeUtils";
+import { type Locutor, type Pedido } from '@/types';
+import { useSpring, animated } from 'react-spring';
 
-// Definir um tipo para Locutor (copiado da DashboardPage)
-interface Locutor {
-  id: string;
-  nome: string;
-  descricao: string | null;
-  avatar_url: string | null;
-  amostra_audio_url: string | null;
-  ativo: boolean;
-  created_at: string;
-}
+const estilosLocucaoOpcoes = [
+  { id: 'padrao', label: 'Padrão' },
+  { id: 'impacto', label: 'Impacto' },
+  { id: 'jovem', label: 'Jovem' },
+  { id: 'varejo', label: 'Varejo' },
+  { id: 'institucional', label: 'Institucional' },
+  { id: 'up_festas', label: 'Up/Festas' },
+  { id: 'jornalistico', label: 'Jornalístico' },
+  { id: 'outro', label: 'Outro' },
+];
+
+const gravarLocucaoFormSchema = z.object({
+  locutorId: z.string().min(1, 'Por favor, selecione um locutor.'),
+  tituloPedido: z.string().min(3, 'O título do pedido deve ter pelo menos 3 caracteres.'),
+  estiloLocucao: z.string().min(1, 'Por favor, selecione um estilo de locução.'),
+  outroEstiloEspecificacao: z.string().optional(),
+  scriptText: z.string().min(10, 'O roteiro deve ter pelo menos 10 caracteres.'),
+  orientacoes: z.string().optional(),
+}).refine(data => {
+  if (data.estiloLocucao === 'outro') {
+    return data.outroEstiloEspecificacao && data.outroEstiloEspecificacao.trim().length > 0;
+  }
+  return true;
+}, {
+  message: "Por favor, especifique o estilo 'Outro'.",
+  path: ["outroEstiloEspecificacao"],
+});
 
 function GravarLocucaoPage() {
-  const { user, profile, refreshProfile } = useAuth(); // Apenas o necessário do AuthContext
+  const { user, profile, refreshProfile } = useAuth();
 
-  // Estados para locutores
   const [locutores, setLocutores] = useState<Locutor[]>([]);
   const [loadingLocutores, setLoadingLocutores] = useState(true);
+  const [errorLocutores, setErrorLocutores] = useState<string | null>(null);
   
-  // Estados para o formulário de pedido
-  const [selectedLocutorId, setSelectedLocutorId] = useState<string | null>(null);
+  const [selectedLocutor, setSelectedLocutor] = useState<Locutor | null>(null);
   const [scriptText, setScriptText] = useState('');
+  const [tituloPedido, setTituloPedido] = useState('');
+  const [estiloLocucao, setEstiloLocucao] = useState('');
+  const [outroEstiloEspecificacao, setOutroEstiloEspecificacao] = useState('');
   const [estimatedCredits, setEstimatedCredits] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPlayingPreview, setIsPlayingPreview] = useState<string | null>(null);
+  const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
+  const [velocidadeSelecionada, setVelocidadeSelecionada] = useState<VelocidadeLocucaoTipo>(VELOCIDADE_LOCUCAO.NORMAL);
+  const [tempoEstimadoSegundos, setTempoEstimadoSegundos] = useState(0);
 
-  // Calcular créditos em tempo real (copiado da DashboardPage)
+  // Animação para o número de segundos
+  const { animatedSeconds } = useSpring({
+    reset: true,
+    from: { animatedSeconds: 0 },
+    to: { animatedSeconds: tempoEstimadoSegundos },
+    config: { duration: 500 },
+  });
+
+  const formHook = useForm<z.infer<typeof gravarLocucaoFormSchema>>({
+    resolver: zodResolver(gravarLocucaoFormSchema),
+    mode: 'onChange',
+    defaultValues: {
+      locutorId: '',
+      tituloPedido: '',
+      estiloLocucao: '',
+      outroEstiloEspecificacao: '',
+      scriptText: '',
+      orientacoes: '',
+    },
+  });
+  const { control, handleSubmit, setValue, reset, formState: { isSubmitting, errors, isValid }, watch } = formHook;
+
+  // Log dos erros do formulário para depuração
   useEffect(() => {
-    const credits = estimateCreditsFromText(scriptText);
-    setEstimatedCredits(credits);
-  }, [scriptText]);
+    if (Object.keys(errors).length > 0) {
+      console.log("Erros de validação do formulário:", errors);
+    }
+  }, [errors]);
 
-  // Buscar locutores (copiado da DashboardPage)
-  useEffect(() => {
-    const fetchLocutores = async () => {
-      setLoadingLocutores(true);
-      try {
-        const { data, error } = await supabase
-          .from('locutores')
-          .select('*')
-          .eq('ativo', true)
-          .order('nome');
+  const watchedEstiloLocucao = watch("estiloLocucao");
 
-        if (error) {
-          throw error;
-        }
-        setLocutores(data || []);
-      } catch (error) {
-        console.error('Erro ao buscar locutores:', error);
-        toast.error("Erro ao Carregar Locutores", {
-          description: "Não foi possível buscar a lista de locutores. Tente recarregar a página.",
-        });
-      } finally {
-        setLoadingLocutores(false);
+  const fetchLocutores = useCallback(async () => {
+    if (!user) {
+      setLocutores([]);
+      setLoadingLocutores(false);
+      return;
+    }
+    setLoadingLocutores(true);
+    setErrorLocutores(null);
+    try {
+      const { data, error } = await supabase
+        .from('locutores')
+        .select('*')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (error) {
+        throw error;
       }
-    };
-
-    if (user) {
-      fetchLocutores();
-    } else {
+      setLocutores(data || []);
+    } catch (error) {
+      console.error('Erro ao buscar locutores:', error);
+      setErrorLocutores('Não foi possível carregar os locutores. Tente novamente mais tarde.');
+      setLocutores([]);
+    } finally {
       setLoadingLocutores(false);
     }
   }, [user]);
 
-  // Funções handler (copiadas e adaptadas da DashboardPage)
-  const handlePlaySample = (audioUrl: string | null) => {
-    if (audioUrl) {
-      const audio = new Audio(audioUrl);
-      audio.play().catch(e => console.error("Erro ao tocar áudio:", e));
-      toast.info("Tocando amostra de áudio...");
-    } else {
-      toast.error("Amostra de áudio não disponível.");
+  useEffect(() => {
+    const segundos = calcularTempoEstimadoSegundos(scriptText, velocidadeSelecionada);
+    setTempoEstimadoSegundos(segundos);
+
+    const credits = estimateCreditsFromText(scriptText);
+    setEstimatedCredits(credits);
+  }, [scriptText, velocidadeSelecionada]);
+
+  useEffect(() => {
+    fetchLocutores();
+  }, [fetchLocutores]);
+
+  const handlePlayPreview = (locutor: Locutor) => {
+    if (audioPreviewRef.current) {
+      if (isPlayingPreview === locutor.id) {
+        audioPreviewRef.current.pause();
+        setIsPlayingPreview(null);
+      } else {
+        audioPreviewRef.current.pause(); 
+        audioPreviewRef.current.currentTime = 0;
+        audioPreviewRef.current.src = locutor.audio_preview_url;
+        audioPreviewRef.current.play().catch(error => console.error("Erro ao tocar áudio:", error));
+        setIsPlayingPreview(locutor.id);
+        audioPreviewRef.current.onended = () => setIsPlayingPreview(null);
+      }
     }
   };
   
-  const handleActualSelectLocutor = (locutorId: string) => {
-    setSelectedLocutorId(locutorId);
-    const selectedLocutor = locutores.find(l => l.id === locutorId);
-    if (selectedLocutor) {
-      toast.success(`Locutor ${selectedLocutor.nome.split(' ')[0]} selecionado!`, {
-        description: "Agora você pode inserir o texto para gravação.",
-      });
-    }
-  };
-
-  const handleSubmitPedido = async () => {
+  const onSubmitForm = async (values: z.infer<typeof gravarLocucaoFormSchema>) => {
     if (!user || !profile) {
       toast.error("Erro de Autenticação", { description: "Usuário não autenticado. Faça login novamente." });
       return;
     }
-    if (!selectedLocutorId) {
+    if (!selectedLocutor) {
       toast.error("Erro de Validação", { description: "Por favor, selecione um locutor." });
       return;
     }
-    if (scriptText.trim().length === 0) {
-      toast.error("Erro de Validação", { description: "O texto do roteiro não pode estar vazio." });
-      return;
-    }
-    if (userCredits < estimatedCredits) {
+    if ((profile.credits ?? 0) < estimatedCredits) {
       toast.error("Créditos Insuficientes", { 
-        description: `Você precisa de ${estimatedCredits} créditos, mas possui apenas ${userCredits}.` 
+        description: `Você precisa de ${estimatedCredits} créditos, mas possui apenas ${profile.credits ?? 0}.`
       });
       return;
     }
 
-    setIsSubmitting(true);
+    const estiloFinal = values.estiloLocucao === 'outro' 
+      ? `Outro: ${values.outroEstiloEspecificacao}` 
+      : values.estiloLocucao;
+
     try {
-      const { data: pedidoData, error: pedidoError } = await supabase.rpc('criar_pedido', {
-        p_user_id: user.id,
-        p_locutor_id: selectedLocutorId,
-        p_texto_roteiro: scriptText,
-        p_creditos_estimados: estimatedCredits,
-      });
+      const pedidoData = {
+        user_id: profile.id,
+        locutor_id: selectedLocutor.id,
+        texto_roteiro: values.scriptText,
+        status: 'pendente',
+        creditos_debitados: estimatedCredits,
+        orientacoes: values.orientacoes || null,
+        tempo_estimado_segundos: tempoEstimadoSegundos,
+        titulo: values.tituloPedido,
+        estilo_locucao: estiloFinal,
+      };
 
-      if (pedidoError) {
-        console.error("Erro RPC criar_pedido:", pedidoError);
-        // Tentar ser mais específico com o erro, se possível
-        if (pedidoError.message.includes("saldo insuficiente")) {
-           toast.error("Erro ao Criar Pedido", { description: "Créditos insuficientes. Verifique seu saldo." });
-        } else if (pedidoError.message.includes("locutor inválido")) {
-           toast.error("Erro ao Criar Pedido", { description: "Locutor selecionado não é válido ou está inativo." });
+      const { data: newPedido, error } = await supabase.from('pedidos').insert(pedidoData).select().single();
+
+      if (error) throw error;
+
+      if (newPedido) {
+        const novosCreditos = (profile.credits ?? 0) - estimatedCredits;
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ credits: novosCreditos })
+          .eq('id', profile.id);
+
+        if (updateError) {
+          console.error('Erro ao atualizar créditos, mas pedido foi criado:', updateError, newPedido.id_pedido );
+          toast.error('Pedido Enviado, Erro nos Créditos', {
+            description: 'Seu pedido foi enviado, mas houve um problema ao atualizar seus créditos. Contate o suporte.'
+          });
         } else {
-           toast.error("Erro ao Criar Pedido", { description: pedidoError.message || "Não foi possível enviar seu pedido." });
+            toast.success('Pedido Enviado com Sucesso!', {
+                description: 'Seu pedido de locução foi enviado e está aguardando processamento.'
+            });
         }
-        return; // Importante: sair da função aqui
+        
+        reset();
+        setScriptText('');
+        setSelectedLocutor(null);
+
+        if (refreshProfile) {
+          await refreshProfile();
+        }
+      } else {
+        throw new Error('Pedido não retornado após inserção.');
       }
-
-      // Se a RPC foi bem sucedida (sem erro explícito, mas checando o retorno)
-      // A RPC criar_pedido agora retorna um booleano ou um objeto com o ID do pedido.
-      // Vamos assumir que se não houve erro, o pedido foi criado.
-      // O ideal seria a RPC retornar o ID do pedido criado para confirmação.
-
-      toast.success("Pedido Enviado com Sucesso!", {
-        description: "Seu pedido de locução foi enviado e seus créditos foram debitados.",
-      });
-
-      setScriptText(''); // Limpar campo de texto
-      setSelectedLocutorId(null); // Desselecionar locutor
-      // Atualizar o perfil para refletir os novos créditos
-      if (refreshProfile) {
-        await refreshProfile();
-      }
-      // Opcional: redirecionar para Meus Áudios ou Dashboard
-      // navigate('/meus-audios'); 
-      
-    } catch (error: any) { // Captura genérica para erros inesperados
-      console.error('Erro inesperado em handleSubmitPedido:', error);
-      toast.error("Erro Inesperado", { description: "Ocorreu um erro inesperado ao processar seu pedido." });
-    } finally {
-      setIsSubmitting(false);
+    } catch (error: any) {
+      console.error('Erro inesperado em onSubmitForm:', error);
+      toast.error("Erro Inesperado", { description: error.message || "Ocorreu um erro inesperado ao processar seu pedido." });
     }
   };
   
-  // Adaptação da constante userCredits para o contexto da página
-  const userCredits = profile?.credits ?? 0;
+  if (loadingLocutores) {
+    return (
+      <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (errorLocutores) {
+    return (
+      <div className="container mx-auto px-4 py-8 text-center">
+        <p className="text-destructive text-lg">{errorLocutores}</p>
+        <Button onClick={fetchLocutores} className="mt-4">
+          Tentar Novamente
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-8">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Gravar Nova Locução</h1>
-        <p className="text-muted-foreground">Escolha seu locutor preferido, escreva seu roteiro e envie para gravação.</p>
-      </div>
+    <div className="container mx-auto px-4 py-8 md:py-12">
+      <audio ref={audioPreviewRef} className="hidden" />
+      <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center">Gravar Nova Locução</h1>
 
-      {/* Seção de Escolha de Locutor */}
-      <section id="escolher-locutor">
-        <h2 className="text-2xl font-semibold text-foreground mb-6">1. Escolha seu Locutor</h2>
-        {loadingLocutores ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <Card key={index} className="shadow-lg animate-pulse">
-                <CardHeader className="flex flex-row items-center gap-4 p-4">
-                  <Avatar className="h-20 w-20">
-                    <div className="h-full w-full bg-gray-300 rounded-full"></div>
-                  </Avatar>
-                  <div className="flex-1 space-y-2">
-                    <div className="h-6 bg-gray-300 rounded w-3/4"></div>
-                    <div className="h-4 bg-gray-300 rounded w-1/2"></div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4 space-y-3">
-                  <div className="h-4 bg-gray-300 rounded w-full"></div>
-                  <div className="h-4 bg-gray-300 rounded w-5/6"></div>
-                </CardContent>
-                <CardFooter className="p-4 flex flex-col sm:flex-row gap-2">
-                  <div className="h-10 bg-gray-300 rounded w-full sm:w-1/2"></div>
-                  <div className="h-10 bg-gray-300 rounded w-full sm:w-1/2"></div>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        ) : locutores.length === 0 ? (
-          <p className="text-center text-muted-foreground py-10">Nenhum locutor disponível no momento.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {locutores.map((locutor) => (
-              <Card 
-                key={locutor.id} 
-                className={cn(
-                  "shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col",
-                  selectedLocutorId === locutor.id && "ring-2 ring-primary border-primary"
-                )}
-              >
-                <CardHeader className="flex flex-col sm:flex-row items-center gap-4 p-4">
-                  <Avatar className="h-20 w-20 border-2 border-primary/20">
-                    <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome} />
-                    <AvatarFallback>{locutor.nome.substring(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 text-center sm:text-left">
-                    <CardTitle className="text-lg font-semibold text-foreground">{locutor.nome}</CardTitle>
-                    {locutor.descricao && <CardDescription className="text-xs text-muted-foreground mt-1 line-clamp-2">{locutor.descricao}</CardDescription>}
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4 flex-grow">
-                  {locutor.amostra_audio_url && (
-                    <div className="mb-4">
-                      <audio controls className="w-full h-10" src={locutor.amostra_audio_url}>
-                        Seu navegador não suporta o elemento de áudio.
-                      </audio>
-                    </div>
-                  )}
-                  {!locutor.amostra_audio_url && (
-                     <p className="text-sm text-muted-foreground text-center py-2">Amostra de áudio indisponível.</p>
-                  )}
-                </CardContent>
-                <CardFooter className="p-4 border-t">
-                  <Button 
-                    onClick={() => handleActualSelectLocutor(locutor.id)} 
-                    variant={selectedLocutorId === locutor.id ? "default" : "outline"}
-                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                    disabled={selectedLocutorId === locutor.id}
-                  >
-                    {selectedLocutorId === locutor.id ? "Selecionado" : "Selecionar Locutor"}
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        )}
+      <section id="escolha-locutor" className="mb-12">
+        <Card className="shadow-lg border-border/40">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-2xl">Escolha seu Locutor</CardTitle>
+                <CardDescription>Ouça as prévias e selecione o locutor ideal para seu projeto.</CardDescription>
+              </div>
+              <Users className="h-8 w-8 text-primary" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            {!user && (
+                 <p className="text-center text-muted-foreground py-4">Por favor, faça login para ver os locutores e enviar pedidos.</p>
+            )}
+            {user && locutores.length === 0 && !loadingLocutores && (
+              <p className="text-center text-muted-foreground py-4">Nenhum locutor disponível no momento.</p>
+            )}
+            {user && locutores.length > 0 && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {locutores.map((locutor) => (
+                    <Card
+                      key={locutor.id}
+                      className={`transition-all duration-200 ease-in-out hover:shadow-xl ${selectedLocutor?.id === locutor.id ? 'ring-2 ring-primary shadow-xl border-primary' : 'hover:border-primary/60 border-border/40'}`}
+                    >
+                      <CardHeader className="flex flex-row items-start space-x-4 pb-3">
+                        {locutor.avatar_url ? (
+                          <img src={locutor.avatar_url} alt={locutor.nome} className="h-16 w-16 rounded-full object-cover border-2 border-muted" />
+                        ) : (
+                          <UserCircle className="h-16 w-16 text-muted-foreground" />
+                        )}
+                        <div className='flex-1'>
+                          <CardTitle className="text-lg">{locutor.nome}</CardTitle>
+                          <CardDescription className="text-xs">{locutor.tipo_voz}</CardDescription>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pt-0 flex flex-col space-y-3">
+                        <div className="flex items-center justify-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePlayPreview(locutor)}
+                            className="flex items-center space-x-2 group w-full border-border/60 hover:border-primary/80"
+                          >
+                            <PlayCircle className={`h-5 w-5 ${isPlayingPreview === locutor.id ? 'text-primary animate-pulse' : 'text-muted-foreground group-hover:text-primary'}`} />
+                            <span>{isPlayingPreview === locutor.id ? 'Pausar Prévia' : 'Ouvir Prévia'}</span>
+                          </Button>
+                        </div>
+                        <Button
+                          onClick={() => {
+                            setSelectedLocutor(locutor);
+                            setValue('locutorId', locutor.id ? locutor.id.toString() : '');
+                          }}
+                          variant={selectedLocutor?.id === locutor.id ? 'default' : 'outline'}
+                          className={`w-full ${selectedLocutor?.id === locutor.id ? 'bg-primary hover:bg-primary/90 text-primary-foreground' : 'text-primary border-primary hover:bg-primary/10'}`}
+                        >
+                          {selectedLocutor?.id === locutor.id ? 'Locutor Selecionado' : 'Selecionar este Locutor'}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </section>
 
-      <Separator />
-
-      {/* Seção de Roteiro e Envio */}
-      {selectedLocutorId && (
-        <section id="roteiro-envio" className="mt-8">
-          <h2 className="text-2xl font-semibold text-foreground mb-6">2. Escreva seu Roteiro</h2>
-          <Card className="shadow-lg">
+      {selectedLocutor && user && (
+        <section id="formulario-pedido" className="mb-12">
+          <Card className="shadow-lg border-border/40">
             <CardHeader>
-              <CardTitle>Seu Pedido</CardTitle>
+              <CardTitle className="text-xl">Detalhes do Pedido</CardTitle>
               <CardDescription>
-                Locutor selecionado: {locutores.find(l => l.id === selectedLocutorId)?.nome || 'N/A'}.
-                Você possui <span className="font-semibold text-primary">{userCredits}</span> créditos.
+                Você selecionou <span className="font-semibold text-primary">{selectedLocutor.nome}</span>. Agora, insira o texto do seu roteiro e escolha a velocidade.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="script-text" className="text-sm font-medium">Texto do Roteiro:</Label>
-                <Textarea
-                  id="script-text"
-                  value={scriptText}
-                  onChange={(e) => setScriptText(e.target.value)}
-                  placeholder="Digite ou cole aqui o texto para a locução..."
-                  rows={8}
-                  className="mt-1 focus:ring-primary focus:border-primary"
-                  maxLength={10000} // Limite de caracteres para evitar sobrecarga
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {scriptText.length} caracteres. Limite: 10000.
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-semibold text-foreground">
-                  Créditos Estimados: <span className="text-primary">{estimatedCredits}</span>
-                </p>
-                {estimatedCredits > userCredits && (
-                  <p className="text-sm text-red-500">
-                    Você não possui créditos suficientes para este pedido.
-                  </p>
-                )}
-              </div>
+            <CardContent>
+              <Form {...formHook}>
+                <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-6">
+                  <FormField
+                    control={control}
+                    name="tituloPedido"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-base font-semibold">
+                          Título do Pedido <span className="text-sm text-muted-foreground">(para sua identificação)</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Ex: Campanha Dia das Mães - Loja X"
+                            maxLength={100}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={control}
+                    name="scriptText"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-base font-semibold">Roteiro para Locução</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Digite ou cole aqui o texto que deseja para a locução..."
+                            className="min-h-[150px] resize-y text-base border-border/70 focus:border-primary focus:ring-1 focus:ring-primary"
+                            {...field}
+                            onChange={(e) => {
+                              field.onChange(e);
+                              setScriptText(e.target.value); 
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={control}
+                    name="estiloLocucao"
+                    render={({ field }) => (
+                      <FormItem className="my-6">
+                        <FormLabel className="text-base font-semibold mb-3 block">Estilo de Locução Desejado:</FormLabel>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+                        >
+                          {estilosLocucaoOpcoes.map((opcao) => (
+                            <FormItem key={opcao.id} className="flex items-center space-x-2 p-2 border rounded-md hover:bg-muted/50 transition-colors">
+                              <FormControl>
+                                <RadioGroupItem value={opcao.id} id={`estilo-${opcao.id}`} />
+                              </FormControl>
+                              <FormLabel htmlFor={`estilo-${opcao.id}`} className="font-normal cursor-pointer flex-1">
+                                {opcao.label}
+                              </FormLabel>
+                            </FormItem>
+                          ))}
+                        </RadioGroup>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {watchedEstiloLocucao === 'outro' && (
+                    <FormField
+                      control={control}
+                      name="outroEstiloEspecificacao"
+                      render={({ field }) => (
+                        <FormItem className="-mt-2 mb-4">
+                          <FormControl>
+                            <Input
+                              placeholder="Por favor, especifique o estilo 'Outro'"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  <FormField
+                    control={control}
+                    name="orientacoes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-base font-semibold">
+                          Orientações para o Locutor <span className="text-sm text-muted-foreground">(Opcional - briefing, tom de voz, etc.)</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Forneça aqui um breve briefing para o locutor (ex: tom mais sério, leitura jovem e dinâmica, ênfase em certas palavras, etc.). Este campo não é obrigatório."
+                            className="min-h-[100px] resize-y text-base border-border/70 focus:border-primary focus:ring-1 focus:ring-primary"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div>
+                    <FormLabel className="text-base font-semibold mb-3 block">Velocidade da Locução:</FormLabel>
+                    <RadioGroup
+                      defaultValue={VELOCIDADE_LOCUCAO.NORMAL}
+                      onValueChange={(value: string) => setVelocidadeSelecionada(value as VelocidadeLocucaoTipo)}
+                      className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-6"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value={VELOCIDADE_LOCUCAO.PAUSADA} id="r-pausada" className="text-primary focus:ring-primary focus:ring-offset-background"/>
+                        <Label htmlFor="r-pausada" className="font-normal cursor-pointer hover:text-primary transition-colors">Pausada</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value={VELOCIDADE_LOCUCAO.NORMAL} id="r-normal" className="text-primary focus:ring-primary focus:ring-offset-background"/>
+                        <Label htmlFor="r-normal" className="font-normal cursor-pointer hover:text-primary transition-colors">Normal</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value={VELOCIDADE_LOCUCAO.RAPIDA} id="r-rapida" className="text-primary focus:ring-primary focus:ring-offset-background"/>
+                        <Label htmlFor="r-rapida" className="font-normal cursor-pointer hover:text-primary transition-colors">Rápida</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  <div className="my-6 p-4 border rounded-lg bg-muted/40 shadow-sm border-border/50">
+                    <div className="flex flex-col sm:flex-row justify-around sm:items-center space-y-4 sm:space-y-0">
+                      <div className='text-center sm:text-left px-2'>
+                        <p className="text-sm text-muted-foreground mb-1">Tempo Estimado:</p>
+                        <p className="text-3xl font-bold text-primary tabular-nums">
+                          <animated.span>
+                            {animatedSeconds.to((val: number) => formatarSegundosParaMMSS(Math.round(val)))}
+                          </animated.span>
+                        </p>
+                      </div>
+                      <Separator orientation="vertical" className="hidden sm:block h-12 self-center bg-border/70" />
+                      <div className='text-center sm:text-left px-2'>
+                        <p className="text-sm text-muted-foreground mb-1">Créditos Estimados:</p>
+                        <p className="text-3xl font-bold text-foreground tabular-nums">
+                          {estimatedCredits}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end pt-2">
+                    <Button 
+                        type="submit" 
+                        disabled={
+                          isSubmitting || 
+                          !isValid ||
+                          !selectedLocutor ||
+                          estimatedCredits === 0 || 
+                          estimatedCredits > (profile?.credits ?? 0)
+                        }
+                        size="lg"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground min-w-[200px] text-base"
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      ) : (
+                        <>
+                          <PlayCircle className="mr-2 h-5 w-5" />
+                           Enviar Pedido Agora
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {!selectedLocutor && scriptText.trim().length >= 10 && (
+                     <p className="text-sm text-destructive text-right -mt-4">
+                      Selecione um locutor para prosseguir.
+                    </p>
+                  )}
+                  {selectedLocutor && scriptText.trim().length < 10 && estimatedCredits > 0 && (
+                     <p className="text-sm text-orange-600 dark:text-orange-500 text-right -mt-4">
+                      O roteiro deve ter pelo menos 10 caracteres.
+                    </p>
+                  )}
+                  {estimatedCredits > (profile?.credits ?? 0) && scriptText.trim().length >= 10 && (
+                    <p className="text-sm text-destructive text-right -mt-4">
+                      Você não possui créditos suficientes para este pedido.
+                    </p>
+                  )}
+                </form>
+              </Form>
             </CardContent>
-            <CardFooter>
-              <Button 
-                onClick={handleSubmitPedido} 
-                disabled={isSubmitting || estimatedCredits === 0 || estimatedCredits > userCredits || scriptText.trim().length === 0}
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                size="lg"
-              >
-                {isSubmitting ? (
-                  <><Send className="mr-2 h-4 w-4 animate-pulse" /> Enviando Pedido...</>
-                ) : (
-                  <><Send className="mr-2 h-4 w-4" /> Enviar Pedido ({estimatedCredits} créditos)</>
-                )}
-              </Button>
-            </CardFooter>
           </Card>
         </section>
       )}
-       {!selectedLocutorId && locutores.length > 0 && !loadingLocutores && (
-        <div className="text-center py-10 text-muted-foreground">
-          <p>Selecione um locutor acima para prosseguir com o seu pedido.</p>
+
+      {!selectedLocutor && locutores.length > 0 && user && (
+        <div className="text-center mt-8 p-6 bg-amber-50 border border-amber-300 rounded-lg shadow-md">
+            <p className="text-lg font-semibold text-amber-700">Por favor, selecione um locutor acima para habilitar o formulário de pedido.</p>
         </div>
       )}
+
     </div>
   );
 }

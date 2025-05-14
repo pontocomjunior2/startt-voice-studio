@@ -113,8 +113,23 @@ function MeusAudiosPage() {
       return;
     }
     try {
-      window.open(pedido.audio_final_url, '_blank');
+      // Criar um link temporário
+      const link = document.createElement('a');
+      link.href = pedido.audio_final_url;
+
+      // Extrair o nome do arquivo da URL ou usar um nome padrão
+      // Isso é uma tentativa básica. O ideal seria ter o nome do arquivo vindo do backend.
+      const fileName = pedido.audio_final_url.substring(pedido.audio_final_url.lastIndexOf('/') + 1) || 'audio_pedido_' + pedido.id;
+      link.setAttribute('download', fileName); // Força o download com um nome de arquivo
+
+      // Adicionar o link ao corpo, clicar e remover
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // window.open(pedido.audio_final_url, '_blank'); // Linha original comentada
       toast.success("Download Iniciado", { description: "O áudio está sendo baixado." });
+      
       // Opcional: Marcar como baixado e atualizar UI localmente
       if (!pedido.downloaded_at) {
         const { error } = await supabase
@@ -199,60 +214,64 @@ function MeusAudiosPage() {
               </TableRow>
             </TableHeader>
             <TableBody className="bg-card divide-y divide-border">
-              {pedidos.map((pedido) => (
-                <TableRow key={pedido.id} className="hover:bg-muted/10 odd:bg-card even:bg-muted/5 transition-colors">
-                  <TableCell className="px-4 py-3 whitespace-nowrap text-sm font-medium text-foreground">
-                    {new Date(pedido.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    <span className="block text-xs text-muted-foreground">
-                      {new Date(pedido.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' })}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-4 py-3 font-medium whitespace-nowrap text-sm text-foreground">
-                    {pedido.locutores?.nome || <span className="text-muted-foreground italic">N/A</span>}
-                  </TableCell>
-                  <TableCell className="px-6 py-3 max-w-md text-sm text-muted-foreground">
-                    <p className="truncate" title={pedido.texto_roteiro}>
-                      {pedido.texto_roteiro ? `${pedido.texto_roteiro.substring(0, 100)}${pedido.texto_roteiro.length > 100 ? '...':''}` : <span className="italic">Roteiro não disponível</span>}
-                    </p>
-                  </TableCell>
-                  <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center">
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "font-semibold py-1 px-2.5 text-xs rounded-full",
-                        pedido.status === 'pendente' && "text-status-orange border-status-orange bg-status-orange/10",
-                        pedido.status === 'gravando' && "text-status-blue border-status-blue bg-status-blue/10",
-                        pedido.status === 'concluido' && "text-status-green border-status-green bg-status-green/10",
-                        pedido.status === 'cancelado' && "text-status-red border-status-red bg-status-red/10"
-                      )}
-                    >
-                      {pedido.status.charAt(0).toUpperCase() + pedido.status.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center font-medium text-foreground">
-                    {pedido.creditos_debitados}
-                  </TableCell>
-                  <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center">
-                    {pedido.status === 'concluido' && pedido.audio_final_url ? (
-                      <Button 
-                        variant="default" 
-                        size="sm" 
-                        onClick={() => handleDownload(pedido)} 
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              {pedidos.map((pedido) => {
+                return (
+                  <TableRow key={pedido.id} className="hover:bg-muted/10 odd:bg-card even:bg-muted/5 transition-colors">
+                    <TableCell className="px-4 py-3 whitespace-nowrap text-sm font-medium text-foreground">
+                      {new Date(pedido.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      <span className="block text-xs text-muted-foreground">
+                        {new Date(pedido.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' })}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 font-medium whitespace-nowrap text-sm text-foreground">
+                      {pedido.locutores?.nome || <span className="text-muted-foreground italic">N/A</span>}
+                    </TableCell>
+                    <TableCell className="px-6 py-3 max-w-md text-sm text-muted-foreground">
+                      <p className="truncate" title={pedido.texto_roteiro}>
+                        {pedido.texto_roteiro ? `${pedido.texto_roteiro.substring(0, 100)}${pedido.texto_roteiro.length > 100 ? '...':''}` : <span className="italic">Roteiro não disponível</span>}
+                      </p>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center">
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "font-semibold py-1 px-2.5 text-xs rounded-full",
+                          pedido.status === 'pendente' && "text-status-orange border-status-orange bg-status-orange/10",
+                          pedido.status === 'gravando' && "text-status-blue border-status-blue bg-status-blue/10",
+                          pedido.status === 'concluido' && "text-status-green border-status-green bg-status-green/10",
+                          pedido.status === 'cancelado' && "text-status-red border-status-red bg-status-red/10"
+                        )}
                       >
-                        <DownloadCloud className="mr-1.5 h-4 w-4" />
-                        Baixar Áudio
-                      </Button>
-                    ) : pedido.status === 'concluido' && !pedido.audio_final_url ? (
-                      <span className="text-xs text-muted-foreground italic">Áudio em breve...</span>
-                    ) : (
-                      <Button variant="ghost" size="sm" disabled className="text-muted-foreground">
-                        Aguardando
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                        {pedido.status.charAt(0).toUpperCase() + pedido.status.slice(1)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center font-medium text-foreground">
+                      {pedido.creditos_debitados}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center">
+                      {pedido.status === 'cancelado' ? (
+                        <span className="text-xs text-status-red italic font-medium">Pedido Cancelado</span>
+                      ) : pedido.status === 'concluido' && pedido.audio_final_url ? (
+                        <Button 
+                          variant="default" 
+                          size="sm" 
+                          onClick={() => handleDownload(pedido)} 
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                        >
+                          <DownloadCloud className="mr-1.5 h-4 w-4" />
+                          Baixar Áudio
+                        </Button>
+                      ) : pedido.status === 'concluido' && !pedido.audio_final_url ? (
+                        <span className="text-xs text-muted-foreground italic">Áudio em breve...</span>
+                      ) : (
+                        <Button variant="ghost" size="sm" disabled className="text-muted-foreground">
+                          Aguardando
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, CreditCard, ListChecks, AlertTriangle, Loader2, FileText, CalendarDays, UserCircle, Eye, UploadCloud, Save } from 'lucide-react';
+import { Users, CreditCard, ListChecks, AlertTriangle, Loader2, FileText, CalendarDays, UserCircle, Eye, UploadCloud, Save, RotateCcw } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   Table,
@@ -146,6 +146,33 @@ function AdminDashboardPage() {
     }
   };
 
+  const handleReopenPedido = async () => {
+    if (!selectedPedido || (selectedPedido.status !== 'concluido' && selectedPedido.status !== 'cancelado')) return;
+
+    setIsUpdatingPedido(true); // Reutilizar o estado de loading
+
+    try {
+      const novoStatusParaReabertura = 'pendente'; // Define o status para o qual o pedido será revertido
+      await updateStatusMutation.mutateAsync({
+        pedidoId: selectedPedido.id,
+        novoStatus: novoStatusParaReabertura,
+      });
+
+      // Atualizar o estado local para refletir a mudança imediatamente no modal
+      setSelectedPedido(prev => prev ? { ...prev, status: novoStatusParaReabertura, audio_final_url: null } : null); // Limpa audio_final_url ao reabrir
+      setCurrentPedidoStatus(novoStatusParaReabertura);
+      setSelectedFile(null); // Reseta o arquivo selecionado
+
+      // A invalidação das queries (useFetchAdminActiveOrders, useFetchAdminFinalizedOrders)
+      // deve ser tratada no onSuccess do hook useUpdatePedidoStatus para mover o pedido entre as tabelas.
+    } catch (error) {
+      // Toasts já são tratados nos hooks de mutação
+      console.error('Erro em handleReopenPedido:', error);
+    } finally {
+      setIsUpdatingPedido(false);
+    }
+  };
+
   const statCardsData = [
     { 
       title: "Clientes Ativos", 
@@ -277,8 +304,11 @@ function AdminDashboardPage() {
                         <Badge
                           variant="outline"
                           className={cn(
-                            pedido.status === 'pendente' && "text-[hsl(var(--status-orange))] border-[hsl(var(--status-orange))]",
-                            pedido.status === 'gravando' && "text-[hsl(var(--status-blue))] border-[hsl(var(--status-blue))]"
+                            "font-semibold py-1 px-2.5 text-xs rounded-full",
+                            pedido.status === 'pendente' && "text-status-orange border-status-orange bg-status-orange/10",
+                            pedido.status === 'gravando' && "text-status-blue border-status-blue bg-status-blue/10",
+                            pedido.status === 'concluido' && "text-status-green border-status-green bg-status-green/10",
+                            pedido.status === 'cancelado' && "text-status-red border-status-red bg-status-red/10"
                           )}
                         >
                           {pedido.status.charAt(0).toUpperCase() + pedido.status.slice(1)}
@@ -349,8 +379,9 @@ function AdminDashboardPage() {
                         <Badge
                           variant="outline"
                           className={cn(
-                            pedido.status === 'concluido' && "text-[hsl(var(--status-green))] border-[hsl(var(--status-green))]",
-                            pedido.status === 'cancelado' && "text-[hsl(var(--status-red))] border-[hsl(var(--status-red))]"
+                            "font-semibold py-1 px-2.5 text-xs rounded-full",
+                            pedido.status === 'concluido' && "text-status-green border-status-green bg-status-green/10",
+                            pedido.status === 'cancelado' && "text-status-red border-status-red bg-status-red/10"
                           )}
                         >
                           {pedido.status.charAt(0).toUpperCase() + pedido.status.slice(1)}
@@ -372,9 +403,13 @@ function AdminDashboardPage() {
                         )}
                       </TableCell>
                       <TableCell className="px-4 py-3 whitespace-nowrap">
-                        <Button variant="outline" size="sm" onClick={() => handleOpenViewModal(pedido)}>
-                          <Eye className="h-4 w-4 mr-1" /> Detalhes
-                        </Button>
+                        {pedido.status === 'cancelado' ? (
+                          <span className="text-xs text-status-red italic font-medium">Pedido Cancelado</span>
+                        ) : (
+                          <Button variant="outline" size="sm" onClick={() => handleOpenViewModal(pedido)}>
+                            <Eye className="h-4 w-4 mr-1" /> Detalhes
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
@@ -451,7 +486,6 @@ function AdminDashboardPage() {
                   disabled={selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado'}
                 />
                 {selectedFile && <p className="text-xs text-muted-foreground mt-1">Arquivo selecionado: {selectedFile.name}</p>}
-                {/* Botão de download se já houver áudio finalizado */}
                 {selectedPedido.audio_final_url && (
                   <a
                     href={selectedPedido.audio_final_url}
@@ -460,10 +494,24 @@ function AdminDashboardPage() {
                     rel="noopener noreferrer"
                     className="inline-flex items-center mt-2 px-3 py-1 bg-status-green text-white rounded hover:bg-status-green/90 text-xs font-medium transition-colors"
                   >
-                    <UploadCloud className="h-4 w-4 mr-1" /> Baixar Áudio Finalizado
+                    <UploadCloud className="h-4 w-4 mr-1" /> Baixar Áudio Atual
                   </a>
                 )}
               </div>
+
+              {(selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado') && (
+                <div className="pt-4">
+                  <Button 
+                    variant="outline"
+                    className="w-full border-status-orange text-status-orange hover:bg-status-orange/10 hover:text-status-orange"
+                    onClick={handleReopenPedido}
+                    disabled={isUpdatingPedido || updateStatusMutation.isPending}
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Reabrir Pedido para Edição
+                  </Button>
+                </div>
+              )}
 
             </div>
             <DialogFooter className="mt-6">

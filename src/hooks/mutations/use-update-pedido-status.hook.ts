@@ -28,13 +28,10 @@ export const useUpdatePedidoStatus = () => {
     onSuccess: (_data, variables) => {
       toast.success('Status do pedido atualizado com sucesso!');
       queryClient.invalidateQueries({ queryKey: ['adminActiveOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['adminFinalizedOrders'] });
       queryClient.invalidateQueries({ queryKey: ['adminDashboardStats'] }); 
       
-      // Se o status mudou para concluido ou cancelado, invalidar a lista de finalizados
-      if (variables.novoStatus === 'concluido' || variables.novoStatus === 'cancelado') {
-        queryClient.invalidateQueries({ queryKey: ['adminFinalizedOrders'] });
-      }
-      // Se você tiver uma query para detalhes de um pedido específico, invalide-a também:
+      // Opcional: invalidar detalhes do pedido específico se você tiver essa query
       // queryClient.invalidateQueries({ queryKey: ['pedidoDetails', variables.pedidoId] });
     },
     onError: (error) => {

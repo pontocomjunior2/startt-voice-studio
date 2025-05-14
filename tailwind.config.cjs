@@ -68,6 +68,11 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Definições de cores de status adicionadas aqui
+        'status-red': '#EF4444',    // red-500
+        'status-orange': '#F97316', // orange-500
+        'status-blue': '#3B82F6',   // blue-500
+        'status-green': '#22C55E',  // green-500
       },
       borderRadius: {
         lg: "var(--radius)",
