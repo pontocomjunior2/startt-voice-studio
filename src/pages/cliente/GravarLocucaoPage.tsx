@@ -25,6 +25,7 @@ import {
 } from "@/utils/locutionTimeUtils";
 import { type Locutor, type Pedido } from '@/types';
 import { useSpring, animated } from 'react-spring';
+import { gerarIdReferenciaUnico } from '@/utils/pedidoUtils';
 
 const estilosLocucaoOpcoes = [
   { id: 'padrao', label: 'Padrão' },
@@ -175,6 +176,14 @@ function GravarLocucaoPage() {
       return;
     }
 
+    let idPedidoSerialGerado: string;
+    try {
+      idPedidoSerialGerado = await gerarIdReferenciaUnico(supabase);
+    } catch (error: any) {
+      toast.error("Erro ao Gerar ID do Pedido", { description: error.message || "Não foi possível gerar um ID único para o seu pedido." });
+      return; 
+    }
+
     const estiloFinal = values.estiloLocucao === 'outro' 
       ? `Outro: ${values.outroEstiloEspecificacao}` 
       : values.estiloLocucao;
@@ -190,6 +199,7 @@ function GravarLocucaoPage() {
         tempo_estimado_segundos: tempoEstimadoSegundos,
         titulo: values.tituloPedido,
         estilo_locucao: estiloFinal,
+        id_pedido_serial: idPedidoSerialGerado, 
       };
 
       const { data: newPedido, error } = await supabase.from('pedidos').insert(pedidoData).select().single();

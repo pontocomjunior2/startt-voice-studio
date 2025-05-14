@@ -26,4 +26,5 @@ export interface Pedido {
   arquivo_url?: string | null;
   baixado_em?: string | null;
   cliente_notificado_em?: string | null;
+  id_pedido_serial: string;
 } 

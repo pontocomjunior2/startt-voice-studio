@@ -8,6 +8,7 @@ const fetchAdminFinalizedOrders = async (): Promise<AdminPedido[]> => {
     .from('pedidos')
     .select(`
       id,
+      id_pedido_serial,
       created_at,
       texto_roteiro,
       status,
@@ -37,6 +38,7 @@ const fetchAdminFinalizedOrders = async (): Promise<AdminPedido[]> => {
 
     return {
       id: pedido.id,
+      id_pedido_serial: pedido.id_pedido_serial,
       created_at: pedido.created_at,
       texto_roteiro: pedido.texto_roteiro,
       status: pedido.status,

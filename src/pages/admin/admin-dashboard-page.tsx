@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, CreditCard, ListChecks, AlertTriangle, Loader2, FileText, CalendarDays, UserCircle, Eye, UploadCloud, Save, RotateCcw } from 'lucide-react';
+import { Users, CreditCard, ListChecks, AlertTriangle, Loader2, FileText, CalendarDays, UserCircle, Eye, UploadCloud, Save, RotateCcw, RefreshCw } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   Table,
@@ -56,10 +56,16 @@ const PEDIDO_STATUS_OPTIONS = [
 import { useUploadPedidoAudio } from '../../hooks/mutations/use-upload-pedido-audio.hook';
 import { useUpdatePedidoAudioAndStatus } from '../../hooks/mutations/use-update-pedido-audio-and-status.hook';
 
+// Importar useQueryClient
+import { useQueryClient } from '@tanstack/react-query';
+
 function AdminDashboardPage() {
+  const queryClient = useQueryClient(); // Inicializar queryClient
+
   const { 
     data: stats, 
     isLoading: isLoadingStats, 
+    isFetching: isFetchingStats,
     isError: isFetchStatsError, 
     error: fetchStatsError 
   } = useFetchAdminDashboardStats();
@@ -67,6 +73,7 @@ function AdminDashboardPage() {
   const {
     data: activeOrders = [],
     isLoading: isLoadingActiveOrders,
+    isFetching: isFetchingActiveOrders,
     isError: isFetchActiveOrdersError,
     error: fetchActiveOrdersError
   } = useFetchAdminActiveOrders();
@@ -74,9 +81,20 @@ function AdminDashboardPage() {
   const {
     data: finalizedOrders = [],
     isLoading: isLoadingFinalizedOrders,
+    isFetching: isFetchingFinalizedOrders,
     isError: isFetchFinalizedOrdersError,
     error: fetchFinalizedOrdersError
   } = useFetchAdminFinalizedOrders();
+
+  // Log para observar os estados de isFetching em cada renderização
+  console.log(
+    'AdminDashboard RENDER: isFetchingStats:',
+    isFetchingStats,
+    'isFetchingActiveOrders:',
+    isFetchingActiveOrders,
+    'isFetchingFinalizedOrders:',
+    isFetchingFinalizedOrders
+  );
 
   const [selectedPedido, setSelectedPedido] = useState<AdminPedido | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -204,6 +222,32 @@ function AdminDashboardPage() {
       <div>
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-semibold text-foreground">Visão Geral</h1>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              console.log('--- Botão Atualizar Tudo CLICADO ---');
+              console.log('Estados de Fetching ANTES da invalidação:');
+              console.log('isFetchingStats:', isFetchingStats);
+              console.log('isFetchingActiveOrders:', isFetchingActiveOrders);
+              console.log('isFetchingFinalizedOrders:', isFetchingFinalizedOrders);
+
+              console.log('Invalidando adminDashboardStats...');
+              queryClient.invalidateQueries({ queryKey: ['adminDashboardStats'] });
+              
+              console.log('Invalidando adminActiveOrders...');
+              queryClient.invalidateQueries({ queryKey: ['adminActiveOrders'] });
+              
+              console.log('Invalidando adminFinalizedOrders...');
+              queryClient.invalidateQueries({ queryKey: ['adminFinalizedOrders'] });
+              
+              console.log('--- Invalidações Chamadas ---');
+            }}
+            disabled={isFetchingStats || isFetchingActiveOrders || isFetchingFinalizedOrders}
+          >
+            <RefreshCw className={cn("h-4 w-4 mr-2", (isFetchingStats || isFetchingActiveOrders || isFetchingFinalizedOrders) && "animate-spin")} />
+            Atualizar Tudo
+          </Button>
         </div>
         <Separator className="my-4" />
         {isFetchStatsError && (
@@ -281,6 +325,7 @@ function AdminDashboardPage() {
               <TableCaption className="py-3">Lista de pedidos com status 'pendente' ou 'gravando'.</TableCaption>
               <TableHeader className="bg-muted/50">
                 <TableRow>
+                  <TableHead className="w-[120px]">Nº Pedido</TableHead>
                   <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap"><CalendarDays className="inline-block mr-1 h-4 w-4"/>Data/Hora Pedido</TableHead>
                   <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"><UserCircle className="inline-block mr-1 h-4 w-4"/>Cliente</TableHead>
                   <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Trecho do Roteiro</TableHead>
@@ -295,6 +340,7 @@ function AdminDashboardPage() {
                                     : 'Usuário Desconhecido';
                   return (
                     <TableRow key={pedido.id} className="hover:bg-muted/50 odd:bg-muted/20">
+                      <TableCell className="font-medium">{pedido.id_pedido_serial}</TableCell>
                       <TableCell className="px-4 py-3 whitespace-nowrap">
                         {new Date(pedido.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </TableCell>
@@ -355,6 +401,7 @@ function AdminDashboardPage() {
               <TableCaption className="py-3">Lista de pedidos com status 'concluído' ou 'cancelado'.</TableCaption>
               <TableHeader className="bg-muted/50">
                 <TableRow>
+                  <TableHead className="w-[120px]">Nº Pedido</TableHead>
                   <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap"><CalendarDays className="inline-block mr-1 h-4 w-4"/>Data/Hora Pedido</TableHead>
                   <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"><UserCircle className="inline-block mr-1 h-4 w-4"/>Cliente</TableHead>
                   <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Trecho do Roteiro</TableHead>
@@ -370,6 +417,7 @@ function AdminDashboardPage() {
                                     : 'Usuário Desconhecido';
                   return (
                     <TableRow key={pedido.id} className="hover:bg-muted/50 odd:bg-muted/20">
+                      <TableCell className="font-medium">{pedido.id_pedido_serial}</TableCell>
                       <TableCell className="px-4 py-3 whitespace-nowrap">
                         {new Date(pedido.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </TableCell>
@@ -424,7 +472,7 @@ function AdminDashboardPage() {
         <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Detalhes do Pedido: {selectedPedido.id}</DialogTitle>
+              <DialogTitle>Detalhes do Pedido: #{selectedPedido.id_pedido_serial} (UUID: {selectedPedido.id})</DialogTitle>
               <DialogDescription>
                 Visualização completa das informações do pedido.
               </DialogDescription>

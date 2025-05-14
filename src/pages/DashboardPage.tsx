@@ -9,13 +9,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from '@/lib/utils';
 import { Separator } from "@/components/ui/separator";
-import { CreditCard, Wallet, User, ListMusic, ClipboardList, Loader2, CheckCircle2, Hourglass, PlusCircle } from 'lucide-react';
+import { CreditCard, Wallet, User, ListMusic, ClipboardList, Loader2, CheckCircle2, Hourglass, PlusCircle, RefreshCw } from 'lucide-react';
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Definir um tipo para Pedido
 interface Pedido {
   id: string;
+  id_pedido_serial: number;
   created_at: string;
   texto_roteiro: string;
   creditos_debitados: number;
@@ -84,6 +85,7 @@ function DashboardPage() {
         .from('pedidos')
         .select(`
           id,
+          id_pedido_serial,
           created_at,
           texto_roteiro,
           creditos_debitados,
@@ -203,9 +205,24 @@ function DashboardPage() {
           <h1 className="text-2xl md:text-3xl font-bold text-foreground">Meu Painel</h1>
           <p className="text-sm text-muted-foreground">Explore seu painel, gerencie seus áudios e pedidos.</p>
         </div>
-        <Button onClick={() => navigate('/gravar-locucao')} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-          <PlusCircle className="mr-2 h-4 w-4" /> Nova Locução
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={async () => {
+              await refreshProfile?.(); // Atualiza o perfil primeiro
+              fetchPedidos(); 
+              fetchClientDashboardStats();
+            }}
+            disabled={loadingPedidos || loadingStats || isFetchingProfile}
+            aria-label="Atualizar painel"
+          >
+            <RefreshCw className={cn("h-4 w-4", (loadingPedidos || loadingStats || isFetchingProfile) && "animate-spin")} />
+          </Button>
+          <Button onClick={() => navigate('/gravar-locucao')} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+            <PlusCircle className="mr-2 h-4 w-4" /> Nova Locução
+          </Button>
+        </div>
       </div>
 
       <section id="estatisticas-cliente" className="mb-12">

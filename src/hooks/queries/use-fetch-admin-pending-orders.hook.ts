@@ -12,6 +12,7 @@ interface ProfileInPedido {
 // Interface para o objeto final que usamos na UI
 export interface AdminPedido {
   id: string;
+  id_pedido_serial: string;
   created_at: string;
   texto_roteiro: string | null;
   status: string;
@@ -27,6 +28,7 @@ const fetchAdminActiveOrders = async (): Promise<AdminPedido[]> => {
     .from('pedidos')
     .select(`
       id,
+      id_pedido_serial,
       created_at,
       texto_roteiro,
       status,
@@ -59,6 +61,7 @@ const fetchAdminActiveOrders = async (): Promise<AdminPedido[]> => {
 
     return {
       id: pedido.id,
+      id_pedido_serial: pedido.id_pedido_serial,
       created_at: pedido.created_at,
       texto_roteiro: pedido.texto_roteiro,
       status: pedido.status,

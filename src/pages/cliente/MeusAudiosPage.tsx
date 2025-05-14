@@ -7,12 +7,13 @@ import { toast } from 'sonner';
 import { supabase } from '../../lib/supabaseClient'; // Ajustar caminho se necessário
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle } from 'lucide-react'; // Ícones necessários
+import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw } from 'lucide-react'; // Ícones necessários
 import { useNavigate, Link } from 'react-router-dom'; // Link para o botão de novo pedido
 
 // Definir um tipo para Pedido (copiado da DashboardPage)
 interface Pedido {
   id: string;
+  id_pedido_serial: string;
   created_at: string;
   texto_roteiro: string;
   creditos_debitados: number;
@@ -45,6 +46,7 @@ function MeusAudiosPage() {
         .from('pedidos')
         .select(`
           id,
+          id_pedido_serial,
           created_at,
           texto_roteiro,
           creditos_debitados,
@@ -178,9 +180,14 @@ function MeusAudiosPage() {
           <h1 className="text-3xl font-bold text-foreground">Meus Áudios</h1>
           <p className="text-muted-foreground">Acompanhe o status e baixe todos os seus pedidos de locução.</p>
         </div>
-        <Button onClick={() => navigate('/gravar-locucao')} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-          <PlusCircle className="mr-2 h-4 w-4" /> Fazer Novo Pedido
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => fetchAllPedidos()} variant="outline" size="icon" disabled={loadingPedidos} aria-label="Atualizar lista de áudios">
+            <RefreshCw className={cn("h-4 w-4", loadingPedidos && "animate-spin")} />
+          </Button>
+          <Button onClick={() => navigate('/gravar-locucao')} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+            <PlusCircle className="mr-2 h-4 w-4" /> Fazer Novo Pedido
+          </Button>
+        </div>
       </div>
 
       {pedidos.length === 0 ? (
@@ -205,6 +212,7 @@ function MeusAudiosPage() {
             </TableCaption>
             <TableHeader className="bg-muted/50">
               <TableRow>
+                <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">Nº Pedido</TableHead>
                 <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">Data</TableHead>
                 <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Locutor</TableHead>
                 <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-[250px]">Trecho do Roteiro</TableHead>
@@ -217,6 +225,7 @@ function MeusAudiosPage() {
               {pedidos.map((pedido) => {
                 return (
                   <TableRow key={pedido.id} className="hover:bg-muted/10 odd:bg-card even:bg-muted/5 transition-colors">
+                    <TableCell className="px-4 py-3 whitespace-nowrap text-sm font-medium text-foreground">{pedido.id_pedido_serial}</TableCell>
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm font-medium text-foreground">
                       {new Date(pedido.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
                       <span className="block text-xs text-muted-foreground">
