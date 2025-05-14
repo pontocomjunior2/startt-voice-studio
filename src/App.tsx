@@ -11,6 +11,11 @@ import AppLayout from './components/layout/AppLayout';
 import { useAuth } from './contexts/AuthContext';
 import NotFoundPage from './pages/NotFoundPage';
 
+// Novas páginas do cliente
+import GravarLocucaoPage from './pages/cliente/GravarLocucaoPage';
+import MeusAudiosPage from './pages/cliente/MeusAudiosPage';
+import MeuPerfilPage from './pages/cliente/MeuPerfilPage';
+
 function App() {
   // Remover useAuth daqui, pois AuthRedirector cuidará da lógica inicial
   // const { session, isLoading } = useAuth(); 
@@ -35,6 +40,32 @@ function App() {
           element={
             <ProtectedRoute>
               <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Novas rotas do cliente */}
+        <Route 
+          path="/gravar-locucao"
+          element={
+            <ProtectedRoute>
+              <GravarLocucaoPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/meus-audios"
+          element={
+            <ProtectedRoute>
+              <MeusAudiosPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/meu-perfil"
+          element={
+            <ProtectedRoute>
+              <MeuPerfilPage />
             </ProtectedRoute>
           }
         />

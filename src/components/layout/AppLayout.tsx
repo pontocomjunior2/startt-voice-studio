@@ -70,9 +70,10 @@ const AppLayout: React.FC = () => {
     ];
   } else if (profile?.role === 'cliente') {
     navItems = [
-      { href: '/dashboard', label: 'Novo Pedido', icon: PlusCircle, roles: ['cliente'] },
-      { href: '/dashboard#meus-audios', label: 'Meus Áudios', icon: ListMusic, roles: ['cliente'] },
-      { href: '/dashboard#meu-perfil', label: 'Meu Perfil', icon: UserIcon, roles: ['cliente'] },
+      { href: '/dashboard', label: 'Meu Painel', icon: LayoutDashboard, roles: ['cliente'] },
+      { href: '/gravar-locucao', label: 'Gravar Locução', icon: PlusCircle, roles: ['cliente'] },
+      { href: '/meus-audios', label: 'Meus Áudios', icon: ListMusic, roles: ['cliente'] },
+      { href: '/meu-perfil', label: 'Meu Perfil', icon: UserIcon, roles: ['cliente'] },
     ];
   }
 
