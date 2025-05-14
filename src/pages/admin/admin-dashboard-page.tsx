@@ -111,6 +111,7 @@ function AdminDashboardPage() {
   const updateAudioAndStatusMutation = useUpdatePedidoAudioAndStatus();
 
   const handleOpenViewModal = (pedido: AdminPedido) => {
+    console.log('[AdminDashboardPage] Opening modal for pedido:', pedido);
     setSelectedPedido(pedido);
     setCurrentPedidoStatus(pedido.status); // Inicializa o status no modal
     setSelectedFile(null); // Reseta o arquivo selecionado
@@ -472,19 +473,37 @@ function AdminDashboardPage() {
         <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Detalhes do Pedido: #{selectedPedido.id_pedido_serial} (UUID: {selectedPedido.id})</DialogTitle>
+              <DialogTitle>Detalhes do Pedido: {selectedPedido.id_pedido_serial}</DialogTitle>
               <DialogDescription>
                 Visualização completa das informações do pedido.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-6 py-4">
-              <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
+            <div className="space-y-6 py-4 pr-3 overflow-y-auto max-h-[70vh]">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3 text-sm">
                 <div className="font-medium text-muted-foreground">Cliente:</div>
-                <div className="col-span-2">{selectedPedido.profile?.full_name || selectedPedido.profile?.username || 'N/A'}</div>
+                <div className="md:col-span-2">{selectedPedido.profile?.full_name || selectedPedido.profile?.username || 'N/A'}</div>
                 
                 <div className="font-medium text-muted-foreground">Data/Hora:</div>
-                <div className="col-span-2">
+                <div className="md:col-span-2">
                   {new Date(selectedPedido.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </div>
+
+                <div className="font-medium text-muted-foreground">Título do Pedido:</div>
+                <div className="md:col-span-2">{selectedPedido.titulo || 'N/A'}</div>
+
+                <div className="font-medium text-muted-foreground">Locutor:</div>
+                <div className="md:col-span-2">{selectedPedido.locutores?.nome || 'N/A'}</div>
+
+                <div className="font-medium text-muted-foreground">Estilo de Locução:</div>
+                <div className="md:col-span-2">{selectedPedido.estilo_locucao || 'N/A'}</div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-1">Orientações (Briefing):</h4>
+                <div className="p-3 bg-muted/50 rounded-md max-h-32 overflow-y-auto text-sm whitespace-pre-wrap border">
+                  {selectedPedido.orientacoes || 'Nenhuma orientação fornecida.'}
                 </div>
               </div>
 
@@ -530,7 +549,7 @@ function AdminDashboardPage() {
                   type="file" 
                   accept=".mp3,.wav,.ogg,.aac" 
                   onChange={handleFileChange} 
-                  className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" 
+                  className="w-full h-10 px-3 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" 
                   disabled={selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado'}
                 />
                 {selectedFile && <p className="text-xs text-muted-foreground mt-1">Arquivo selecionado: {selectedFile.name}</p>}

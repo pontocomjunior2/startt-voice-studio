@@ -18,7 +18,11 @@ export interface AdminPedido {
   status: string;
   user_id: string;
   profile: ProfileInPedido | null;
+  locutores: { nome: string } | null;
   audio_final_url?: string | null;
+  titulo?: string;
+  estilo_locucao?: string;
+  orientacoes?: string | null;
 }
 
 // Não vamos mais usar SupabasePedidoResponse para o cast de `data` se causa conflito.
@@ -33,11 +37,15 @@ const fetchAdminActiveOrders = async (): Promise<AdminPedido[]> => {
       texto_roteiro,
       status,
       user_id,
+      titulo,
+      estilo_locucao,
+      orientacoes,
       profiles ( 
         id,
         full_name,
         username
       ),
+      locutores ( nome ),
       audio_final_url
     `)
     .in('status', ['pendente', 'gravando'])
@@ -50,16 +58,20 @@ const fetchAdminActiveOrders = async (): Promise<AdminPedido[]> => {
     });
     throw new Error(error.message);
   }
+  console.log('[fetchAdminActiveOrders] Raw data from Supabase:', data);
 
-  // Se `data` vem com `profiles` como objeto, mas TS infere array, usamos `any`
-  // para contornar o conflito de tipo e confiamos na estrutura observada no log.
   const mappedData = (data as any[])?.map((pedido: any): AdminPedido => {
-    // O log mostrou que pedido.profiles é um objeto direto.
+    console.log('[fetchAdminActiveOrders] Processing pedido for mapping:', pedido);
+
     const userProfile: ProfileInPedido | null = pedido.profiles && typeof pedido.profiles === 'object' && pedido.profiles.id 
       ? pedido.profiles as ProfileInPedido 
       : null;
 
-    return {
+    const locutorInfo: { nome: string } | null = pedido.locutores && typeof pedido.locutores === 'object' && pedido.locutores.nome
+      ? { nome: pedido.locutores.nome }
+      : null;
+
+    const result = {
       id: pedido.id,
       id_pedido_serial: pedido.id_pedido_serial,
       created_at: pedido.created_at,
@@ -67,8 +79,14 @@ const fetchAdminActiveOrders = async (): Promise<AdminPedido[]> => {
       status: pedido.status,
       user_id: pedido.user_id,
       profile: userProfile,
+      locutores: locutorInfo,
       audio_final_url: pedido.audio_final_url ?? null,
+      titulo: pedido.titulo,
+      estilo_locucao: pedido.estilo_locucao,
+      orientacoes: pedido.orientacoes,
     };
+    console.log('[fetchAdminActiveOrders] Mapped pedido:', result);
+    return result;
   });
   
   return mappedData || []; 
