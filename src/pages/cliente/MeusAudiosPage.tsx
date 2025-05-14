@@ -22,6 +22,7 @@ interface Pedido {
   downloaded_at: string | null;
   cliente_notificado_em: string | null;
   locutores: { nome: string } | null;
+  titulo?: string | null;
 }
 
 function MeusAudiosPage() {
@@ -49,6 +50,7 @@ function MeusAudiosPage() {
           id_pedido_serial,
           created_at,
           texto_roteiro,
+          titulo,
           creditos_debitados,
           status,
           audio_final_url,
@@ -65,6 +67,8 @@ function MeusAudiosPage() {
         throw error; // Re-throw para ser pego pelo catch externo se necessário
       }
       
+      console.log('[MeusAudiosPage] Dados BRUTOS recebidos do Supabase:', data);
+
       const mappedPedidos: Pedido[] = (data || []).map((pedido: any) => ({
         ...pedido,
         locutores: Array.isArray(pedido.locutores) ? pedido.locutores[0] : pedido.locutores,
@@ -215,7 +219,7 @@ function MeusAudiosPage() {
                 <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">Nº Pedido</TableHead>
                 <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">Data</TableHead>
                 <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Locutor</TableHead>
-                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-[250px]">Trecho do Roteiro</TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-[250px]">Título do Pedido</TableHead>
                 <TableHead className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</TableHead>
                 <TableHead className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Créditos</TableHead>
                 <TableHead className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Ações</TableHead>
@@ -236,8 +240,8 @@ function MeusAudiosPage() {
                       {pedido.locutores?.nome || <span className="text-muted-foreground italic">N/A</span>}
                     </TableCell>
                     <TableCell className="px-6 py-3 max-w-md text-sm text-muted-foreground">
-                      <p className="truncate" title={pedido.texto_roteiro}>
-                        {pedido.texto_roteiro ? `${pedido.texto_roteiro.substring(0, 100)}${pedido.texto_roteiro.length > 100 ? '...':''}` : <span className="italic">Roteiro não disponível</span>}
+                      <p className="truncate" title={pedido.titulo || 'Título não disponível'}>
+                        {pedido.titulo || <span className="italic">Título não disponível</span>}
                       </p>
                     </TableCell>
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center">
