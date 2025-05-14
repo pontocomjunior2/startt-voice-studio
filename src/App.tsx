@@ -15,6 +15,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import GravarLocucaoPage from './pages/cliente/GravarLocucaoPage';
 import MeusAudiosPage from './pages/cliente/MeusAudiosPage';
 import MeuPerfilPage from './pages/cliente/MeuPerfilPage';
+import PedidoSucessoPage from './pages/cliente/PedidoSucessoPage';
 
 function App() {
   // Remover useAuth daqui, pois AuthRedirector cuidará da lógica inicial
@@ -66,6 +67,16 @@ function App() {
           element={
             <ProtectedRoute>
               <MeuPerfilPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Nova rota para página de sucesso do pedido */}
+        <Route 
+          path="/pedido-sucesso"
+          element={
+            <ProtectedRoute>
+              <PedidoSucessoPage />
             </ProtectedRoute>
           }
         />

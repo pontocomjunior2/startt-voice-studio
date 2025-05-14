@@ -20,9 +20,10 @@ export interface AdminPedido {
   profile: ProfileInPedido | null;
   locutores: { nome: string } | null;
   audio_final_url?: string | null;
-  titulo?: string;
+  titulo: string;
   estilo_locucao?: string;
-  orientacoes?: string | null;
+  orientacoes: string | null;
+  tipo_audio?: string | null;
 }
 
 // Não vamos mais usar SupabasePedidoResponse para o cast de `data` se causa conflito.
@@ -40,6 +41,7 @@ const fetchAdminActiveOrders = async (): Promise<AdminPedido[]> => {
       titulo,
       estilo_locucao,
       orientacoes,
+      tipo_audio,
       profiles ( 
         id,
         full_name,
@@ -84,6 +86,7 @@ const fetchAdminActiveOrders = async (): Promise<AdminPedido[]> => {
       titulo: pedido.titulo,
       estilo_locucao: pedido.estilo_locucao,
       orientacoes: pedido.orientacoes,
+      tipo_audio: pedido.tipo_audio ?? null,
     };
     console.log('[fetchAdminActiveOrders] Mapped pedido:', result);
     return result;

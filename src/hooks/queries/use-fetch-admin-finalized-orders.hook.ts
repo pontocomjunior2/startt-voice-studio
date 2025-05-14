@@ -17,6 +17,7 @@ const fetchAdminFinalizedOrders = async (): Promise<AdminPedido[]> => {
       titulo,
       estilo_locucao,
       orientacoes,
+      tipo_audio,
       profiles ( 
         id,
         full_name,
@@ -60,6 +61,7 @@ const fetchAdminFinalizedOrders = async (): Promise<AdminPedido[]> => {
       titulo: pedido.titulo,
       estilo_locucao: pedido.estilo_locucao,
       orientacoes: pedido.orientacoes,
+      tipo_audio: pedido.tipo_audio ?? null,
     };
     console.log('[fetchAdminFinalizedOrders] Mapped pedido:', result);
     return result;

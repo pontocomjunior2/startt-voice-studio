@@ -110,8 +110,21 @@ function AdminDashboardPage() {
   const uploadAudioMutation = useUploadPedidoAudio();
   const updateAudioAndStatusMutation = useUpdatePedidoAudioAndStatus();
 
+  // Log para verificar dados dos hooks
+  useEffect(() => {
+    if (activeOrders.length > 0) {
+      console.log("[AdminDashboardPage] Pedidos Ativos Recebidos (amostra):");
+      activeOrders.slice(0, 2).forEach(p => console.log({ id: p.id_pedido_serial, tipo_audio: p.tipo_audio, status: p.status, titulo: p.titulo }));
+    }
+    if (finalizedOrders.length > 0) {
+      console.log("[AdminDashboardPage] Pedidos Finalizados Recebidos (amostra):");
+      finalizedOrders.slice(0, 2).forEach(p => console.log({ id: p.id_pedido_serial, tipo_audio: p.tipo_audio, status: p.status, titulo: p.titulo }));
+    }
+  }, [activeOrders, finalizedOrders]);
+
   const handleOpenViewModal = (pedido: AdminPedido) => {
-    console.log('[AdminDashboardPage] Opening modal for pedido:', pedido);
+    console.log('[AdminDashboardPage] Abrindo modal para pedido (objeto completo):', pedido);
+    console.log('[AdminDashboardPage] Valor de tipo_audio para o modal:', pedido.tipo_audio);
     setSelectedPedido(pedido);
     setCurrentPedidoStatus(pedido.status); // Inicializa o status no modal
     setSelectedFile(null); // Reseta o arquivo selecionado
@@ -496,6 +509,24 @@ function AdminDashboardPage() {
 
                 <div className="font-medium text-muted-foreground">Estilo de Locução:</div>
                 <div className="md:col-span-2">{selectedPedido.estilo_locucao || 'N/A'}</div>
+
+                <div className="font-medium text-muted-foreground self-start pt-1">Tipo de Áudio:</div>
+                <div className="md:col-span-2">
+                  {selectedPedido.tipo_audio ? (
+                    <Badge 
+                      variant={selectedPedido.tipo_audio === 'off' ? 'secondary' : 'default'}
+                      className={cn(
+                        "text-sm px-3 py-1 font-semibold",
+                        selectedPedido.tipo_audio === 'off' && "bg-blue-100 text-blue-700 border-blue-300",
+                        selectedPedido.tipo_audio === 'produzido' && "bg-green-100 text-green-700 border-green-300"
+                      )}
+                    >
+                      {selectedPedido.tipo_audio === 'off' ? 'Áudio em OFF' : 'Áudio Produzido'}
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground">Não especificado</span>
+                  )}
+                </div>
               </div>
 
               <Separator />
