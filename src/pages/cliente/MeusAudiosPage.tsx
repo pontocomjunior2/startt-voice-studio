@@ -7,33 +7,41 @@ import { toast } from 'sonner';
 import { supabase } from '../../lib/supabaseClient'; // Ajustar caminho se necessário
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw } from 'lucide-react'; // Ícones necessários
+import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, Edit3, History } from 'lucide-react'; // Ícones necessários, Edit3 ou History para revisão
 import { useNavigate, Link } from 'react-router-dom'; // Link para o botão de novo pedido
-
-// Definir um tipo para Pedido (copiado da DashboardPage)
-interface Pedido {
-  id: string;
-  id_pedido_serial: string;
-  created_at: string;
-  texto_roteiro: string;
-  creditos_debitados: number;
-  status: 'pendente' | 'gravando' | 'concluido' | 'cancelado';
-  audio_final_url: string | null;
-  downloaded_at: string | null;
-  cliente_notificado_em: string | null;
-  locutores: { nome: string } | null;
-  titulo?: string | null;
-}
+import { solicitarRevisaoAction } from '@/actions/pedido-actions'; // Importar a action
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose, // Para o botão de fechar/cancelar
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { Send } from "lucide-react"
+import { PEDIDO_STATUS } from '@/types/pedido.type'; // Importar valor normalmente
+import type { Pedido, TipoStatusPedido } from '@/types/pedido.type'; // Importar tipos com type
 
 function MeusAudiosPage() {
-  const { user, profile, refreshNotifications } = useAuth(); // Apenas o necessário
+  const { user, profile, refreshNotifications } = useAuth();
   const navigate = useNavigate();
 
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loadingPedidos, setLoadingPedidos] = useState(true);
   const [errorLoadingPedidos, setErrorLoadingPedidos] = useState<string | null>(null);
+  const [loadingRevisao, setLoadingRevisao] = useState<string | null>(null); // Para feedback no botão de revisão
 
-  // Função para buscar todos os pedidos do cliente (adaptada da DashboardPage)
+  // Estados para o modal de revisão
+  const [isRevisaoModalOpen, setIsRevisaoModalOpen] = useState(false);
+  const [pedidoParaRevisao, setPedidoParaRevisao] = useState<Pedido | null>(null);
+  const [descricaoRevisao, setDescricaoRevisao] = useState("");
+  const [submittingRevisao, setSubmittingRevisao] = useState(false); // Similar ao loadingRevisao, mas para o submit do modal
+
+  // Função para buscar todos os pedidos do cliente
   const fetchAllPedidos = async () => {
     if (!profile?.id) {
       setErrorLoadingPedidos("Perfil do usuário não encontrado para buscar pedidos.");
@@ -64,10 +72,11 @@ function MeusAudiosPage() {
       if (error) {
         console.error('Erro detalhado ao buscar todos os pedidos:', error);
         setErrorLoadingPedidos(error.message || "Ocorreu um erro ao buscar seus áudios.");
-        throw error; // Re-throw para ser pego pelo catch externo se necessário
+        throw error;
       }
-      
-      console.log('[MeusAudiosPage] Dados BRUTOS recebidos do Supabase:', data);
+
+      // LOG ADICIONADO PARA VER OS DADOS FRESCOS
+      console.log('[fetchAllPedidos] Dados recebidos do Supabase APÓS ATUALIZAÇÃO:', data);
 
       const mappedPedidos: Pedido[] = (data || []).map((pedido: any) => ({
         ...pedido,
@@ -75,7 +84,6 @@ function MeusAudiosPage() {
       }));
       setPedidos(mappedPedidos);
 
-      // Marcar pedidos como notificados/visualizados (lógica mantida, pode ser opcional aqui)
       if (mappedPedidos && mappedPedidos.length > 0 && refreshNotifications) {
         const now = new Date().toISOString();
         const pedidosToMarkAsNotified = mappedPedidos
@@ -90,15 +98,14 @@ function MeusAudiosPage() {
           if (updateError) {
             console.warn("MeusAudiosPage: Erro ao marcar pedidos como notificados:", updateError);
           } else {
-            refreshNotifications(); // Atualiza a contagem de notificações no AuthContext
+            refreshNotifications();
           }
         }
       }
 
     } catch (err: any) {
-      // O erro já foi setado no estado, apenas log adicional se necessário
       console.error('Erro no bloco try/catch ao buscar todos os pedidos:', err);
-      if (!errorLoadingPedidos) { // Se não foi setado por um erro específico do Supabase
+      if (!errorLoadingPedidos) {
         setErrorLoadingPedidos("Não foi possível carregar seu histórico de áudios.");
       }
     } finally {
@@ -112,31 +119,20 @@ function MeusAudiosPage() {
     }
   }, [profile?.id]);
 
-  // Função de download (copiada da DashboardPage)
   const handleDownload = async (pedido: Pedido) => {
     if (!pedido.audio_final_url) {
       toast.error("Download Indisponível", { description: "O áudio para este pedido ainda não está pronto ou não foi encontrado." });
       return;
     }
     try {
-      // Criar um link temporário
       const link = document.createElement('a');
       link.href = pedido.audio_final_url;
-
-      // Extrair o nome do arquivo da URL ou usar um nome padrão
-      // Isso é uma tentativa básica. O ideal seria ter o nome do arquivo vindo do backend.
       const fileName = pedido.audio_final_url.substring(pedido.audio_final_url.lastIndexOf('/') + 1) || 'audio_pedido_' + pedido.id;
-      link.setAttribute('download', fileName); // Força o download com um nome de arquivo
-
-      // Adicionar o link ao corpo, clicar e remover
+      link.setAttribute('download', fileName);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
-      // window.open(pedido.audio_final_url, '_blank'); // Linha original comentada
       toast.success("Download Iniciado", { description: "O áudio está sendo baixado." });
-      
-      // Opcional: Marcar como baixado e atualizar UI localmente
       if (!pedido.downloaded_at) {
         const { error } = await supabase
           .from('pedidos')
@@ -151,6 +147,72 @@ function MeusAudiosPage() {
     } catch (error) {
       console.error("Erro ao tentar baixar o áudio:", error);
       toast.error("Erro no Download", { description: "Não foi possível iniciar o download do áudio." });
+    }
+  };
+
+  const handleOpenRevisaoModal = (pedido: Pedido) => {
+    setPedidoParaRevisao(pedido);
+    setDescricaoRevisao(""); // Limpar descrição anterior
+    setIsRevisaoModalOpen(true);
+  };
+
+  const handleSolicitarRevisao = async () => {
+    if (!pedidoParaRevisao || !descricaoRevisao.trim()) {
+      toast.error("Descrição Necessária", { description: "Por favor, descreva o que precisa ser corrigido." });
+      return;
+    }
+    setSubmittingRevisao(true);
+    try {
+      const resultado = await solicitarRevisaoAction({ 
+        pedidoId: pedidoParaRevisao.id,
+        descricao: descricaoRevisao.trim(),
+      });
+
+      console.log('Resultado COMPLETO da action solicitarRevisaoAction:', JSON.stringify(resultado, null, 2));
+
+      if (resultado?.serverError) {
+        console.error('Erro do servidor na action:', resultado.serverError);
+        toast.error("Erro no Servidor", { description: resultado.serverError });
+      } else if (resultado?.validationErrors) {
+        let errorMsg = "Erro de validação:";
+        if (resultado.validationErrors.descricao && Array.isArray(resultado.validationErrors.descricao) && resultado.validationErrors.descricao.length > 0) {
+          errorMsg = resultado.validationErrors.descricao.join(', ');
+        } else if (resultado.validationErrors._errors && Array.isArray(resultado.validationErrors._errors) && resultado.validationErrors._errors.length > 0) {
+          errorMsg = resultado.validationErrors._errors.join(', ');
+        }
+        console.error('Erro de validação na action:', resultado.validationErrors);
+        toast.error("Erro de Validação", { description: errorMsg });
+      } else if (resultado?.data?.failure) {
+        console.error('Falha retornada pela action:', resultado.data.failure);
+        toast.error("Falha na Solicitação", { description: resultado.data.failure });
+      } else if (resultado?.data && resultado.data.success && resultado.data.pedidoId && resultado.data.novoStatus) {
+        // Checagem explícita de resultado.data para o linter
+        const { success, pedidoId, novoStatus } = resultado.data;
+        console.log('[handleSolicitarRevisao] Sucesso da action:', success);
+        console.log('[handleSolicitarRevisao] Pedido ID retornado:', pedidoId);
+        console.log('[handleSolicitarRevisao] Novo Status retornado:', novoStatus);
+
+        setPedidos(prevPedidos =>
+          prevPedidos.map(p =>
+            p.id === pedidoId 
+              ? { ...p, status: novoStatus as TipoStatusPedido } 
+              : p
+          )
+        );
+        
+        toast.success("Revisão Solicitada", { description: "Sua solicitação de revisão foi enviada com sucesso." });
+        setIsRevisaoModalOpen(false);
+        setDescricaoRevisao("");
+      } else {
+        console.error('Resultado inesperado da action:', resultado);
+        toast.error("Erro Desconhecido", { description: "Ocorreu um erro ao processar sua solicitação." });
+      }
+    } catch (error) {
+      console.error('Erro ao solicitar revisão (catch geral):', error);
+      toast.error("Erro na Solicitação", { description: "Ocorreu um erro inesperado." });
+    } finally {
+      setSubmittingRevisao(false);
+      // setLoadingRevisao(null); // Comentado anteriormente
     }
   };
 
@@ -227,6 +289,8 @@ function MeusAudiosPage() {
             </TableHeader>
             <TableBody className="bg-card divide-y divide-border">
               {pedidos.map((pedido) => {
+                // Log para verificar o status no momento da renderização
+                console.log(`[Render Tabela] Pedido ID: ${pedido.id_pedido_serial}, Status: ${pedido.status}`);
                 return (
                   <TableRow key={pedido.id} className="hover:bg-muted/10 odd:bg-card even:bg-muted/5 transition-colors">
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm font-medium text-foreground">{pedido.id_pedido_serial}</TableCell>
@@ -245,41 +309,71 @@ function MeusAudiosPage() {
                       </p>
                     </TableCell>
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center">
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "font-semibold py-1 px-2.5 text-xs rounded-full",
-                          pedido.status === 'pendente' && "text-status-orange border-status-orange bg-status-orange/10",
-                          pedido.status === 'gravando' && "text-status-blue border-status-blue bg-status-blue/10",
-                          pedido.status === 'concluido' && "text-status-green border-status-green bg-status-green/10",
-                          pedido.status === 'cancelado' && "text-status-red border-status-red bg-status-red/10"
-                        )}
+                      <Badge 
+                        variant={
+                          pedido.status === PEDIDO_STATUS.CONCLUIDO ? 'outline' : // Mapeado para 'outline' (era 'success')
+                          pedido.status === PEDIDO_STATUS.PENDENTE ? 'default' :
+                          pedido.status === PEDIDO_STATUS.GRAVANDO ? 'secondary' : // Mapeado para 'secondary' (era 'warning')
+                          pedido.status === PEDIDO_STATUS.EM_REVISAO ? 'outline' : // Mapeado para 'outline' (era 'info')
+                          pedido.status === PEDIDO_STATUS.CANCELADO ? 'destructive' :
+                          'secondary' // Fallback
+                        }
+                        className="whitespace-nowrap"
                       >
-                        {pedido.status.charAt(0).toUpperCase() + pedido.status.slice(1)}
+                        {/* O texto do Badge pode permanecer o mesmo */}
+                        {pedido.status === PEDIDO_STATUS.EM_REVISAO ? 'Em Revisão' : pedido.status.charAt(0).toUpperCase() + pedido.status.slice(1)}
                       </Badge>
                     </TableCell>
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center font-medium text-foreground">
                       {pedido.creditos_debitados}
                     </TableCell>
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center">
-                      {pedido.status === 'cancelado' ? (
-                        <span className="text-xs text-status-red italic font-medium">Pedido Cancelado</span>
-                      ) : pedido.status === 'concluido' && pedido.audio_final_url ? (
-                        <Button 
-                          variant="default" 
-                          size="sm" 
-                          onClick={() => handleDownload(pedido)} 
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                      {pedido.status === PEDIDO_STATUS.CONCLUIDO && ( // <<< Use PEDIDO_STATUS
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => handleDownload(pedido)}
+                          className="flex items-center"
+                          disabled={!pedido.audio_final_url}
                         >
-                          <DownloadCloud className="mr-1.5 h-4 w-4" />
-                          Baixar Áudio
+                          <DownloadCloud className="mr-2 h-4 w-4" />
+                          Baixar Áudio {pedido.downloaded_at ? '(Baixado)' : ''}
                         </Button>
-                      ) : pedido.status === 'concluido' && !pedido.audio_final_url ? (
-                        <span className="text-xs text-muted-foreground italic">Áudio em breve...</span>
-                      ) : (
-                        <Button variant="ghost" size="sm" disabled className="text-muted-foreground">
-                          Aguardando
+                      )}
+                      {/* Botão para solicitar revisão */}
+                      {pedido.status === PEDIDO_STATUS.CONCLUIDO && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenRevisaoModal(pedido)}
+                          disabled={loadingRevisao === pedido.id || pedido.status !== PEDIDO_STATUS.CONCLUIDO}
+                          className={cn(
+                            "flex items-center",
+                            pedido.status !== PEDIDO_STATUS.CONCLUIDO && "opacity-50 cursor-not-allowed"
+                          )}
+                        >
+                          {loadingRevisao === pedido.id ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Edit3 className="mr-2 h-4 w-4" />
+                          )}
+                          Solicitar Revisão
                         </Button>
+                      )}
+                      {/* Se estiver em revisão, mostrar o status e ainda permitir baixar o original */}
+                      {pedido.status === PEDIDO_STATUS.EM_REVISAO && pedido.audio_final_url && (
+                         <>
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            className="mr-2 opacity-70" // Deixar um pouco diferente para indicar que é o antigo
+                            onClick={() => handleDownload(pedido)}
+                            aria-label="Baixar áudio original (em revisão)"
+                          >
+                            <DownloadCloud className="mr-1.5 h-4 w-4" /> Baixar Original
+                          </Button>
+                          {/* Aqui podemos adicionar um futuro botão "Ver Versões Revisadas" */}
+                        </>
                       )}
                     </TableCell>
                   </TableRow>
@@ -289,6 +383,45 @@ function MeusAudiosPage() {
           </Table>
         </div>
       )}
+
+      {/* Modal para Solicitar Revisão */}
+      <Dialog open={isRevisaoModalOpen} onOpenChange={setIsRevisaoModalOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Solicitar Revisão do Áudio</DialogTitle>
+            <DialogDescription>
+              Pedido: #{pedidoParaRevisao?.id_pedido_serial} - {pedidoParaRevisao?.titulo || "Sem título"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-1 items-center gap-2">
+              <Label htmlFor="descricaoRevisaoTextarea" className="text-left">
+                Descreva seu problema
+              </Label>
+              <Textarea
+                id="descricaoRevisaoTextarea"
+                placeholder="Descreva em detalhes o que precisa ser corrigido no áudio..."
+                value={descricaoRevisao}
+                onChange={(e) => setDescricaoRevisao(e.target.value)}
+                rows={5}
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" onClick={() => setIsRevisaoModalOpen(false)}>Cancelar</Button>
+            </DialogClose>
+            <Button 
+              onClick={handleSolicitarRevisao} 
+              disabled={submittingRevisao || !descricaoRevisao.trim()}
+            >
+              {submittingRevisao ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              Enviar Solicitação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
