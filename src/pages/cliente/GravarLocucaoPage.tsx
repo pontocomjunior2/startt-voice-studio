@@ -497,11 +497,11 @@ function GravarLocucaoPage() {
           titulo: values.tituloPedido || '',
           creditos_debitados: estimatedCredits,
           tipo_audio: values.tipoAudio, // Zod já garante que é 'off' ou 'produzido'
-          estilo_locucao_solicitado: values.estiloLocucao === 'outro' ? values.outroEstiloEspecificacao : null,
-          orientacoes_gerais: values.orientacoes || '',
+          estilo_locucao: values.estiloLocucao === 'outro' 
+              ? `Outro: ${values.outroEstiloEspecificacao || ''}` 
+              : values.estiloLocucao || '',
+          orientacoes: values.orientacoes || '',
           id_pedido_serial: idPedidoSerialGerado,
-          termos_aceitos: true, // Assumindo que há um aceite implícito ou explícito em algum lugar
-          data_solicitacao: new Date().toISOString(),
         };
 
         const { error: insertError } = await supabase.from('pedidos').insert(pedidoData);
@@ -529,7 +529,7 @@ function GravarLocucaoPage() {
         setCurrentStep(1); // Volta para a primeira etapa
         setSelectedLocutor(null);
         setEstimatedCredits(0);
-        navigate('/cliente/meus-audios');
+        navigate('/meus-audios');
 
       } catch (error: any) {
         console.error("Erro ao criar pedido:", error);
