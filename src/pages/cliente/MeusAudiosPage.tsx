@@ -7,9 +7,9 @@ import { toast } from 'sonner';
 import { supabase } from '../../lib/supabaseClient'; // Ajustar caminho se necessário
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, Edit3, History, Eye, MoreVertical } from 'lucide-react'; // Ícones necessários, Edit3 ou History para revisão
+import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, Edit3, History, Eye, MoreVertical, Trash2 } from 'lucide-react'; // Ícones necessários, Edit3 ou History para revisão, Adicionado Trash2
 import { useNavigate, Link } from 'react-router-dom'; // Link para o botão de novo pedido
-import { solicitarRevisaoAction } from '@/actions/pedido-actions'; // Importar a action
+import { solicitarRevisaoAction, excluirPedidoAction } from '@/actions/pedido-actions'; // Importar a action
 import {
   Dialog,
   DialogContent,
@@ -210,6 +210,11 @@ function MeusAudiosPage() {
   const [isHistoricoRevisoesModalOpen, setIsHistoricoRevisoesModalOpen] = useState(false);
   const [pedidoParaHistoricoRevisoes, setPedidoParaHistoricoRevisoes] = useState<Pedido | null>(null);
 
+  // Estados para o modal de CONFIRMAÇÃO DE EXCLUSÃO
+  const [isConfirmarExclusaoModalOpen, setIsConfirmarExclusaoModalOpen] = useState(false);
+  const [pedidoParaExcluir, setPedidoParaExcluir] = useState<Pedido | null>(null);
+  const [submittingExclusao, setSubmittingExclusao] = useState(false);
+
   // Função para buscar todos os pedidos do cliente
   const fetchAllPedidos = async () => {
     if (!profile?.id) {
@@ -330,6 +335,62 @@ function MeusAudiosPage() {
   const handleOpenHistoricoRevisoesModal = (pedido: Pedido) => {
     setPedidoParaHistoricoRevisoes(pedido);
     setIsHistoricoRevisoesModalOpen(true);
+  };
+
+  const handleNavigateToEdit = (pedidoId: string) => {
+    navigate(`/gravar-locucao?pedidoId=${pedidoId}`);
+    // Futuramente, a página /gravar-locucao precisará carregar os dados do pedido com este ID.
+  };
+
+  const handleOpenConfirmarExclusaoModal = (pedido: Pedido) => {
+    setPedidoParaExcluir(pedido);
+    setIsConfirmarExclusaoModalOpen(true);
+  };
+
+  const handleConfirmarExclusao = async () => {
+    if (!pedidoParaExcluir) return;
+
+    setSubmittingExclusao(true);
+    try {
+      const resultado = await excluirPedidoAction({ pedidoId: pedidoParaExcluir.id });
+
+      // Embora next-safe-action deva sempre retornar um objeto, adicionamos uma checagem para o linter.
+      if (!resultado) {
+        console.error('Resultado inesperado (undefined) da action de exclusão.');
+        toast.error("Erro Desconhecido", { description: "Falha ao comunicar com o servidor." });
+        setSubmittingExclusao(false);
+        return;
+      }
+
+      if (resultado.validationErrors) {
+        let errorMsg = "Erro de validação.";
+        const ve = resultado.validationErrors; // Alias para encurtar
+        if (ve.pedidoId && Array.isArray(ve.pedidoId) && ve.pedidoId.length > 0) {
+          errorMsg = ve.pedidoId.join(', ');
+        } else if (ve._errors && Array.isArray(ve._errors) && ve._errors.length > 0) {
+          errorMsg = ve._errors.join(', ');
+        }
+        toast.error("Erro de Validação", { description: errorMsg });
+      } else if (resultado.serverError) {
+        toast.error("Erro no Servidor", { description: resultado.serverError });
+      } else if (resultado.data && typeof resultado.data.failure === 'string') {
+        toast.error("Falha na Exclusão", { description: resultado.data.failure });
+      } else if (resultado.data && resultado.data.success === true && typeof resultado.data.pedidoId === 'string') {
+        toast.success("Pedido Excluído", { description: "Seu pedido foi excluído com sucesso." });
+        const pedidoExcluidoId = resultado.data.pedidoId;
+        setPedidos(prevPedidos => prevPedidos.filter(p => p.id !== pedidoExcluidoId));
+        setIsConfirmarExclusaoModalOpen(false);
+        setPedidoParaExcluir(null);
+      } else {
+        console.error('Estrutura de resultado inesperada da action de exclusão:', resultado);
+        toast.error("Erro Desconhecido", { description: "Ocorreu um erro ao processar sua solicitação de exclusão." });
+      }
+    } catch (error) {
+      console.error('Erro ao excluir pedido (catch geral):', error);
+      toast.error("Erro na Exclusão", { description: "Ocorreu um erro inesperado ao tentar excluir o pedido." });
+    } finally {
+      setSubmittingExclusao(false);
+    }
   };
 
   const handleSolicitarRevisao = async () => {
@@ -468,6 +529,15 @@ function MeusAudiosPage() {
               {pedidos.map((pedido) => {
                 // Log para verificar o status no momento da renderização
                 console.log(`[Render Tabela] Pedido ID: ${pedido.id_pedido_serial}, Status: ${pedido.status}`);
+                
+                const isPendente = pedido.status === PEDIDO_STATUS.PENDENTE;
+                const isConcluido = pedido.status === PEDIDO_STATUS.CONCLUIDO;
+                const isEmRevisaoComAudio = pedido.status === PEDIDO_STATUS.EM_REVISAO && pedido.audio_final_url;
+                const podeVerDetalhesGeral = pedido.status !== PEDIDO_STATUS.PENDENTE && 
+                                           pedido.status !== PEDIDO_STATUS.CANCELADO && 
+                                           !isConcluido && 
+                                           !isEmRevisaoComAudio;
+
                 return (
                   <TableRow key={pedido.id} className="hover:bg-muted/10 odd:bg-card even:bg-muted/5 transition-colors">
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm font-medium text-foreground">{pedido.id_pedido_serial}</TableCell>
@@ -505,7 +575,7 @@ function MeusAudiosPage() {
                               return 'secondary';
                             case PEDIDO_STATUS.CANCELADO:
                               return 'destructive';
-                            case PEDIDO_STATUS.PENDENTE:
+                            case PEDIDO_STATUS.PENDENTE: // Mantém a cor laranja já definida via className
                             case PEDIDO_STATUS.CONCLUIDO: 
                               return 'default';
                             case PEDIDO_STATUS.EM_REVISAO:
@@ -530,7 +600,35 @@ function MeusAudiosPage() {
                     </TableCell>
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center">
                       <div className="flex items-center justify-center gap-1 sm:gap-2">
-                        {pedido.status === PEDIDO_STATUS.CONCLUIDO && (
+                        {/* Ações para Pedidos PENDENTES */}
+                        {isPendente && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="icon" className="h-9 w-9 shrink-0">
+                                <MoreVertical className="h-4 w-4" />
+                                <span className="sr-only">Mais ações</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleNavigateToEdit(pedido.id)}>
+                                <Edit3 className="mr-2 h-4 w-4" />
+                                Editar Pedido
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleOpenConfirmarExclusaoModal(pedido)} className="text-red-600 hover:!text-red-600 focus:!text-red-600">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Excluir Pedido
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleOpenHistoricoRevisoesModal(pedido)}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                Ver Detalhes
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+
+                        {/* Ações para Pedidos CONCLUÍDOS */}
+                        {isConcluido && (
                           <>
                             <Button
                               size="sm"
@@ -545,7 +643,6 @@ function MeusAudiosPage() {
                               <DownloadCloud className="mr-2 h-4 w-4" />
                               Baixar
                             </Button>
-
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="outline" size="icon" className="h-9 w-9 shrink-0">
@@ -567,8 +664,8 @@ function MeusAudiosPage() {
                           </>
                         )}
 
-                        {/* Botões para status EM_REVISAO (mantém como antes, pois são menos botões) */}
-                        {pedido.status === PEDIDO_STATUS.EM_REVISAO && pedido.audio_final_url && (
+                        {/* Ações para EM_REVISAO com áudio final (original) */}
+                        {isEmRevisaoComAudio && (
                           <>
                             <Button 
                               variant="outline"
@@ -592,13 +689,10 @@ function MeusAudiosPage() {
                             </Button>
                           </>
                         )}
-
-                        {/* Botão de Detalhes para outros status (não PENDENTE, não CANCELADO, não CONCLUIDO, não EM_REVISAO com áudio) */}
-                        {pedido.status !== PEDIDO_STATUS.PENDENTE && 
-                         pedido.status !== PEDIDO_STATUS.CANCELADO && 
-                         pedido.status !== PEDIDO_STATUS.CONCLUIDO && 
-                         !(pedido.status === PEDIDO_STATUS.EM_REVISAO && pedido.audio_final_url) && (
-                          <Button
+                        
+                        {/* Botão "Ver Detalhes" para outros status (GRAVANDO, etc.) */}
+                        {podeVerDetalhesGeral && (
+                           <Button
                             variant="outline" 
                             size="sm"
                             onClick={() => handleOpenHistoricoRevisoesModal(pedido)}
@@ -664,6 +758,37 @@ function MeusAudiosPage() {
         onOpenChange={setIsHistoricoRevisoesModalOpen}
         pedido={pedidoParaHistoricoRevisoes}
       />
+
+      {/* Modal para Confirmar Exclusão de Pedido */}
+      <Dialog open={isConfirmarExclusaoModalOpen} onOpenChange={setIsConfirmarExclusaoModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão do Pedido</DialogTitle>
+            <DialogDescription>
+              Você tem certeza que deseja excluir o pedido 
+              <span className="font-semibold"> #{pedidoParaExcluir?.id_pedido_serial}</span>
+              {pedidoParaExcluir?.titulo && ` (${pedidoParaExcluir.titulo})`}?
+              Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-end gap-2 pt-4">
+            <DialogClose asChild>
+              <Button type="button" variant="outline" onClick={() => {setIsConfirmarExclusaoModalOpen(false); setPedidoParaExcluir(null);}}>
+                Cancelar
+              </Button>
+            </DialogClose>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleConfirmarExclusao}
+              disabled={submittingExclusao}
+            >
+              {submittingExclusao ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              Excluir Pedido
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

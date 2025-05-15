@@ -4,7 +4,7 @@ export interface Locutor {
   nome: string;
   descricao?: string | null;
   avatar_url?: string | null;
-  audio_preview_url: string;
+  amostra_audio_url: string;
   tipo_voz?: string;
   ativo?: boolean;
 }

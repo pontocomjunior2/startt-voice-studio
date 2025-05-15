@@ -128,4 +128,159 @@ export const solicitarRevisaoAction = actionClient
       console.error("[solicitarRevisaoAction] Erro inesperado na action:", JSON.stringify(error, null, 2));
       return { failure: 'Ocorreu um erro inesperado ao processar sua solicitação.' };
     }
+  });
+
+export const excluirPedidoSchema = z.object({
+  pedidoId: z.string().uuid({ message: "ID do pedido inválido." }),
+});
+
+export const excluirPedidoAction = actionClient
+  .schema(excluirPedidoSchema)
+  .action(async ({ parsedInput }) => {
+    const { pedidoId } = parsedInput;
+    let userId: string;
+
+    try {
+      userId = await getUserId();
+    } catch (error: any) {
+      console.error('[excluirPedidoAction] Falha ao autenticar usuário:', error.message);
+      return { failure: error.message || 'Falha ao autenticar usuário para excluir o pedido.' };
+    }
+
+    try {
+      console.log(`[excluirPedidoAction] Buscando pedido: ${pedidoId} para usuário: ${userId} para exclusão.`);
+      const { data: pedido, error: fetchError } = await supabase
+        .from('pedidos')
+        .select('id, user_id, status')
+        .eq('id', pedidoId)
+        .single();
+
+      if (fetchError) {
+        console.error("[excluirPedidoAction] Erro ao buscar pedido para exclusão:", JSON.stringify(fetchError, null, 2));
+        return { failure: "Pedido não encontrado ou erro ao buscar.", details: fetchError.message };
+      }
+      if (!pedido) {
+        return { failure: "Pedido não encontrado." };
+      }
+
+      if (pedido.user_id !== userId) {
+        console.warn(`[excluirPedidoAction] Tentativa de exclusão não autorizada. Usuário ${userId} tentou excluir pedido ${pedidoId} de ${pedido.user_id}.`);
+        return { failure: "Você não tem permissão para excluir este pedido." };
+      }
+
+      if (pedido.status !== PEDIDO_STATUS.PENDENTE) {
+        console.log(`[excluirPedidoAction] Tentativa de exclusão de pedido com status inválido: ${pedido.status}. Pedido: ${pedidoId}`);
+        return { failure: `Este pedido não pode ser excluído pois seu status é "${pedido.status}". Apenas pedidos pendentes podem ser excluídos.` };
+      }
+
+      console.log(`[excluirPedidoAction] Excluindo pedido: ${pedidoId}`);
+      const { error: deleteError } = await supabase
+        .from('pedidos')
+        .delete()
+        .eq('id', pedidoId);
+
+      if (deleteError) {
+        console.error("[excluirPedidoAction] Erro ao excluir pedido:", JSON.stringify(deleteError, null, 2));
+        return { failure: "Erro ao tentar excluir o pedido.", details: deleteError.message };
+      }
+
+      console.log(`[excluirPedidoAction] Pedido ${pedidoId} excluído com sucesso.`);
+      return { success: true, pedidoId };
+
+    } catch (error: any) {
+      console.error("[excluirPedidoAction] Erro inesperado na action:", JSON.stringify(error, null, 2));
+      // Não retornar error.message diretamente para o cliente por segurança, a menos que seja um erro controlado.
+      return { serverError: "Ocorreu um erro inesperado no servidor ao tentar excluir o pedido." };
+    }
+  });
+
+// Schema para atualização de pedido
+export const atualizarPedidoSchema = z.object({
+  pedidoId: z.string().uuid("ID do pedido inválido."),
+  titulo: z.string().min(3, "O título do pedido deve ter pelo menos 3 caracteres.").optional(),
+  tipoAudio: z.enum(['off', 'produzido'], { required_error: 'Selecione o tipo de áudio.' }),
+  locutorId: z.string().uuid("ID do locutor inválido."),
+  textoRoteiro: z.string().min(10, "O roteiro deve ter pelo menos 10 caracteres."),
+  estiloLocucao: z.string().min(1, "O estilo de locução é obrigatório."),
+  // outrasObservacoesEstilo é tratado pela lógica que forma estiloLocucao (ex: "Outro: texto")
+  orientacoes: z.string().optional(),
+});
+
+export const atualizarPedidoAction = actionClient
+  .schema(atualizarPedidoSchema)
+  .action(async ({ parsedInput }) => {
+    const { pedidoId, ...dadosParaAtualizar } = parsedInput;
+    let userId: string;
+
+    try {
+      userId = await getUserId();
+    } catch (error: any) {
+      console.error('[atualizarPedidoAction] Falha ao autenticar usuário:', error.message);
+      return { failure: error.message || 'Falha ao autenticar usuário para atualizar o pedido.' };
+    }
+
+    try {
+      console.log(`[atualizarPedidoAction] Buscando pedido ${pedidoId} para atualização pelo usuário ${userId}.`);
+      const { data: pedidoExistente, error: fetchError } = await supabase
+        .from('pedidos')
+        .select('id, user_id, status')
+        .eq('id', pedidoId)
+        .single();
+
+      if (fetchError || !pedidoExistente) {
+        console.error("[atualizarPedidoAction] Erro ao buscar pedido ou pedido não encontrado:", JSON.stringify(fetchError, null, 2));
+        return { failure: "Pedido não encontrado ou erro ao buscar para atualização." };
+      }
+
+      if (pedidoExistente.user_id !== userId) {
+        console.warn(`[atualizarPedidoAction] Tentativa de atualização não autorizada. Usuário ${userId} tentou atualizar pedido ${pedidoId} de ${pedidoExistente.user_id}.`);
+        return { failure: "Você não tem permissão para atualizar este pedido." };
+      }
+
+      if (pedidoExistente.status !== PEDIDO_STATUS.PENDENTE) {
+        console.log(`[atualizarPedidoAction] Tentativa de atualização de pedido com status inválido: ${pedidoExistente.status}. Pedido: ${pedidoId}`);
+        return { failure: `Este pedido não pode ser atualizado pois seu status é "${pedidoExistente.status}". Apenas pedidos pendentes podem ser modificados.` };
+      }
+      
+      // Mapear os campos do schema para os nomes das colunas do BD.
+      const dadosSupabase = {
+        titulo: dadosParaAtualizar.titulo,
+        tipo_audio: dadosParaAtualizar.tipoAudio,
+        locutor_id: dadosParaAtualizar.locutorId,
+        texto_roteiro: dadosParaAtualizar.textoRoteiro,
+        estilo_locucao: dadosParaAtualizar.estiloLocucao,
+        orientacoes: dadosParaAtualizar.orientacoes,
+      };
+    
+      console.log(`[atualizarPedidoAction] Atualizando pedido ${pedidoId} com dados:`, JSON.stringify(dadosSupabase, null, 2));
+    
+      const { data: updatedData, error: updateError } = await supabase
+        .from('pedidos')
+        .update(dadosSupabase)
+        .eq('id', pedidoId)
+        .select() 
+        .single();
+
+      if (updateError) {
+        console.error("[atualizarPedidoAction] Erro ao atualizar pedido:", JSON.stringify(updateError, null, 2));
+        return { failure: `Erro ao tentar atualizar o pedido: ${updateError.message}` };
+      }
+
+      if (!updatedData) {
+        console.warn("[atualizarPedidoAction] Nenhum dado retornado após a atualização, mas sem erro. Pedido ID:", pedidoId);
+        // Isso pode acontecer se a query .update() não encontrar o registro para atualizar, 
+        // embora a checagem anterior de pedidoExistente devesse cobrir isso.
+        // Ou se o RLS impedir o retorno dos dados. Se a atualização for bem-sucedida mas nada for retornado,
+        // pode ser ok prosseguir dependendo da política de RLS e do comportamento esperado.
+        // Por segurança, vamos considerar um cenário onde a atualização pode não ter ocorrido como esperado se updatedData for null.
+        return { failure: "Falha ao confirmar a atualização do pedido. Nenhum dado retornado."};
+      }
+
+      console.log(`[atualizarPedidoAction] Pedido ${pedidoId} atualizado com sucesso. Dados retornados:`, JSON.stringify(updatedData, null, 2));
+      return { success: true, pedidoId: updatedData.id }; // Retornar o ID do pedido atualizado
+
+    } catch (error: any) {
+      console.error("[atualizarPedidoAction] Erro inesperado na action:", JSON.stringify(error, null, 2));
+      return { serverError: "Ocorreu um erro inesperado no servidor ao tentar atualizar o pedido." };
+    }
   }); 

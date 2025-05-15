@@ -34,7 +34,9 @@ import { type Locutor } from '@/types';
 import { useSpring, animated } from 'react-spring';
 import { gerarIdReferenciaUnico } from '@/utils/pedidoUtils';
 import { obterMensagemSucessoAleatoria } from '@/utils/messageUtils';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { PEDIDO_STATUS } from '@/types/pedido.type';
+import { atualizarPedidoAction } from '@/actions/pedido-actions';
 
 const estilosLocucaoOpcoes = [
   { id: 'padrao', label: 'Padrão' },
@@ -95,6 +97,7 @@ const multiStepGravarLocucaoFormSchema = z.object({
 function GravarLocucaoPage() {
   const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [locutores, setLocutores] = useState<Locutor[]>([]);
@@ -110,6 +113,11 @@ function GravarLocucaoPage() {
   // Estados para paginação de locutores
   const [currentPageLocutores, setCurrentPageLocutores] = useState(1);
   const LOCUTORES_PER_PAGE = 4;
+
+  // Estados para modo de edição
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingPedidoId, setEditingPedidoId] = useState<string | null>(null);
+  const [loadingPedidoParaEdicao, setLoadingPedidoParaEdicao] = useState(false);
 
   const { animatedSeconds } = useSpring({
     reset: true,
@@ -138,6 +146,95 @@ function GravarLocucaoPage() {
   const watchedLocutorId = watch("locutorId");
   const watchedEstiloLocucao = watch("estiloLocucao");
   const watchedScriptText = watch("scriptText");
+
+  const fetchPedidoParaEdicao = async (pedidoId: string) => {
+    if (!user) {
+      toast.error("Autenticação necessária", { description: "Faça login para editar seu pedido." });
+      navigate("/login"); // Ou para a página de origem
+      return;
+    }
+    setLoadingPedidoParaEdicao(true);
+    try {
+      const { data: pedidoData, error } = await supabase
+        .from('pedidos')
+        .select(`
+          id,
+          user_id,
+          locutor_id,
+          texto_roteiro,
+          titulo,
+          tipo_audio,
+          estilo_locucao,
+          orientacoes,
+          status,
+          locutores (id, nome, avatar_url, ativo, amostra_audio_url)
+        `)
+        .eq('id', pedidoId)
+        .eq('user_id', user.id) // Garante que o usuário só pode editar seus próprios pedidos
+        .single();
+
+      if (error || !pedidoData) {
+        console.error("Erro ao buscar pedido para edição:", error);
+        toast.error("Erro ao Carregar Pedido", { description: "Não foi possível carregar os dados do pedido para edição. Verifique se o pedido existe e você tem permissão." });
+        navigate("/cliente/meus-audios"); // Volta para a lista de áudios
+        return;
+      }
+
+      if (pedidoData.status !== PEDIDO_STATUS.PENDENTE) {
+        toast.info("Edição Não Permitida", { description: `Este pedido não pode mais ser editado pois seu status é "${pedidoData.status}".` });
+        navigate("/cliente/meus-audios");
+        return;
+      }
+
+      // Mapear os dados do pedido para o formulário
+      let estiloLocucaoForm = pedidoData.estilo_locucao || '';
+      let outroEstiloEspecificacaoForm = '';
+      if (estiloLocucaoForm.startsWith('Outro: ')) {
+        outroEstiloEspecificacaoForm = estiloLocucaoForm.substring('Outro: '.length);
+        estiloLocucaoForm = 'outro';
+      }
+
+      formHook.reset({
+        tipoAudio: pedidoData.tipo_audio as 'off' | 'produzido' | undefined,
+        locutorId: pedidoData.locutor_id || '',
+        tituloPedido: pedidoData.titulo || '',
+        estiloLocucao: estiloLocucaoForm,
+        outroEstiloEspecificacao: outroEstiloEspecificacaoForm,
+        scriptText: pedidoData.texto_roteiro || '',
+        orientacoes: pedidoData.orientacoes || '',
+      });
+
+      // Definir o locutor selecionado se houver dados do locutor
+      if (pedidoData.locutores) {
+        // O select do Supabase retorna locutores como um objeto se for single, ou array se for multiple.
+        // Como estamos buscando um pedido específico que tem UMA relação com locutor, esperamos um objeto.
+        const locutorDoPedido = pedidoData.locutores as unknown as Locutor; // Casting necessário devido à forma como Supabase retorna relações
+        if (locutorDoPedido && locutorDoPedido.id === pedidoData.locutor_id) {
+          setSelectedLocutor(locutorDoPedido);
+        }
+      }
+      
+      // Poderíamos avançar para uma etapa específica se desejado, ex: setCurrentStep(3);
+      // Por enquanto, o usuário começará na etapa 1 com os dados preenchidos.
+      toast.info("Modo de Edição", { description: `Editando pedido #${pedidoData.id.substring(0,8)}...` });
+
+    } catch (err) {
+      console.error("Erro catastrófico ao buscar pedido para edição:", err);
+      toast.error("Erro Crítico", { description: "Ocorreu um erro inesperado ao tentar carregar os dados do pedido." });
+    } finally {
+      setLoadingPedidoParaEdicao(false);
+    }
+  };
+
+  // Efeito para carregar dados do pedido em modo de edição
+  useEffect(() => {
+    const pedidoIdFromUrl = searchParams.get('pedidoId');
+    if (pedidoIdFromUrl) {
+      setIsEditMode(true);
+      setEditingPedidoId(pedidoIdFromUrl);
+      fetchPedidoParaEdicao(pedidoIdFromUrl);
+    }
+  }, [searchParams, user]); // Adicionado user como dependência, pois fetchPedidoParaEdicao usa user.id
 
   // Calcular locutores para a página atual
   const indexOfLastLocutor = currentPageLocutores * LOCUTORES_PER_PAGE;
@@ -199,7 +296,7 @@ function GravarLocucaoPage() {
       } else {
         audioPreviewRef.current.pause();
         audioPreviewRef.current.currentTime = 0;
-        audioPreviewRef.current.src = locutor.audio_preview_url;
+        audioPreviewRef.current.src = locutor.amostra_audio_url;
         audioPreviewRef.current.play().catch(error => console.error("Erro ao tocar áudio:", error));
         setIsPlayingPreview(locutor.id);
         audioPreviewRef.current.onended = () => setIsPlayingPreview(null);
@@ -214,82 +311,145 @@ function GravarLocucaoPage() {
     }
     if (!selectedLocutor || values.locutorId !== selectedLocutor.id) {
       toast.error("Erro de Validação", { description: "Locutor inválido ou não selecionado. Volte e selecione um." });
-      setCurrentStep(2); // Volta para a etapa de seleção do locutor
+      setCurrentStep(2);
       return;
     }
-    if ((profile.credits ?? 0) < estimatedCredits) {
-      toast.error("Créditos Insuficientes", { description: `Você precisa de ${estimatedCredits} créditos, mas possui ${profile.credits ?? 0}.` });
-      return;
-    }
-    if (estimatedCredits === 0 && values.scriptText && values.scriptText.trim().length > 0) {
-      toast.error("Erro no Pedido", { description: "O roteiro parece válido, mas não foram calculados créditos. Verifique o texto." });
-      return;
-    }
-     if (estimatedCredits === 0 && (!values.scriptText || values.scriptText.trim().length < 10)) {
-      toast.error("Roteiro Inválido", { description: "O roteiro deve ter pelo menos 10 caracteres." });
-      setFormError("scriptText", { type: "manual", message: "O roteiro deve ter pelo menos 10 caracteres." });
-      return;
-    }
-
-
-    let idPedidoSerialGerado: string;
-    try {
-      idPedidoSerialGerado = await gerarIdReferenciaUnico(supabase);
-    } catch (error: any) {
-      toast.error("Erro ao Gerar ID do Pedido", { description: error.message || "Não foi possível gerar um ID único." });
-      return;
-    }
-
-    const estiloFinal = values.estiloLocucao === 'outro' ? `Outro: ${values.outroEstiloEspecificacao || ''}` : values.estiloLocucao || '';
-
-    try {
-      const pedidoData = {
-        user_id: user.id,
-        locutor_id: selectedLocutor.id,
-        texto_roteiro: values.scriptText || '',
-        status: 'pendente',
-        creditos_debitados: estimatedCredits,
-        titulo: values.tituloPedido || '',
-        estilo_locucao: estiloFinal,
-        orientacoes: values.orientacoes || '',
-        tipo_audio: values.tipoAudio,
-        velocidade_locucao: velocidadeSelecionada,
-        tempo_estimado_segundos: tempoEstimadoSegundos,
-        id_pedido_serial: idPedidoSerialGerado,
-      };
-
-      const { data: insertData, error: insertError } = await supabase.from('pedidos').insert(pedidoData).select().single();
-      if (insertError) throw insertError;
-
-      if (insertData) {
-        const novosCreditos = (profile.credits ?? 0) - estimatedCredits;
-        const { error: updateError } = await supabase.from('profiles').update({ credits: novosCreditos }).eq('id', profile.id);
-
-        const mensagemSucessoCompleta = obterMensagemSucessoAleatoria();
-        if (updateError) {
-          console.error('Erro ao atualizar créditos:', updateError, insertData.id_pedido_serial);
-          toast.success("Pedido Enviado com Alerta!", {
-            description: `Seu pedido ${insertData.id_pedido_serial} foi enviado, mas houve um problema ao atualizar seus créditos. Contate o suporte. ${mensagemSucessoCompleta}`,
-            duration: 10000,
-            action: { label: "Ver Pedidos", onClick: () => navigate('/cliente/pedidos') },
-          });
-        } else {
-          toast.success("Pedido Enviado com Sucesso!", {
-            description: `${mensagemSucessoCompleta} Seu pedido ID ${insertData.id_pedido_serial} foi enviado.`,
-            duration: 7000,
-            action: { label: "Ver Pedidos", onClick: () => navigate('/cliente/pedidos') },
-          });
-        }
-        reset();
-        setCurrentStep(1);
-        setSelectedLocutor(null);
-        if (refreshProfile) refreshProfile();
-      } else {
-        throw new Error('Pedido não retornado após inserção.');
+    // Validação de créditos e roteiro apenas para novos pedidos
+    if (!isEditMode) {
+      if ((profile.credits ?? 0) < estimatedCredits) {
+        toast.error("Créditos Insuficientes", { description: `Você precisa de ${estimatedCredits} créditos, mas possui ${profile.credits ?? 0}.` });
+        return;
       }
-    } catch (error) {
-      console.error('Erro inesperado em onSubmitForm:', error);
-      toast.error("Erro Inesperado", { description: error instanceof Error ? error.message : "Ocorreu um erro ao processar seu pedido." });
+      if (estimatedCredits === 0 && values.scriptText && values.scriptText.trim().length > 0) {
+        toast.error("Erro no Pedido", { description: "O roteiro parece válido, mas não foram calculados créditos. Verifique o texto." });
+        return;
+      }
+      if (estimatedCredits === 0 && (!values.scriptText || values.scriptText.trim().length < 10)) {
+        toast.error("Roteiro Inválido", { description: "O roteiro deve ter pelo menos 10 caracteres." });
+        setFormError("scriptText", { type: "manual", message: "O roteiro deve ter pelo menos 10 caracteres." });
+        return;
+      }
+    }
+
+    if (isEditMode && editingPedidoId) {
+      // Lógica para ATUALIZAR pedido
+      console.log("MODO EDIÇÃO - Atualizando pedido:", editingPedidoId, values);
+      
+      if (!values.tipoAudio) {
+        toast.error("Erro de Validação", {description: "O tipo de áudio é obrigatório."}) ;
+        return;
+      }
+      if (!selectedLocutor?.id) { // selectedLocutor.id já é validado no início da função, mas checamos de novo
+        toast.error("Erro de Validação", {description: "O locutor é obrigatório."}) ;
+        return;
+      }
+
+      // O campo estiloFinal (que já existe na sua função) combina 'Outro: ' com a especificação.
+      // Usaremos diretamente os values que o react-hook-form fornece, 
+      // pois o schema da action agora espera 'estiloLocucao' e 'orientacoes'.
+      // A lógica de 'Outro: ' já deve estar em values.estiloLocucao se 'outro' foi selecionado e especificado.
+      // No entanto, values.estiloLocucao SÓ terá 'outro' se for o caso, e values.outroEstiloEspecificacao terá o texto.
+      // A action espera o valor combinado se for 'Outro'.
+      const estiloParaAction = values.estiloLocucao === 'outro' 
+          ? `Outro: ${values.outroEstiloEspecificacao || ''}` 
+          : values.estiloLocucao || '';
+
+      const resultadoUpdate = await atualizarPedidoAction({
+        pedidoId: editingPedidoId,
+        titulo: values.tituloPedido || undefined, 
+        tipoAudio: values.tipoAudio, 
+        locutorId: selectedLocutor.id, 
+        textoRoteiro: values.scriptText || '',
+        estiloLocucao: estiloParaAction, // Enviando o valor correto para o schema da action
+        orientacoes: values.orientacoes || undefined, // Enviando o valor correto para o schema da action
+      });
+
+      // Tratar resultadoUpdate similar à exclusão e outras actions
+      if (!resultadoUpdate) { // Checagem para o linter, embora next-safe-action deva sempre retornar um objeto
+        console.error('Resultado inesperado (undefined) da action de atualização.');
+        toast.error("Erro Desconhecido", { description: "Falha ao comunicar com o servidor para atualização." });
+        return; // Ou setIsLoading(false) e return, dependendo do fluxo de loading
+      }
+
+      if (resultadoUpdate.validationErrors) {
+        let errorMsg = "Erro de validação ao atualizar.";
+        const ve = resultadoUpdate.validationErrors;
+        if (ve.titulo && Array.isArray(ve.titulo) && ve.titulo.length > 0) errorMsg = ve.titulo.join(', ');
+        else if (ve.tipoAudio && Array.isArray(ve.tipoAudio) && ve.tipoAudio.length > 0) errorMsg = ve.tipoAudio.join(', ');
+        else if (ve.locutorId && Array.isArray(ve.locutorId) && ve.locutorId.length > 0) errorMsg = ve.locutorId.join(', ');
+        else if (ve.textoRoteiro && Array.isArray(ve.textoRoteiro) && ve.textoRoteiro.length > 0) errorMsg = ve.textoRoteiro.join(', ');
+        else if (ve.estiloLocucao && Array.isArray(ve.estiloLocucao) && ve.estiloLocucao.length > 0) errorMsg = ve.estiloLocucao.join(', ');
+        else if (ve.orientacoes && Array.isArray(ve.orientacoes) && ve.orientacoes.length > 0) errorMsg = ve.orientacoes.join(', ');
+        else if (ve._errors && Array.isArray(ve._errors) && ve._errors.length > 0) errorMsg = ve._errors.join(', ');
+        toast.error("Erro de Validação", { description: errorMsg });
+      } else if (resultadoUpdate.serverError) {
+        toast.error("Erro no Servidor", { description: resultadoUpdate.serverError });
+      } else if (resultadoUpdate.data && typeof resultadoUpdate.data.failure === 'string') {
+        toast.error("Falha ao Atualizar", { description: resultadoUpdate.data.failure });
+      } else if (resultadoUpdate.data && resultadoUpdate.data.success === true) { 
+        toast.success("Pedido Atualizado", { description: "Seu pedido foi atualizado com sucesso!" });
+        navigate('/meus-audios');
+      } else {
+        console.error("Estrutura de resultado inesperada da action de atualização:", resultadoUpdate);
+        toast.error("Erro Desconhecido", { description: "Ocorreu um erro ao processar sua solicitação de atualização." });
+      }
+    } else {
+      // Lógica para CRIAR novo pedido (existente)
+      let idPedidoSerialGerado: string;
+      try {
+        idPedidoSerialGerado = await gerarIdReferenciaUnico(supabase);
+      } catch (error: any) {
+        toast.error("Erro ao Gerar ID do Pedido", { description: error.message || "Não foi possível gerar um ID único." });
+        return;
+      }
+
+      try {
+        const pedidoData = {
+          user_id: user.id,
+          locutor_id: selectedLocutor.id,
+          texto_roteiro: values.scriptText || '',
+          status: PEDIDO_STATUS.PENDENTE, // Usar o enum importado
+          titulo: values.tituloPedido || '',
+          creditos_debitados: estimatedCredits,
+          tipo_audio: values.tipoAudio, // Zod já garante que é 'off' ou 'produzido'
+          estilo_locucao_solicitado: values.estiloLocucao === 'outro' ? values.outroEstiloEspecificacao : null,
+          orientacoes_gerais: values.orientacoes || '',
+          id_pedido_serial: idPedidoSerialGerado,
+          termos_aceitos: true, // Assumindo que há um aceite implícito ou explícito em algum lugar
+          data_solicitacao: new Date().toISOString(),
+        };
+
+        const { error: insertError } = await supabase.from('pedidos').insert(pedidoData);
+        if (insertError) throw insertError;
+
+        const novoSaldo = (profile.credits ?? 0) - estimatedCredits;
+        const { error: creditError } = await supabase
+          .from('profiles')
+          .update({ credits: novoSaldo })
+          .eq('id', user.id);
+
+        if (creditError) {
+          console.warn("Erro ao debitar créditos, mas pedido foi criado. Revertendo? Por enquanto não.", creditError);
+          // Considerar lógica de compensação ou notificação admin
+        }
+
+        if (refreshProfile) refreshProfile(); // Atualiza o perfil (créditos) no AuthContext
+
+        const mensagemSucessoAleatoria = obterMensagemSucessoAleatoria();
+        toast.success("Pedido Enviado!", {
+          description: `${mensagemSucessoAleatoria} Pedido #${idPedidoSerialGerado}.`,
+          duration: 7000,
+        });
+        reset(); // Limpa o formulário
+        setCurrentStep(1); // Volta para a primeira etapa
+        setSelectedLocutor(null);
+        setEstimatedCredits(0);
+        navigate('/cliente/meus-audios');
+
+      } catch (error: any) {
+        console.error("Erro ao criar pedido:", error);
+        toast.error("Erro ao Criar Pedido", { description: `Não foi possível criar seu pedido. Detalhes: ${error.message}` });
+      }
     }
   };
 
@@ -516,7 +676,7 @@ function GravarLocucaoPage() {
                                     e.stopPropagation();
                                     handlePlayPreview(locutor);
                                   }}
-                                  disabled={!locutor.audio_preview_url}
+                                  disabled={!locutor.amostra_audio_url}
                                 >
                                   <PlayCircle className={cn("mr-1.5 h-3.5 w-3.5", isPlayingPreview === locutor.id && "animate-pulse text-primary")} />
                                   {isPlayingPreview === locutor.id ? 'Pausar' : 'Ouvir Demo'}
@@ -767,7 +927,7 @@ function GravarLocucaoPage() {
                     size="lg"
                     disabled={
                         isSubmitting || 
-                        !isFormValid || // Validação geral do Zod para a etapa 3
+                        !isFormValid ||
                         !selectedLocutor || 
                         estimatedCredits === 0 ||
                         (profile?.credits ?? 0) < estimatedCredits
@@ -778,7 +938,7 @@ function GravarLocucaoPage() {
                     ) : (
                       <Send className="mr-2 h-5 w-5" />
                     )}
-                    Enviar Pedido ({estimatedCredits} créditos)
+                    {isEditMode ? `Enviar Alteração (${estimatedCredits} créditos)` : `Enviar Pedido (${estimatedCredits} créditos)`}
                   </Button>
                 )}
               </div>
