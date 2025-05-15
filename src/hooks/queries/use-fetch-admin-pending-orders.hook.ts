@@ -1,30 +1,9 @@
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabaseClient';
 import { toast } from 'sonner';
+import type { AdminPedido, ProfileInPedido } from '../../types/pedido.type';
 
-// Interface para o perfil do usuário
-interface ProfileInPedido {
-  id: string;
-  full_name?: string | null;
-  username?: string | null;
-}
-
-// Interface para o objeto final que usamos na UI
-export interface AdminPedido {
-  id: string;
-  id_pedido_serial: string;
-  created_at: string;
-  texto_roteiro: string | null;
-  status: string;
-  user_id: string;
-  profile: ProfileInPedido | null;
-  locutores: { nome: string } | null;
-  audio_final_url?: string | null;
-  titulo: string;
-  estilo_locucao?: string;
-  orientacoes: string | null;
-  tipo_audio?: string | null;
-}
+// As interfaces ProfileInPedido e AdminPedido foram movidas para pedido.type.ts
 
 // Não vamos mais usar SupabasePedidoResponse para o cast de `data` se causa conflito.
 

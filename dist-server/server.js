@@ -4,9 +4,18 @@ import path from 'path';
 import fs from 'fs';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
 // Calcular __dirname em ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+// Especificar o caminho para o arquivo .env na raiz do projeto
+const envPath = path.resolve(__dirname, '../.env');
+dotenv.config({ path: envPath });
+console.log(`[Servidor Express] Tentando carregar .env de: ${envPath}`);
+console.log('[Servidor Express] VITE_SUPABASE_URL lido:', process.env.VITE_SUPABASE_URL ? 'Definido' : 'NÃO DEFINIDO');
+console.log('[Servidor Express] VITE_SUPABASE_ANON_KEY lido:', process.env.VITE_SUPABASE_ANON_KEY ? 'Definido' : 'NÃO DEFINIDO');
+console.log('[Servidor Express] SUPABASE_SERVICE_ROLE_KEY lido:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Definido' : 'NÃO DEFINIDO');
 const app = express();
 const PORT = process.env.PORT || 3001; // Porta para o servidor backend
 // Habilitar CORS para todas as origens (em produção, restrinja para o seu domínio frontend)
@@ -90,6 +99,186 @@ app.post('/api/upload/:clientName', (req, res) => {
         });
     });
 });
+// Importe seu cliente Supabase aqui. Exemplo:
+// import { supabase } from './config/supabaseClient'; // Você precisará criar este arquivo ou inicializar o Supabase aqui.
+// Por enquanto, vamos assumir que 'supabase' estará disponível no escopo.
+// Substitua pela sua inicialização real do Supabase no backend:
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+// MODIFICADO: Usar a SERVICE_ROLE_KEY para o cliente do servidor
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!supabaseUrl || !supabaseServiceKey) {
+    console.error("Variáveis de ambiente Supabase (VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) não definidas no servidor.");
+    // process.exit(1); // Ou trate de outra forma
+}
+// @ts-ignore TODO: Add proper Supabase client initialization for server-side
+const supabase = supabaseUrl && supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey) : null;
+// --- INÍCIO NOVA ROTA PARA UPLOAD DE REVISÕES ---
+const revisaoStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const clientUsername = req.params.clientUsername; // MODIFICADO: Ler dos parâmetros da URL
+        if (!clientUsername) {
+            return cb(new Error("Username do cliente não fornecido na URL para o diretório de revisão."), "");
+        }
+        const sanitizedClientName = clientUsername
+            .toLowerCase()
+            .replace(/\s+/g, '_')
+            .replace(/[^a-z0-9_.-]/g, '');
+        const baseUploadDir = path.join(__dirname, '../public/uploads/audios');
+        const clientDir = path.join(baseUploadDir, sanitizedClientName);
+        const revisoesDir = path.join(clientDir, 'revisoes');
+        if (!fs.existsSync(revisoesDir)) {
+            fs.mkdirSync(revisoesDir, { recursive: true });
+            console.log(`[Revisao Multer Destination] Diretório de revisões criado: ${revisoesDir}`);
+        }
+        cb(null, revisoesDir);
+    },
+    filename: function (req, file, cb) {
+        const timestamp = Date.now();
+        const originalNameWithoutExt = path.parse(file.originalname).name;
+        const fileExt = path.parse(file.originalname).ext;
+        // Sanitiza o nome do arquivo original para evitar caracteres problemáticos
+        const sanitizedOriginalName = originalNameWithoutExt.replace(/[^a-zA-Z0-9_.-]/g, '_');
+        const finalFileName = `${sanitizedOriginalName}-${timestamp}${fileExt}`;
+        cb(null, finalFileName);
+    }
+});
+const uploadRevisaoAudio = multer({
+    storage: revisaoStorage,
+    limits: { fileSize: 100 * 1024 * 1024 }, // Limite de 100MB (ajuste conforme necessário)
+    fileFilter: function (req, file, cb) {
+        if (file.mimetype.startsWith('audio/')) {
+            cb(null, true);
+        }
+        else {
+            // Este erro será pego pelo handler do multer na rota
+            // @ts-ignore TODO: Fix multer callback error type
+            cb(new Error('Tipo de arquivo inválido. Apenas áudios são permitidos para revisão.'), false);
+        }
+    }
+}).single('revisaoAudioFile'); // Nome do campo no FormData da Server Action
+app.post('/api/revisoes/processar-upload/:clientUsername', (req, res) => {
+    uploadRevisaoAudio(req, res, async (multerError) => {
+        if (multerError) {
+            console.error('Erro no upload de revisão com Multer:', multerError);
+            return res.status(400).json({
+                success: false,
+                failure: multerError.message || 'Erro no upload do arquivo de revisão.'
+            });
+        }
+        // req.file estará presente se o upload for bem-sucedido
+        // req.body conterá os outros campos do FormData
+        const { solicitacaoId, adminFeedback, novoStatusRevisao, pedidoId } = req.body; // clientUsername virá de req.params
+        const clientUsername = req.params.clientUsername; // Usar o clientUsername da URL
+        console.log('[API /processar-upload REVISAO] clientUsername (from URL):', clientUsername);
+        console.log('[API /processar-upload REVISAO] Body recebido:', req.body);
+        if (req.file) {
+            console.log('[API /processar-upload REVISAO] Arquivo recebido:', req.file);
+        }
+        if (!solicitacaoId || !novoStatusRevisao || !clientUsername || !pedidoId) {
+            return res.status(400).json({
+                success: false,
+                failure: 'Dados insuficientes para processar a revisão (solicitacaoId, novoStatusRevisao, clientUsername, pedidoId são obrigatórios).'
+            });
+        }
+        if (!supabase) {
+            console.error('[API /processar-upload REVISAO] Cliente Supabase não inicializado no servidor.');
+            return res.status(500).json({
+                success: false,
+                failure: 'Erro interno do servidor: Cliente Supabase não configurado.'
+            });
+        }
+        let relativeFilePathForDb = null;
+        let absoluteFilePathParaRollback = null;
+        if (req.file) {
+            const sanitizedClientName = clientUsername.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_.-]/g, '');
+            relativeFilePathForDb = `/uploads/audios/${sanitizedClientName}/revisoes/${req.file.filename}`;
+            absoluteFilePathParaRollback = req.file.path;
+        }
+        else if (novoStatusRevisao === 'concluida_pelo_admin') {
+            // Se é concluida_pelo_admin, mas não tem arquivo, é um erro de lógica ou fluxo não esperado aqui.
+            // Este endpoint espera um arquivo se o status for concluida_pelo_admin.
+            // Se for para permitir "concluir" sem novo áudio, a action não deveria chamar este endpoint.
+            console.warn('[API /processar-upload REVISAO] Status é concluida_pelo_admin mas nenhum arquivo foi enviado para este endpoint.');
+            // No entanto, a server action já trata esse caso e não deveria chamar este endpoint.
+            // Se chegou aqui, é uma inconsistência.
+        }
+        try {
+            // Lógica de banco de dados que estava na Server Action
+            if (relativeFilePathForDb && req.file) { // Apenas insere versão se houve upload
+                const { count: existingVersionsCount, error: countError } = await supabase
+                    .from('versoes_audio_revisao')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('solicitacao_id', solicitacaoId);
+                if (countError) {
+                    console.error('[API /processar-upload REVISAO] Erro ao contar versões:', countError);
+                    throw new Error(`Erro ao determinar número da versão: ${countError.message}`);
+                }
+                const proximoNumeroVersao = (existingVersionsCount || 0) + 1;
+                const { error: insertError } = await supabase.from('versoes_audio_revisao').insert({
+                    solicitacao_id: solicitacaoId,
+                    audio_url: relativeFilePathForDb,
+                    comentarios_admin: adminFeedback || null,
+                    numero_versao: proximoNumeroVersao,
+                });
+                if (insertError) {
+                    console.error('[API /processar-upload REVISAO] Erro ao inserir em versoes_audio_revisao:', insertError);
+                    throw new Error(`Erro ao salvar detalhes do áudio: ${insertError.message}`);
+                }
+                console.log(`[API /processar-upload REVISAO] Áudio de revisão salvo no DB: ${relativeFilePathForDb}, Versão: ${proximoNumeroVersao}`);
+            }
+            // Atualizar solicitacoes_revisao
+            const updateSolicitacaoPayload = {
+                status_revisao: novoStatusRevisao,
+                admin_feedback: adminFeedback || null,
+                data_conclusao_revisao: (novoStatusRevisao === 'concluida_pelo_admin' || novoStatusRevisao === 'negada') ? new Date().toISOString() : null,
+            };
+            const { error: updateSolError } = await supabase.from('solicitacoes_revisao')
+                // @ts-ignore
+                .update(updateSolicitacaoPayload)
+                .eq('id', solicitacaoId);
+            if (updateSolError) {
+                console.error('[API /processar-upload REVISAO] Erro ao atualizar solicitacoes_revisao:', updateSolError);
+                throw new Error(`Erro ao atualizar status da solicitação: ${updateSolError.message}`);
+            }
+            console.log(`[API /processar-upload REVISAO] solicitacoes_revisao atualizada para status: ${novoStatusRevisao}`);
+            // Atualizar pedidos, se a revisão foi concluída ou negada
+            if (novoStatusRevisao === 'concluida_pelo_admin' || novoStatusRevisao === 'negada') {
+                const { error: updatePedidoError } = await supabase.from('pedidos')
+                    .update({ status: 'concluido' }) // PEDIDO_STATUS.CONCLUIDO
+                    .eq('id', pedidoId);
+                if (updatePedidoError) {
+                    console.error('[API /processar-upload REVISAO] Erro ao atualizar pedidos:', updatePedidoError);
+                    // Não lançar erro aqui, pois a solicitação já foi atualizada. Registrar e talvez lidar de outra forma.
+                    console.warn(`[API /processar-upload REVISAO] Revisão processada, mas falha ao atualizar status do pedido principal ${pedidoId} para concluído.`);
+                }
+                else {
+                    console.log(`[API /processar-upload REVISAO] Pedido ${pedidoId} atualizado para status: concluido`);
+                }
+            }
+            return res.status(200).json({
+                success: true,
+                message: 'Revisão processada com sucesso.',
+                filePath: relativeFilePathForDb
+            });
+        }
+        catch (dbError) {
+            console.error('[API /processar-upload REVISAO] Erro nas operações de banco de dados:', dbError);
+            if (absoluteFilePathParaRollback) {
+                fs.unlink(absoluteFilePathParaRollback, (unlinkErr) => {
+                    if (unlinkErr)
+                        console.error('[API /processar-upload REVISAO] Erro ao tentar remover arquivo após falha no DB:', unlinkErr);
+                    else
+                        console.log('[API /processar-upload REVISAO] Arquivo local removido devido à falha no DB (rollback).');
+                });
+            }
+            return res.status(500).json({
+                success: false,
+                failure: `Erro ao processar dados da revisão no banco: ${dbError.message || 'Erro desconhecido'}`
+            });
+        }
+    });
+});
+// --- FIM NOVA ROTA PARA UPLOAD DE REVISÕES ---
 app.listen(PORT, () => {
     console.log(`Servidor backend rodando na porta ${PORT}`);
     console.log(`Uploads serão salvos em: ${path.join(__dirname, '../public/uploads')}`);

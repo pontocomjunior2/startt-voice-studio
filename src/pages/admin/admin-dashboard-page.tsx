@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, CreditCard, ListChecks, AlertTriangle, Loader2, FileText, CalendarDays, UserCircle, Eye, UploadCloud, Save, RotateCcw, RefreshCw, MessageSquare } from 'lucide-react';
+import { Users, CreditCard, ListChecks, AlertTriangle, Loader2, FileText, CalendarDays, UserCircle, Eye, UploadCloud, Save, RotateCcw, RefreshCw, MessageSquare, DownloadCloud } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   Table,
@@ -36,6 +36,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import toast from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Hook e tipo customizado
 import { useFetchAdminDashboardStats } from '../../hooks/queries/use-fetch-admin-dashboard-stats.hook';
@@ -44,7 +45,7 @@ import type { AdminDashboardStats } from '../../hooks/queries/use-fetch-admin-da
 // Hook e tipo para pedidos pendentes/ativos
 import { useFetchAdminActiveOrders } from '../../hooks/queries/use-fetch-admin-pending-orders.hook';
 import { useFetchAdminFinalizedOrders } from '../../hooks/queries/use-fetch-admin-finalized-orders.hook';
-import type { AdminPedido } from '../../hooks/queries/use-fetch-admin-pending-orders.hook';
+import type { AdminPedido, SolicitacaoRevisaoDetalhada, VersaoAudioRevisadoDetalhada } from '../../types/pedido.type';
 import { useUpdatePedidoStatus } from '../../hooks/mutations/use-update-pedido-status.hook';
 
 // Hook para solicitações de revisão
@@ -52,9 +53,16 @@ import { useFetchAdminSolicitacoesRevisao } from '../../hooks/admin/use-fetch-ad
 import type { SolicitacaoRevisaoAdmin, TipoRevisaoStatusAdmin } from '../../types/revisao.type';
 import { REVISAO_STATUS_ADMIN } from '../../types/revisao.type';
 
+// Novo Hook para o histórico detalhado de revisões de um pedido
+import { useFetchSolicitacoesRevisaoDetalhadasPorPedido } from '../../hooks/queries/use-fetch-solicitacoes-revisao-detalhadas-por-pedido.hook';
+
 // Action para processar revisão
 import { processarRevisaoAdminAction } from '@/actions/revisao-actions';
 import { useAction } from 'next-safe-action/react';
+
+// Date-fns para formatação
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 // Definição dos status possíveis do pedido
 const PEDIDO_STATUS_OPTIONS = [
@@ -68,11 +76,8 @@ const PEDIDO_STATUS_OPTIONS = [
 import { useUploadPedidoAudio } from '../../hooks/mutations/use-upload-pedido-audio.hook';
 import { useUpdatePedidoAudioAndStatus } from '../../hooks/mutations/use-update-pedido-audio-and-status.hook';
 
-// Importar useQueryClient
-import { useQueryClient } from '@tanstack/react-query';
-
 function AdminDashboardPage() {
-  const queryClient = useQueryClient(); // Inicializar queryClient
+  const queryClient = useQueryClient();
 
   const { 
     data: stats, 
@@ -105,7 +110,6 @@ function AdminDashboardPage() {
     refreshSolicitacoes: refreshSolicitacoesRevisao
   } = useFetchAdminSolicitacoesRevisao();
 
-  // Log para observar os estados de isFetching em cada renderização
   console.log(
     'AdminDashboard RENDER: isFetchingStats:',
     isFetchingStats,
@@ -120,12 +124,10 @@ function AdminDashboardPage() {
   const [selectedPedido, setSelectedPedido] = useState<AdminPedido | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   
-  // Novos estados para o formulário do modal
   const [currentPedidoStatus, setCurrentPedidoStatus] = useState<string>("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isUpdatingPedido, setIsUpdatingPedido] = useState(false); // Para feedback no botão de salvar
+  const [isUpdatingPedido, setIsUpdatingPedido] = useState(false);
 
-  // Novos estados para o modal de Detalhes da Revisão
   const [isRevisaoDetailsModalOpen, setIsRevisaoDetailsModalOpen] = useState(false);
   const [selectedSolicitacaoRevisao, setSelectedSolicitacaoRevisao] = useState<SolicitacaoRevisaoAdmin | null>(null);
   const [adminFeedbackText, setAdminFeedbackText] = useState("");
@@ -133,13 +135,20 @@ function AdminDashboardPage() {
   const [isSubmittingRevisaoAdmin, setIsSubmittingRevisaoAdmin] = useState(false);
   const [selectedAdminActionStatus, setSelectedAdminActionStatus] = useState<TipoRevisaoStatusAdmin | undefined>(undefined);
 
-  // Inicializar a mutation
+  const {
+    data: historicoRevisoesPedido,
+    isLoading: isLoadingHistoricoRevisoesPedido,
+    isError: isErrorHistoricoRevisoesPedido,
+    error: errorHistoricoRevisoesPedido,
+  } = useFetchSolicitacoesRevisaoDetalhadasPorPedido({
+    pedidoId: selectedPedido?.id || null,
+    enabled: isViewModalOpen && !!selectedPedido?.id,
+  });
+
   const updateStatusMutation = useUpdatePedidoStatus();
-  // Novo hook para upload e update
   const uploadAudioMutation = useUploadPedidoAudio();
   const updateAudioAndStatusMutation = useUpdatePedidoAudioAndStatus();
 
-  // Action para processar revisão do admin
   const { 
     execute: executeProcessarRevisao, 
     status: processarRevisaoStatus,
@@ -183,7 +192,7 @@ function AdminDashboardPage() {
         toast.error('Resposta inesperada ao processar a revisão.');
       }
     },
-    onError: (error: import('next-safe-action/react').HookActionErr) => {
+    onError: (error: import('next-safe-action/react').HookActionError) => {
       toast.dismiss();
       console.error('[AdminDashboardPage] Erro ao processar revisão (onError):', error);
       
@@ -218,7 +227,6 @@ function AdminDashboardPage() {
     }
   });
 
-  // Log para verificar dados dos hooks
   useEffect(() => {
     if (activeOrders.length > 0) {
       console.log("[AdminDashboardPage] Pedidos Ativos Recebidos (amostra):");
@@ -234,8 +242,8 @@ function AdminDashboardPage() {
     console.log('[AdminDashboardPage] Abrindo modal para pedido (objeto completo):', pedido);
     console.log('[AdminDashboardPage] Valor de tipo_audio para o modal:', pedido.tipo_audio);
     setSelectedPedido(pedido);
-    setCurrentPedidoStatus(pedido.status); // Inicializa o status no modal
-    setSelectedFile(null); // Reseta o arquivo selecionado
+    setCurrentPedidoStatus(pedido.status);
+    setSelectedFile(null);
     setIsViewModalOpen(true);
   };
 
@@ -259,19 +267,16 @@ function AdminDashboardPage() {
     setIsUpdatingPedido(true);
 
     try {
-      if (fileHasBeenSelected) {
-        // Upload do arquivo
+      if (fileHasBeenSelected && selectedFile) {
         const username = selectedPedido.profile?.username;
         if (!username) throw new Error('Username do cliente não encontrado.');
-        const uploadResult = await uploadAudioMutation.mutateAsync({ file: selectedFile!, username });
-        // Atualiza pedido com URL e status (sempre conclui ao enviar áudio)
+        const uploadResult = await uploadAudioMutation.mutateAsync({ file: selectedFile, username });
         await updateAudioAndStatusMutation.mutateAsync({
           pedidoId: selectedPedido.id,
           audioUrl: uploadResult.filePath,
           novoStatus: 'concluido',
         });
       } else if (statusHasChanged) {
-        // Apenas o status mudou
         await updateStatusMutation.mutateAsync({
           pedidoId: selectedPedido.id,
           novoStatus: currentPedidoStatus,
@@ -279,7 +284,6 @@ function AdminDashboardPage() {
       }
       setIsViewModalOpen(false);
     } catch (error) {
-      // Toasts já são tratados nos hooks
       console.error('Erro em handleUpdatePedido:', error);
     } finally {
       setIsUpdatingPedido(false);
@@ -289,40 +293,29 @@ function AdminDashboardPage() {
   const handleReopenPedido = async () => {
     if (!selectedPedido || (selectedPedido.status !== 'concluido' && selectedPedido.status !== 'cancelado')) return;
 
-    setIsUpdatingPedido(true); // Reutilizar o estado de loading
+    setIsUpdatingPedido(true);
 
     try {
-      const novoStatusParaReabertura = 'pendente'; // Define o status para o qual o pedido será revertido
+      const novoStatusParaReabertura = 'pendente';
       await updateStatusMutation.mutateAsync({
         pedidoId: selectedPedido.id,
         novoStatus: novoStatusParaReabertura,
       });
-
-      // Atualizar o estado local para refletir a mudança imediatamente no modal
-      setSelectedPedido(prev => prev ? { ...prev, status: novoStatusParaReabertura, audio_final_url: null } : null); // Limpa audio_final_url ao reabrir
+      setSelectedPedido((prev: AdminPedido | null) => prev ? { ...prev, status: novoStatusParaReabertura, audio_final_url: null } : null);
       setCurrentPedidoStatus(novoStatusParaReabertura);
-      setSelectedFile(null); // Reseta o arquivo selecionado
-
-      // A invalidação das queries (useFetchAdminActiveOrders, useFetchAdminFinalizedOrders)
-      // deve ser tratada no onSuccess do hook useUpdatePedidoStatus para mover o pedido entre as tabelas.
+      setSelectedFile(null);
     } catch (error) {
-      // Toasts já são tratados nos hooks de mutação
       console.error('Erro em handleReopenPedido:', error);
     } finally {
       setIsUpdatingPedido(false);
     }
   };
 
-  // Nova função para abrir o modal de detalhes da revisão
   const handleOpenRevisaoDetailsModal = (solicitacao: SolicitacaoRevisaoAdmin) => {
     setSelectedSolicitacaoRevisao(solicitacao);
     setAdminFeedbackText(solicitacao.admin_feedback || "");
     setRevisaoAudioFile(null);
     
-    // Define o status inicial para o select no modal.
-    // Força o admin a escolher uma ação se a solicitação estiver 'solicitada'
-    // ou se o status atual for finalizado (embora não devesse abrir o modal).
-    // Caso contrário, preenche com o status atual se for intermediário.
     if (
       solicitacao.status_revisao === REVISAO_STATUS_ADMIN.SOLICITADA ||
       solicitacao.status_revisao === REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN ||
@@ -335,11 +328,11 @@ function AdminDashboardPage() {
     ) {
       setSelectedAdminActionStatus(solicitacao.status_revisao as TipoRevisaoStatusAdmin);
     } else {
-      setSelectedAdminActionStatus(undefined); // Default para outros casos
+      setSelectedAdminActionStatus(undefined); 
     }
 
     setIsSubmittingRevisaoAdmin(false);
-    resetProcessarRevisaoAction(); // Garante que erros de validação anteriores sejam limpos
+    resetProcessarRevisaoAction();
     setIsRevisaoDetailsModalOpen(true);
   };
 
@@ -349,7 +342,6 @@ function AdminDashboardPage() {
     }
   };
 
-  // Placeholder para a função de submeter a revisão do admin
   const handleSubmitAdminRevisao = async () => {
     if (!selectedSolicitacaoRevisao) {
       toast.error("Nenhuma solicitação de revisão selecionada.");
@@ -385,12 +377,11 @@ function AdminDashboardPage() {
     },
     {
       title: "Correções Pendentes", 
-      icon: MessageSquare, // Ícone para correções pendentes
-      // valueKey não se aplica diretamente, usaremos solicitacoesRevisao.length
-      value: solicitacoesRevisao.length, // Valor direto
-      isLoadingProperty: isLoadingSolicitacoesRevisao, // Propriedade de loading específica
+      icon: MessageSquare, 
+      value: solicitacoesRevisao.length, 
+      isLoadingProperty: isLoadingSolicitacoesRevisao, 
       subtext: "Solicitações de revisão aguardando processamento",
-      iconColorClass: "text-status-orange", // Cor similar a Pedidos Pendentes
+      iconColorClass: "text-status-orange", 
       tagColorClass: "bg-status-orange text-white"
     },
     { 
@@ -404,7 +395,7 @@ function AdminDashboardPage() {
     },
   ];
 
-  const isLoading = isLoadingStats || isLoadingActiveOrders || isLoadingFinalizedOrders; // Removido isLoadingSolicitacoesRevisao daqui, pois cada card trata seu loading
+  const isLoading = isLoadingStats || isLoadingActiveOrders || isLoadingFinalizedOrders;
 
   const adminRevisaoStatusOptions = [
     { value: REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN, label: 'Concluir Revisão (Enviar Feedback/Áudio)' },
@@ -439,7 +430,7 @@ function AdminDashboardPage() {
               queryClient.invalidateQueries({ queryKey: ['adminFinalizedOrders'] });
 
               console.log('Chamando refreshSolicitacoesRevisao...');
-              refreshSolicitacoesRevisao(); // Adicionado refresh das solicitações de revisão
+              refreshSolicitacoesRevisao(); 
               
               console.log('--- Invalidações e Refresh Chamados ---');
             }}
@@ -456,25 +447,22 @@ function AdminDashboardPage() {
           </div>
         )}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {(isLoading ? Array.from({ length: statCardsData.length }).map((_, i) => ({ id: i, isLoading: true })) : statCardsData).map((cardInfo: any, index) => {
+          {(isLoadingStats ? Array.from({ length: statCardsData.length }).map((_, i) => ({ id: i, isLoading: true })) : statCardsData).map((cardInfo: any, index) => {
             let Icon = cardInfo.isLoading ? Loader2 : cardInfo.icon;
             let value = cardInfo.isLoading ? null 
                           : cardInfo.valueKey && stats ? stats[cardInfo.valueKey as keyof AdminDashboardStats] 
                           : cardInfo.value;
             let tagText = cardInfo.isLoading ? null : (cardInfo.tagKey && stats ? stats[cardInfo.tagKey as keyof AdminDashboardStats] : cardInfo.tagText);
 
-            // Tratamento específico para o card de Correções Pendentes
             if (cardInfo.title === "Correções Pendentes") {
-              // Se isLoadingProperty for a chave para o loading deste card específico
               const specificLoading = cardInfo.isLoadingProperty;
               Icon = specificLoading ? Loader2 : cardInfo.icon;
               value = specificLoading ? null : solicitacoesRevisao.length;
-              // tagText pode ser definido se necessário, ex: solicitacoesRevisao.length
             }
 
             return (
               <Card key={`stat-${index}`} className={`shadow-sm hover:shadow-md transition-shadow rounded-lg`}>
-                {cardInfo.isLoading ? (
+                {cardInfo.isLoading || (cardInfo.title === "Correções Pendentes" && cardInfo.isLoadingProperty) ? (
                   <CardContent className="flex flex-col items-center justify-center p-6">
                     <Skeleton className="h-12 w-12 rounded-full mb-3" /> 
                     <Skeleton className="h-8 w-1/2 mb-2" />      
@@ -486,7 +474,7 @@ function AdminDashboardPage() {
                       <Icon className="h-6 w-6" />
                     </div>
                     <div className="text-3xl font-bold text-foreground">
-                      {value !== undefined && value !== null ? value.toLocaleString('pt-BR') : (cardInfo.valueKey === undefined && !cardInfo.fixedValue) ? '-' : '0'}
+                      {value !== undefined && value !== null ? value.toLocaleString('pt-BR') : (cardInfo.valueKey === undefined && !cardInfo.fixedValue && cardInfo.title !== "Correções Pendentes") ? '-' : '0'}
                     </div>
                     <p className="text-sm font-medium text-muted-foreground mt-1 text-center">
                       {cardInfo.title}
@@ -685,7 +673,7 @@ function AdminDashboardPage() {
             <DialogHeader>
               <DialogTitle>Detalhes do Pedido: {selectedPedido.id_pedido_serial}</DialogTitle>
               <DialogDescription>
-                Visualização completa das informações do pedido.
+                Visualização completa das informações do pedido e seu histórico.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-6 py-4 pr-3 overflow-y-auto max-h-[70vh]">
@@ -744,7 +732,120 @@ function AdminDashboardPage() {
                 </div>
               </div>
 
-              <Separator />
+              {/* Seção para o Histórico de Revisões do Pedido */}
+              <Separator className="my-4" />
+              <div>
+                <h4 className="text-md font-semibold text-foreground mb-2">Histórico de Revisões deste Pedido:</h4>
+                {isLoadingHistoricoRevisoesPedido && (
+                  <div className="flex items-center space-x-2">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Carregando histórico de revisões...</span>
+                  </div>
+                )}
+                {isErrorHistoricoRevisoesPedido && (
+                  <p className="text-sm text-red-600">
+                    Erro ao carregar histórico: {errorHistoricoRevisoesPedido?.message}
+                  </p>
+                )}
+                {!isLoadingHistoricoRevisoesPedido && !isErrorHistoricoRevisoesPedido && historicoRevisoesPedido && (
+                  <div className="p-3 bg-muted/30 rounded-md max-h-96 overflow-y-auto text-xs border space-y-4">
+                    {historicoRevisoesPedido.length === 0 ? (
+                      <p className="text-muted-foreground italic">Nenhuma solicitação de revisão encontrada para este pedido.</p>
+                    ) : (
+                      historicoRevisoesPedido.map((solicitacao, index) => (
+                        <div key={solicitacao.id} className="p-3 bg-background border rounded-md shadow-sm">
+                          <div className="flex justify-between items-center mb-2">
+                            <h5 className="text-sm font-semibold text-foreground">
+                              Solicitação de Revisão #{index + 1}
+                            </h5>
+                            <Badge 
+                              variant={solicitacao.status_revisao === REVISAO_STATUS_ADMIN.SOLICITADA ? 'outline' : 
+                                        solicitacao.status_revisao === REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN ? 'default' :
+                                        solicitacao.status_revisao === REVISAO_STATUS_ADMIN.NEGADA ? 'destructive' : 
+                                        'secondary'
+                                      }
+                              className={cn(
+                                solicitacao.status_revisao === REVISAO_STATUS_ADMIN.SOLICITADA && 'border-orange-500 text-orange-500',
+                                solicitacao.status_revisao === REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN && 'bg-green-600 text-white',
+                                solicitacao.status_revisao === REVISAO_STATUS_ADMIN.NEGADA && 'bg-red-600 text-white'
+                              )}
+                            >
+                              {solicitacao.status_revisao.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </Badge>
+                          </div>
+
+                          <p className="mb-1">
+                            <span className="font-medium text-muted-foreground">Data:</span> {format(new Date(solicitacao.data_solicitacao), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                          </p>
+                          <p className="mb-1">
+                            <span className="font-medium text-muted-foreground">Descrição do Cliente:</span>
+                          </p>
+                          <div className="p-2 bg-muted rounded-sm text-xs whitespace-pre-wrap border mb-2 max-h-28 overflow-y-auto">
+                            {solicitacao.descricao_cliente || 'Nenhuma descrição fornecida.'}
+                          </div>
+                          
+                          {solicitacao.admin_feedback && (
+                            <>
+                              <p className="mb-1 mt-2">
+                                <span className="font-medium text-muted-foreground">Feedback do Admin:</span>
+                              </p>
+                              <div className="p-2 bg-muted rounded-sm text-xs whitespace-pre-wrap border mb-2 max-h-28 overflow-y-auto">
+                                {solicitacao.admin_feedback}
+                              </div>
+                            </>
+                          )}
+
+                          {solicitacao.data_conclusao_revisao && (
+                            <p className="mb-2">
+                              <span className="font-medium text-muted-foreground">Data Conclusão da Revisão:</span> {format(new Date(solicitacao.data_conclusao_revisao), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                            </p>
+                          )}
+
+                          {solicitacao.versoes_audio_revisao && solicitacao.versoes_audio_revisao.length > 0 && (
+                            <div className="mt-3">
+                              <h6 className="text-xs font-semibold text-muted-foreground mb-1">Áudios Enviados nesta Revisão:</h6>
+                              <ul className="space-y-2">
+                                {solicitacao.versoes_audio_revisao.map((versao: VersaoAudioRevisadoDetalhada) => (
+                                  <li key={versao.id} className="p-2 border bg-background/50 rounded-md">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-xs font-medium truncate" title={versao.nome_arquivo_revisado || 'Nome não disponível'}>
+                                        <FileText className="h-3 w-3 mr-1 inline-block" /> {versao.nome_arquivo_revisado || 'Áudio revisado'}
+                                      </span>
+                                      {versao.audio_url_revisado && (
+                                        <a
+                                          href={versao.audio_url_revisado}
+                                          download
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs font-medium transition-colors"
+                                        >
+                                          <DownloadCloud className="h-3 w-3 mr-1" /> Baixar
+                                        </a>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      Enviado em: {format(new Date(versao.data_envio), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                                    </p>
+                                    {versao.comentario_admin && (
+                                      <div className="mt-1">
+                                        <p className="text-xs font-semibold text-muted-foreground">Comentário do Admin (sobre o áudio):</p>
+                                        <p className="text-xs text-muted-foreground whitespace-pre-wrap">{versao.comentario_admin}</p>
+                                      </div>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                           {index < historicoRevisoesPedido.length - 1 && <Separator className="my-3" />}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <Separator className="my-4" />
 
               <div className="space-y-2">
                 <label htmlFor="status-pedido" className="text-sm font-medium text-muted-foreground">Alterar Status do Pedido:</label>
@@ -807,7 +908,6 @@ function AdminDashboardPage() {
                   </Button>
                 </div>
               )}
-
             </div>
             <DialogFooter className="mt-6">
               <DialogClose asChild>
@@ -870,7 +970,7 @@ function AdminDashboardPage() {
                       {(() => {
                         const date = new Date(solicitacao.data_solicitacao);
                         const day = String(date.getDate()).padStart(2, '0');
-                        const month = String(date.getMonth() + 1).padStart(2, '0'); // Meses são 0-indexed
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
                         const year = date.getFullYear();
                         const hours = String(date.getHours()).padStart(2, '0');
                         const minutes = String(date.getMinutes()).padStart(2, '0');
@@ -896,7 +996,7 @@ function AdminDashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Modal para Detalhes da Solicitação de Revisão (Admin) */}
+      {/* MODAL DE DETALHES DA SOLICITAÇÃO DE REVISÃO (isRevisaoDetailsModalOpen) ... continua igual ... */}
       {selectedSolicitacaoRevisao && (
         <Dialog open={isRevisaoDetailsModalOpen} onOpenChange={setIsRevisaoDetailsModalOpen}>
           <DialogContent className="sm:max-w-2xl">
@@ -946,23 +1046,25 @@ function AdminDashboardPage() {
                   placeholder="Seu feedback para o cliente sobre a revisão (opcional)"
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="revisaoAudioFile" className="text-right">
+              <div className="grid grid-cols-4 items-start gap-4"> 
+                <Label htmlFor="revisaoAudioFile" className="text-right pt-2"> 
                   Áudio Revisado
                 </Label>
-                <Input
-                  id="revisaoAudioFile"
-                  type="file"
-                  onChange={handleRevisaoAudioFileChange}
-                  className="col-span-3"
-                  accept="audio/*"
-                />
-              </div>
-              {revisaoAudioFile && (
-                <div className="col-span-4 text-sm text-muted-foreground">
-                  Arquivo selecionado: {revisaoAudioFile.name} ({(revisaoAudioFile.size / 1024).toFixed(2)} KB)
+                <div className="col-span-3 space-y-1"> 
+                  <Input
+                    id="revisaoAudioFile"
+                    type="file"
+                    onChange={handleRevisaoAudioFileChange}
+                    className="w-full"
+                    accept="audio/*"
+                  />
+                  {revisaoAudioFile && (
+                    <p className="text-sm text-muted-foreground truncate" title={revisaoAudioFile.name}> 
+                      Arquivo: {revisaoAudioFile.name} ({(revisaoAudioFile.size / 1024).toFixed(2)} KB)
+                    </p>
+                  )}
                 </div>
-              )}
+              </div>
                {/* Exibir erros de validação do Zod da Action */}
               {processarRevisaoStatus === 'hasValidationError' && processarRevisaoResult.validationErrors && (
                 <div className="col-span-4 mt-2 text-sm text-red-600 bg-red-100 p-3 rounded-md">

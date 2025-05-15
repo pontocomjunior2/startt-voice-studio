@@ -42,7 +42,6 @@ export const processarRevisaoAdminSchema = z.object({
     .optional(),
   novoStatusRevisao: z.enum(
     [
-      REVISAO_STATUS_ADMIN.SOLICITADA,
       REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN,
       REVISAO_STATUS_ADMIN.AGUARDANDO_UPLOAD_ADMIN,
       REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN,
@@ -55,23 +54,18 @@ export const processarRevisaoAdminSchema = z.object({
   ),
 });
 
-// O middleware de verificação de admin será chamado no início da action.
 const actionClientAdmin = createSafeActionClient({
-  // Esta função é chamada no servidor se a action lançar um erro não capturado internamente.
-  // Útil para logging centralizado de erros inesperados antes que uma resposta genérica seja enviada.
   handleServerError(e: Error) {
     console.error("🔴 Erro não capturado na Server Action (handleServerError):", e);
-    // Esta função normalmente não retorna um valor que altera a resposta ao cliente,
-    // ela é para side-effects como logging. O cliente receberá um erro genérico
-    // se a action falhar sem retornar um objeto de erro estruturado.
-    // Para o erro ACESSO_NEGADO_ADMIN, já estamos retornando um objeto estruturado.
+    return { serverError: `Erro inesperado no servidor: ${e.message}` };
   },
 });
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export const processarRevisaoAdminAction = actionClientAdmin
   .schema(processarRevisaoAdminSchema)
   .action(async ({ parsedInput }) => {
-    // PASSO 0: Verificar se é admin
     const isAdmin = await verificarAdminRole();
     if (!isAdmin) {
       console.warn("[processarRevisaoAdminAction] Tentativa de execução por não admin.");
@@ -80,37 +74,85 @@ export const processarRevisaoAdminAction = actionClientAdmin
 
     const { solicitacaoId, adminFeedback, audioFile, novoStatusRevisao } = parsedInput;
     
-    console.log(`[processarRevisaoAdminAction] Iniciando para solicitação ID: ${solicitacaoId} com novo status: ${novoStatusRevisao}`);
+    console.log(`[Action processarRevisaoAdmin] Iniciando para solicitação ID: ${solicitacaoId} com novo status: ${novoStatusRevisao}`);
     if (audioFile) {
-      console.log(`[processarRevisaoAdminAction] Nome do arquivo: ${audioFile.name}, Tamanho: ${audioFile.size}, Tipo: ${audioFile.type}`);
+      console.log(`[Action processarRevisaoAdmin] Arquivo fornecido: ${audioFile.name}, Tamanho: ${audioFile.size}, Tipo: ${audioFile.type}`);
     } else {
-      console.log(`[processarRevisaoAdminAction] Nenhum arquivo de áudio fornecido.`);
+      console.log(`[Action processarRevisaoAdmin] Nenhum arquivo de áudio fornecido para esta ação.`);
     }
 
     const { data: solicitacaoData, error: solicitacaoError } = await supabase
       .from('solicitacoes_revisao')
-      .select('pedido_id, status_revisao')
+      .select('pedido_id, status_revisao, user_id')
       .eq('id', solicitacaoId)
       .single();
 
     if (solicitacaoError || !solicitacaoData) {
-      console.error('[processarRevisaoAdminAction] Erro ao buscar solicitação:', solicitacaoError);
+      console.error('[Action processarRevisaoAdmin] Erro ao buscar solicitação:', solicitacaoError);
       return { failure: 'Solicitação de revisão não encontrada.' };
     }
-    const { pedido_id: pedidoId, status_revisao: statusAtualRevisao } = solicitacaoData;
-    console.log(`[processarRevisaoAdminAction] Pedido ID associado: ${pedidoId}, Status Atual Revisão: ${statusAtualRevisao}`);
+    const { pedido_id: pedidoId, status_revisao: statusAtualRevisao, user_id: clienteUserId } = solicitacaoData;
+    console.log(`[Action processarRevisaoAdmin] Pedido ID: ${pedidoId}, Cliente User ID: ${clienteUserId}, Status Atual: ${statusAtualRevisao}`);
+
+    if (!clienteUserId) {
+        console.error('[Action processarRevisaoAdmin] User ID do cliente não encontrado na solicitação.');
+        return { failure: 'User ID do cliente não encontrado.' };
+    }
+
+    const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', clienteUserId)
+        .single();
+
+    if (profileError || !profileData || !profileData.username) {
+        console.error('[Action processarRevisaoAdmin] Erro ao buscar username do cliente:', profileError);
+        return { failure: 'Não foi possível encontrar o username do cliente.' };
+    }
+    const clientUsername = profileData.username;
+    console.log(`[Action processarRevisaoAdmin] Username do cliente: ${clientUsername}`);
 
     if (statusAtualRevisao === REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN || statusAtualRevisao === REVISAO_STATUS_ADMIN.NEGADA) {
-        console.warn(`[processarRevisaoAdminAction] Tentativa de processar solicitação que já está '${statusAtualRevisao}'.`);
+        console.warn(`[Action processarRevisaoAdmin] Tentativa de processar solicitação que já está '${statusAtualRevisao}'.`);
         return { failure: `Esta solicitação de revisão já foi processada (status: ${statusAtualRevisao}).`};
     }
 
-    // --- INÍCIO DA LÓGICA REESTRUTURADA ---
+    if (audioFile && novoStatusRevisao === REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN) {
+      console.log(`[Action processarRevisaoAdmin] FLUXO: CONCLUÍDA COM ARQUIVO. Enviando para API Route...`);
+      
+      const formData = new FormData();
+      formData.append('revisaoAudioFile', audioFile);
+      formData.append('solicitacaoId', solicitacaoId);
+      formData.append('adminFeedback', adminFeedback || '');
+      formData.append('novoStatusRevisao', novoStatusRevisao);
+      formData.append('clientUsername', clientUsername); 
+      formData.append('pedidoId', pedidoId); 
 
-    if (novoStatusRevisao === REVISAO_STATUS_ADMIN.NEGADA) {
-      console.log(`[processarRevisaoAdminAction] FLUXO: REVISÃO NEGADA para solicitação ID: ${solicitacaoId}`);
+      try {
+        const apiUrlComUsername = `${API_URL}/api/revisoes/processar-upload/${encodeURIComponent(clientUsername)}`;
+        console.log(`[Action processarRevisaoAdmin] Chamando API: ${apiUrlComUsername}`);
+        const response = await fetch(apiUrlComUsername, {
+          method: 'POST',
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          console.error('[Action processarRevisaoAdmin] Falha na API de upload:', result);
+          return { failure: result.failure || `Erro na API de upload (${response.status}): ${response.statusText}` };
+        }
+        console.log('[Action processarRevisaoAdmin] Sucesso na API de upload:', result);
+        return { success: result.message || 'Revisão processada e áudio salvo com sucesso.' };
+
+      } catch (fetchError: any) {
+        console.error('[Action processarRevisaoAdmin] Erro no fetch para API de upload:', fetchError);
+        return { failure: `Erro de comunicação com o servidor de upload: ${fetchError.message}` };
+      }
+    } else if (novoStatusRevisao === REVISAO_STATUS_ADMIN.NEGADA) {
+      console.log(`[Action processarRevisaoAdmin] FLUXO: REVISÃO NEGADA.`);
       if (audioFile) {
-        console.warn('[processarRevisaoAdminAction:NEGADA] Arquivo de áudio fornecido para negação, será ignorado.');
+        console.warn('[Action processarRevisaoAdmin:NEGADA] Arquivo de áudio fornecido para negação, será ignorado.');
       }
 
       const { error: updateSolicitacaoError } = await supabase
@@ -123,12 +165,8 @@ export const processarRevisaoAdminAction = actionClientAdmin
         .eq('id', solicitacaoId);
 
       if (updateSolicitacaoError) {
-        console.error(
-          '[processarRevisaoAdminAction:NEGADA] Erro ao atualizar solicitação:', 
-          JSON.stringify(updateSolicitacaoError, null, 2) 
-        );
-        const errorMessage = updateSolicitacaoError.message || 'Erro desconhecido ao atualizar a solicitação.';
-        return { failure: `Erro ao marcar a revisão como negada: ${errorMessage}` };
+        console.error('[Action processarRevisaoAdmin:NEGADA] Erro ao atualizar solicitação:', updateSolicitacaoError);
+        return { failure: `Erro ao marcar a revisão como negada: ${updateSolicitacaoError.message}` };
       }
 
       const { error: updatePedidoError } = await supabase
@@ -137,124 +175,54 @@ export const processarRevisaoAdminAction = actionClientAdmin
         .eq('id', pedidoId);
 
       if (updatePedidoError) {
-        console.error('[processarRevisaoAdminAction:NEGADA] Erro ao atualizar pedido principal:', updatePedidoError);
-        // Considerar rollback do status da solicitação aqui para consistência
-        return { failure: 'Revisão negada, mas falha ao atualizar status do pedido principal.' };
+        console.error('[Action processarRevisaoAdmin:NEGADA] Erro ao atualizar pedido principal:', updatePedidoError);
+        console.warn('Revisão negada com sucesso, mas houve falha ao atualizar status do pedido principal.');
       }
       return { success: 'Revisão marcada como negada e feedback enviado ao cliente.' };
-
-    } else if (novoStatusRevisao === REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN) {
-      console.log(`[processarRevisaoAdminAction] FLUXO: REVISÃO CONCLUÍDA para solicitação ID: ${solicitacaoId}`);
-      let audioUrlRevisadoDb = null;
-      let nomeArquivoDb = null;
-      let uploadPathParaRollback = null;
-
-      if (audioFile) {
-        console.log(`[processarRevisaoAdminAction:CONCLUIDA] Processando com arquivo: ${audioFile.name}`);
-        const timestamp = Date.now();
-        const filePath = `public/revisoes/${pedidoId}/${solicitacaoId}/${timestamp}-${audioFile.name}`;
-        uploadPathParaRollback = filePath; // Guardar para possível rollback
-
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('audios-revisados').upload(filePath, audioFile, { cacheControl: '3600', upsert: false });
-
-        if (uploadError) {
-          console.error('[processarRevisaoAdminAction:CONCLUIDA] Erro upload:', uploadError);
-          return { failure: `Erro upload: ${uploadError.message}` };
-        }
-        if (!uploadData) { 
-            return { failure: 'Falha upload, resposta inesperada.' };
-        }
-        
-        const { data: publicUrlData } = supabase.storage.from('audios-revisados').getPublicUrl(uploadData.path);
-        if (!publicUrlData || !publicUrlData.publicUrl) {
-          await supabase.storage.from('audios-revisados').remove([uploadData.path]);
-          return { failure: 'Erro obter URL pública.' };
-        }
-        audioUrlRevisadoDb = publicUrlData.publicUrl;
-        nomeArquivoDb = audioFile.name;
-        console.log(`[processarRevisaoAdminAction:CONCLUIDA] Upload OK: ${audioUrlRevisadoDb}`);
-
-        const { error: insertVersaoError } = await supabase.from('versoes_audio_revisado').insert({
-          solicitacao_id: solicitacaoId, audio_url_revisado: audioUrlRevisadoDb, 
-          nome_arquivo_revisado: nomeArquivoDb, comentario_admin: adminFeedback,
-          data_envio: new Date().toISOString(),
-        });
-
-        if (insertVersaoError) {
-          console.error(
-            '[processarRevisaoAdminAction:CONCLUIDA] Erro insert versoes_audio_revisado:', 
-            JSON.stringify(insertVersaoError, null, 2)
-          );
-          if (uploadPathParaRollback) await supabase.storage.from('audios-revisados').remove([uploadPathParaRollback]);
-          const errorMessage = insertVersaoError.message || 'Erro ao salvar detalhes do áudio.';
-          return { failure: `Erro ao salvar detalhes do áudio: ${errorMessage}` };
-        }
-        console.log('[processarRevisaoAdminAction:CONCLUIDA] DB versoes_audio_revisado OK.');
-      } else {
-        console.log('[processarRevisaoAdminAction:CONCLUIDA] Processando sem arquivo de áudio.');
-      }
-
-      const { error: updateSolicitacaoError } = await supabase.from('solicitacoes_revisao').update({
-        status_revisao: REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN,
-        admin_feedback: adminFeedback,
-        data_conclusao_revisao: new Date().toISOString(),
-      }).eq('id', solicitacaoId);
-
-      if (updateSolicitacaoError) {
-        console.error(
-          '[processarRevisaoAdminAction:CONCLUIDA] Erro update solicitacoes_revisao:',
-          JSON.stringify(updateSolicitacaoError, null, 2)
-        );
-        if (uploadPathParaRollback) { /* TODO: Tentar deletar de versoes_audio_revisado também */ await supabase.storage.from('audios-revisados').remove([uploadPathParaRollback]);}
-        const errorMessage = updateSolicitacaoError.message || 'Erro ao finalizar solicitação.';
-        return { failure: `Erro ao finalizar solicitação: ${errorMessage}` };
-      }
-      console.log('[processarRevisaoAdminAction:CONCLUIDA] DB solicitacoes_revisao OK.');
-
-      const { error: updatePedidoError } = await supabase.from('pedidos').update({ 
-        status: PEDIDO_STATUS.CONCLUIDO 
-        // Se o audioUrlRevisadoDb existir e for para atualizar o pedido principal:
-        // ...(audioUrlRevisadoDb && { audio_final_url: audioUrlRevisadoDb })
-      }).eq('id', pedidoId);
-
-      if (updatePedidoError) {
-        console.error(
-          '[processarRevisaoAdminAction:CONCLUIDA] Erro update pedidos:', 
-          JSON.stringify(updatePedidoError, null, 2)
-        );
-        // Rollback mais complexo aqui: reverter status da solicitação, deletar de versoes_audio_revisado, remover do storage.
-        const errorMessage = updatePedidoError.message || 'Erro ao atualizar pedido principal.';
-        return { failure: `Revisão OK, mas falha atualizar pedido principal: ${errorMessage}` };
-      }
-      console.log('[processarRevisaoAdminAction:CONCLUIDA] DB pedidos OK.');
-      return { success: `Revisão concluída. ${audioFile ? 'Áudio enviado.' : 'Feedback enviado.'}` };
-
-    } else if (novoStatusRevisao === REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN || novoStatusRevisao === REVISAO_STATUS_ADMIN.AGUARDANDO_UPLOAD_ADMIN) {
-      console.log(`[processarRevisaoAdminAction] FLUXO: ATUALIZAR STATUS INTERMEDIÁRIO para ${novoStatusRevisao}, ID: ${solicitacaoId}`);
-      if (audioFile) {
-        console.warn(`[processarRevisaoAdminAction:INTERMEDIARIO] Arquivo de áudio fornecido para status ${novoStatusRevisao}, será ignorado.`);
-      }
-      const { error: updateSolicitacaoError } = await supabase.from('solicitacoes_revisao').update({
+    } else if (
+        novoStatusRevisao === REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN ||
+        novoStatusRevisao === REVISAO_STATUS_ADMIN.AGUARDANDO_UPLOAD_ADMIN ||
+        (novoStatusRevisao === REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN && !audioFile)
+      ) {
+      console.log(`[Action processarRevisaoAdmin] FLUXO: Atualização de status para ${novoStatusRevisao} (sem upload de novo arquivo)`);
+      
+      const updatePayload: { 
+        status_revisao: string;
+        admin_feedback?: string;
+        data_conclusao_revisao?: string | null;
+      } = {
         status_revisao: novoStatusRevisao,
-        admin_feedback: adminFeedback,
-        // data_conclusao_revisao não é preenchida para status intermediários
-      }).eq('id', solicitacaoId);
+        admin_feedback: adminFeedback || undefined,
+      };
 
-      if (updateSolicitacaoError) {
-        console.error(
-          `[processarRevisaoAdminAction:INTERMEDIARIO] Erro ao atualizar solicitação para ${novoStatusRevisao}:`,
-          JSON.stringify(updateSolicitacaoError, null, 2)
-        );
-        const errorMessage = updateSolicitacaoError.message || 'Erro desconhecido ao atualizar status.';
-        return { failure: `Erro ao atualizar status da revisão para ${novoStatusRevisao}: ${errorMessage}` };
+      if (novoStatusRevisao === REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN) {
+        updatePayload.data_conclusao_revisao = new Date().toISOString();
       }
-      // O status do pedido principal (pedidos.status) não muda para status intermediários da revisão.
-      return { success: `Status da revisão atualizado para ${novoStatusRevisao}.` };
 
+      const { error: updateSolError } = await supabase
+        .from('solicitacoes_revisao')
+        .update(updatePayload)
+        .eq('id', solicitacaoId);
+
+      if (updateSolError) {
+        console.error(`[Action processarRevisaoAdmin] Erro ao atualizar status para ${novoStatusRevisao}:`, updateSolError);
+        return { failure: `Erro ao atualizar status da solicitação para ${novoStatusRevisao}: ${updateSolError.message}` };
+      }
+      
+      if (novoStatusRevisao === REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN) {
+        const { error: updatePedidoError } = await supabase
+          .from('pedidos')
+          .update({ status: PEDIDO_STATUS.CONCLUIDO })
+          .eq('id', pedidoId);
+
+        if (updatePedidoError) {
+          console.error('[Action processarRevisaoAdmin] Erro ao atualizar pedido principal para concluído (pós-revisão sem novo áudio):', updatePedidoError);
+          console.warn('Status da revisão atualizado, mas houve falha ao atualizar status do pedido principal.');
+        }
+      }
+      return { success: `Status da revisão atualizado para ${novoStatusRevisao}.` };
     } else {
-      console.warn(`[processarRevisaoAdminAction] Status não esperado ou inválido: '${novoStatusRevisao}'.`);
-      return { failure: `Status de revisão '${novoStatusRevisao}' não é um fluxo de processamento válido nesta ação.` };
+        console.warn(`[Action processarRevisaoAdmin] Combinação não tratada: status ${novoStatusRevisao} com audioFile ${audioFile ? 'presente' : 'ausente'}`);
+        return { failure: 'Ação não permitida ou combinação de status e arquivo inválida.' };
     }
-    // --- FIM DA LÓGICA REESTRUTURADA ---
   }); 
