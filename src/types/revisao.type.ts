@@ -35,4 +35,23 @@ export interface SolicitacaoRevisaoAdmin {
   cliente_user_id: string;
   cliente_nome?: string | null;
   cliente_email?: string | null;
+}
+
+// Tipos para a visualização do cliente sobre as revisões
+export interface VersaoAudioRevisadoCliente {
+  id: string; // ID da tabela versoes_audio_revisao
+  audioUrl: string; // Mapeado de audio_url
+  enviadoEm: string; // Mapeado de enviado_em
+  comentariosAdmin?: string | null; // Mapeado de comentarios_admin da tabela versoes_audio_revisao
+  numeroVersao: number;
+}
+
+export interface SolicitacaoRevisaoParaCliente {
+  id: string; // ID da solicitação de revisão (tabela solicitacoes_revisao)
+  descricaoCliente: string; // Descrição feita pelo cliente
+  dataSolicitacao: string;
+  adminFeedback?: string | null; // Feedback geral do admin para esta solicitação (da tabela solicitacoes_revisao)
+  dataConclusaoRevisao?: string | null;
+  statusRevisao: TipoRevisaoStatusAdmin; // Para referência, caso necessário
+  versoesAudio: VersaoAudioRevisadoCliente[];
 } 

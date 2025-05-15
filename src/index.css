@@ -33,7 +33,7 @@
     --popover-foreground: 205 20% 25%;
     --muted: 205 20% 92%;             /* Cinza claro */
     --muted-foreground: 205 15% 55%;  /* Cinza médio */
-    --destructive: 0 75% 55%;          /* Vermelho */
+    --destructive: 205 20% 88%;          /* Vermelho */
     --destructive-foreground: 0 0% 100%;
     --border: 205 20% 88%;            /* Cinza claro (borda) */
     --input: 205 20% 88%;             /* Cinza claro (input) */
