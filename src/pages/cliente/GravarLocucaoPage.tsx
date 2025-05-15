@@ -10,13 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { estimateCreditsFromText } from '@/utils/creditUtils';
 import { cn } from '@/lib/utils';
-import { PlayCircle, Send, Loader2, UserCircle, Users, ChevronLeft, ChevronRight, Heart, Filter, Star } from 'lucide-react';
+import { PlayCircle, Send, Loader2, UserCircle, Users, ChevronLeft, ChevronRight, Heart, Filter, Star, AlertTriangle } from 'lucide-react';
 import { Separator } from "@/components/ui/separator";
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { Form, FormControl, FormField, FormItem, FormMessage, FormLabel } from '@/components/ui/form';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -37,6 +38,8 @@ import { obterMensagemSucessoAleatoria } from '@/utils/messageUtils';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PEDIDO_STATUS } from '@/types/pedido.type';
 import { atualizarPedidoAction } from '@/actions/pedido-actions';
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const estilosLocucaoOpcoes = [
   { id: 'padrao', label: 'Padrão' },
@@ -60,37 +63,42 @@ const multiStepGravarLocucaoFormSchema = z.object({
 }).superRefine((data, ctx) => {
   // Validações para a Etapa 2 (após tipoAudio ser preenchido)
   // A validação do locutorId será feita no handleNextStep e antes do submit
-  
+  console.log('[Zod superRefine] Data for validation:', JSON.stringify(data)); 
+
   // Validações para a Etapa 3 (após tipoAudio e locutorId serem preenchidos)
   if (data.tipoAudio && data.locutorId) {
-    if (!data.tituloPedido || data.tituloPedido.trim().length < 3) {
+    console.log('[Zod superRefine] Condition for Step 3 met: tipoAudio AND locutorId are present.');
+    
+    if (data.tituloPedido === undefined || data.tituloPedido.trim().length < 3) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'O título do pedido deve ter pelo menos 3 caracteres.',
         path: ['tituloPedido'],
       });
     }
-    if (!data.estiloLocucao) {
+    if (data.estiloLocucao === undefined || data.estiloLocucao.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Por favor, selecione um estilo de locução.',
         path: ['estiloLocucao'],
       });
     }
-    if (data.estiloLocucao === 'outro' && (!data.outroEstiloEspecificacao || data.outroEstiloEspecificacao.trim().length === 0)) {
+    if (data.estiloLocucao === 'outro' && (data.outroEstiloEspecificacao === undefined || data.outroEstiloEspecificacao.trim().length === 0)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Por favor, especifique o estilo 'Outro'.",
         path: ['outroEstiloEspecificacao'],
       });
     }
-    if (!data.scriptText || data.scriptText.trim().length < 10) {
+    if (data.scriptText === undefined || data.scriptText.trim().length < 10) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'O roteiro deve ter pelo menos 10 caracteres.',
         path: ['scriptText'],
       });
     }
+  } else {
+    console.log('[Zod superRefine] Condition for Step 3 NOT met. tipoAudio:', data.tipoAudio, 'locutorId:', data.locutorId);
   }
 });
 
@@ -123,6 +131,10 @@ function GravarLocucaoPage() {
   const [idsLocutoresFavoritos, setIdsLocutoresFavoritos] = useState<string[]>([]);
   const [mostrarApenasFavoritos, setMostrarApenasFavoritos] = useState(false);
 
+  // Estados para o Popover de aviso do botão Avançar
+  const [isAdvanceBlockedPopoverOpen, setIsAdvanceBlockedPopoverOpen] = useState(false);
+  const [popoverErrorMessage, setPopoverErrorMessage] = useState<string | null>(null);
+
   const { animatedSeconds } = useSpring({
     reset: true,
     from: { animatedSeconds: 0 },
@@ -132,7 +144,7 @@ function GravarLocucaoPage() {
 
   const formHook = useForm<z.infer<typeof multiStepGravarLocucaoFormSchema>>({
     resolver: zodResolver(multiStepGravarLocucaoFormSchema),
-    mode: 'onChange', 
+    mode: 'all', 
     defaultValues: {
       tipoAudio: undefined,
       locutorId: '',
@@ -144,7 +156,14 @@ function GravarLocucaoPage() {
     },
   });
 
-  const { control, handleSubmit, setValue, reset, formState: { isSubmitting, isValid: isFormValid }, watch, trigger, getValues, setError: setFormError } = formHook;
+  const { control, handleSubmit, setValue, reset, formState: { isSubmitting, isValid: isFormValid, errors }, watch, trigger, getValues, setError: setFormError } = formHook;
+
+  // Log para depurar erros do formulário
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      console.log('[GravarLocucaoPage] Form errors:', errors);
+    }
+  }, [errors]);
 
   const watchedTipoAudio = watch("tipoAudio");
   const watchedLocutorId = watch("locutorId");
@@ -538,45 +557,67 @@ function GravarLocucaoPage() {
     }
   };
 
+  useEffect(() => {
+    console.log('[GravarLocucaoPage] Popover state changed:', isAdvanceBlockedPopoverOpen, popoverErrorMessage);
+  }, [isAdvanceBlockedPopoverOpen, popoverErrorMessage]);
+
   const handleNextStep = async () => {
+    console.log('[handleNextStep] Called. Current step:', currentStep);
     let isValid = false;
+    let errorMessageForPopover: string | null = null;
+
     if (currentStep === 1) {
       isValid = await trigger("tipoAudio");
       if (!getValues("tipoAudio")) {
-        setFormError("tipoAudio", { type: "manual", message: "Selecione o tipo de áudio." });
+        setFormError("tipoAudio", { type: "manual", message: "Selecione o tipo de áudio para prosseguir." });
+        errorMessageForPopover = "Por favor, selecione o tipo de áudio.";
         isValid = false;
       }
     } else if (currentStep === 2) {
-      await trigger("locutorId"); // Tenta validar o campo primeiro para obter erros de schema base se houver
+      // Para a Etapa 2, vamos validar locutorId. 
+      // A chamada trigger("locutorId") é boa, mas a lógica principal de erro virá da nossa checagem manual.
+      await trigger("locutorId"); // Aciona validação do Zod se houver, e atualiza formState
       const locId = getValues("locutorId");
 
       if (!locId) {
         setFormError("locutorId", { type: "manual", message: "Por favor, selecione um locutor." });
-        setSelectedLocutor(null);
+        errorMessageForPopover = "É necessário selecionar um locutor.";
+        // setSelectedLocutor(null); // Já deve estar null ou será resetado se a validação falhar
         isValid = false;
       } else {
         const foundLocutor = locutores.find(l => l.id === locId);
         if (!foundLocutor) {
-          setFormError("locutorId", { type: "manual", message: "Locutor selecionado não foi encontrado na lista de locutores ativos." });
-          setSelectedLocutor(null);
+          setFormError("locutorId", { type: "manual", message: "Locutor selecionado é inválido." });
+          errorMessageForPopover = "O locutor selecionado não foi encontrado.";
           isValid = false;
         } else {
-          // Locutor encontrado na lista geral, agora verificar contra o filtro de favoritos
           if (mostrarApenasFavoritos && !idsLocutoresFavoritos.includes(locId)) {
-            setFormError("locutorId", { type: "manual", message: "O locutor selecionado não está na sua lista de favoritos. Selecione um favorito ou desative o filtro." });
-            setSelectedLocutor(null); 
+            setFormError("locutorId", { type: "manual", message: "Selecione um favorito ou desative o filtro." });
+            errorMessageForPopover = "O locutor selecionado não está nos seus favoritos.";
             isValid = false;
           } else {
-            // Tudo ok: locutor existe e, se filtro ativo, é um favorito
-            setSelectedLocutor(foundLocutor);
+            setSelectedLocutor(foundLocutor); // Definir locutor selecionado APENAS se todas as validações passarem
             isValid = true;
           }
         }
       }
     }
-    // Para a etapa 3, a validação completa é feita pelo Zod no submit, mas isFormValid pode ser usado para o botão.
+
     if (isValid) {
+      console.log('[handleNextStep] Step is valid, advancing.');
       setCurrentStep(prev => prev + 1);
+      setIsAdvanceBlockedPopoverOpen(false); 
+      setPopoverErrorMessage(null);
+    } else if (errorMessageForPopover) {
+      console.log('[handleNextStep] Step is invalid. Setting popover error:', errorMessageForPopover);
+      setPopoverErrorMessage(errorMessageForPopover);
+      setIsAdvanceBlockedPopoverOpen(true);
+    } else {
+      // Se isValid é false, mas não temos uma errorMessageForPopover (ex: erro de Zod não manual)
+      // Garantimos que o popover não fique aberto por um estado anterior.
+      console.log('[handleNextStep] Step is invalid (possibly Zod error), no specific popover message. Ensuring popover is closed.');
+      setIsAdvanceBlockedPopoverOpen(false);
+      setPopoverErrorMessage(null);
     }
   };
 
@@ -683,7 +724,7 @@ function GravarLocucaoPage() {
                             </FormItem>
                           </RadioGroup>
                         </FormControl>
-                        <FormMessage className="text-center pt-2" />
+                        {/* <FormMessage className="text-center pt-2" /> Removido para tipoAudio, coberto pelo Popover */}
                       </FormItem>
                     )}
                   />
@@ -915,7 +956,16 @@ function GravarLocucaoPage() {
                       })()}
                     </>
                   )}
-                  <FormField control={control} name="locutorId" render={({ field }) => ( <FormItem><FormControl><Input type="hidden" {...field} /></FormControl><FormMessage className="text-center pt-2" /></FormItem> )} />
+                  <FormField 
+                    control={control} 
+                    name="locutorId" 
+                    render={({ field }) => ( 
+                      <FormItem>
+                        <FormControl><Input type="hidden" {...field} /></FormControl>
+                        {/* <FormMessage className="text-center pt-2" /> Removido para locutorId, coberto pelo Popover */}
+                      </FormItem> 
+                    )} 
+                  />
                 </div>
               )}
 
@@ -935,8 +985,8 @@ function GravarLocucaoPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Título do Pedido <span className="text-xs text-muted-foreground">(para sua identificação)</span></FormLabel>
-                        <FormControl><Input placeholder="Ex: Spot Dia das Mães Varejão" {...field} /></FormControl>
-                        <FormMessage />
+                        <FormControl><Input placeholder="Ex: Spot Dia das Mães Varejão" {...field} onBlur={() => trigger("tituloPedido")} /></FormControl>
+                        <FormMessage /> {/* Restaurado para Etapa 3 */}
                       </FormItem>
                     )}
                   />
@@ -947,7 +997,7 @@ function GravarLocucaoPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Estilo de Locução</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={(value) => { field.onChange(value); trigger("estiloLocucao"); if (value !== 'outro') { trigger("outroEstiloEspecificacao"); } }} defaultValue={field.value}>
                           <FormControl><SelectTrigger><SelectValue placeholder="Selecione o estilo desejado" /></SelectTrigger></FormControl>
                           <SelectContent>
                             {estilosLocucaoOpcoes.map(opcao => (
@@ -955,7 +1005,7 @@ function GravarLocucaoPage() {
                             ))}
                           </SelectContent>
                         </Select>
-                        <FormMessage />
+                        <FormMessage /> {/* Restaurado para Etapa 3 */}
                       </FormItem>
                     )}
                   />
@@ -967,8 +1017,8 @@ function GravarLocucaoPage() {
                       render={({ field }) => (
                         <FormItem className="animate-fadeIn">
                           <FormLabel>Especifique o Estilo "Outro"</FormLabel>
-                          <FormControl><Input placeholder="Descreva o estilo aqui" {...field} /></FormControl>
-                          <FormMessage />
+                          <FormControl><Input placeholder="Descreva o estilo aqui" {...field} onBlur={() => trigger("outroEstiloEspecificacao")} /></FormControl>
+                          <FormMessage /> {/* Restaurado para Etapa 3 */}
                         </FormItem>
                       )}
                     />
@@ -990,9 +1040,10 @@ function GravarLocucaoPage() {
                             placeholder="Digite ou cole aqui o texto para a locução..."
                             className="min-h-[150px] resize-y"
                             {...field}
+                            onBlur={() => trigger("scriptText")}
                           />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage /> {/* Restaurado para Etapa 3 */}
                       </FormItem>
                     )}
                   />
@@ -1024,9 +1075,10 @@ function GravarLocucaoPage() {
                             placeholder="Ex: Ênfase na palavra 'PROMOÇÃO', tom mais animado no final, etc."
                             className="min-h-[80px] resize-y"
                             {...field}
+                            onBlur={() => trigger("orientacoes")}
                           />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage /> {/* Restaurado para Etapa 3 */}
                       </FormItem>
                     )}
                   />
@@ -1083,54 +1135,101 @@ function GravarLocucaoPage() {
 
             </CardContent>
             <CardFooter className="flex justify-between items-center border-t pt-6">
-              <div>
-                {currentStep > 1 && (
-                  <Button type="button" variant="outline" onClick={handlePreviousStep} disabled={isSubmitting}>
-                    <ChevronLeft className="mr-2 h-4 w-4" />
-                    Voltar
-                  </Button>
-                )}
-              </div>
-              <div className="flex items-center space-x-2">
-                {currentStep < 3 && (
-                  <Button 
-                    type="button" 
-                    onClick={handleNextStep} 
-                    disabled={
-                      isSubmitting ||
-                      (currentStep === 1 && !watchedTipoAudio) ||
-                      (currentStep === 2 && (!watchedLocutorId || 
-                        (mostrarApenasFavoritos 
-                          ? locutores.filter(l => idsLocutoresFavoritos.includes(l.id)).length === 0 
-                          : locutores.length === 0)
-                      ))
-                    }
-                  >
-                    Avançar
-                    <ChevronRight className="ml-2 h-4 w-4" />
-                  </Button>
-                )}
-                {currentStep === 3 && (
-                  <Button
-                    type="submit"
-                    size="lg"
-                    disabled={
-                        isSubmitting || 
-                        !isFormValid ||
-                        !selectedLocutor || 
-                        estimatedCredits === 0 ||
-                        (profile?.credits ?? 0) < estimatedCredits
-                    }
-                  >
-                    {isSubmitting ? (
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    ) : (
-                      <Send className="mr-2 h-5 w-5" />
-                    )}
-                    {isEditMode ? `Enviar Alteração (${estimatedCredits} créditos)` : `Enviar Pedido (${estimatedCredits} créditos)`}
-                  </Button>
-                )}
-              </div>
+              <TooltipProvider delayDuration={300}>
+                <div>
+                  {currentStep > 1 && (
+                    <Button type="button" variant="outline" onClick={handlePreviousStep} disabled={isSubmitting}>
+                      <ChevronLeft className="mr-2 h-4 w-4" />
+                      Voltar
+                    </Button>
+                  )}
+                </div>
+                <div className="flex items-center space-x-2">
+                  {currentStep < 3 && (
+                    <Popover open={isAdvanceBlockedPopoverOpen} onOpenChange={setIsAdvanceBlockedPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button 
+                          type="button" 
+                          onClick={handleNextStep} 
+                          disabled={isSubmitting}
+                          className={cn(
+                            {
+                              "opacity-60 cursor-not-allowed":
+                                (currentStep === 1 && !watchedTipoAudio) ||
+                                (currentStep === 2 && (!watchedLocutorId ||
+                                  (mostrarApenasFavoritos
+                                    ? locutores.filter(l => idsLocutoresFavoritos.includes(l.id)).length === 0 && locutores.length > 0
+                                    : locutores.length === 0 && watchedTipoAudio 
+                                  )
+                                ))
+                            }
+                          )}
+                        >
+                          Avançar
+                          <ChevronRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent 
+                        side="top" 
+                        align="center"
+                        className="bg-amber-50 border-amber-300 text-amber-800 shadow-lg p-3 w-auto max-w-xs sm:max-w-sm animate-fadeIn"
+                        onOpenAutoFocus={(e) => e.preventDefault()}
+                      >
+                        <div className="flex items-center">
+                          <AlertTriangle className="h-5 w-5 mr-2 text-amber-600 flex-shrink-0" />
+                          <p className="text-sm font-medium">{popoverErrorMessage}</p>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                  {currentStep === 3 && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span tabIndex={0}> 
+                          <Button
+                            type="submit"
+                            size="lg"
+                            disabled={
+                                isSubmitting || 
+                                !isFormValid ||
+                                !selectedLocutor || 
+                                estimatedCredits === 0 ||
+                                (profile?.credits ?? 0) < estimatedCredits
+                            }
+                            className={cn(
+                              (!isFormValid || !selectedLocutor || estimatedCredits === 0 || (profile?.credits ?? 0) >= estimatedCredits) && !isSubmitting
+                              ? "cursor-not-allowed" // Mantém o cursor visualmente indicando desabilitado
+                              : ""
+                            )}
+                          >
+                            {isSubmitting ? (
+                              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            ) : (
+                              <Send className="mr-2 h-5 w-5" />
+                            )}
+                            {isEditMode ? `Enviar Alteração (${estimatedCredits} créditos)` : `Enviar Pedido (${estimatedCredits} créditos)`}
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      {(!isFormValid && selectedLocutor && estimatedCredits > 0 && (profile?.credits ?? 0) >= estimatedCredits) && (
+                        <TooltipContent side="top" align="center" className="bg-destructive text-destructive-foreground">
+                          <p>Corrija os erros no formulário para enviar.</p>
+                        </TooltipContent>
+                      )}
+                      {(estimatedCredits > 0 && (profile?.credits ?? 0) < estimatedCredits) && (
+                         <TooltipContent side="top" align="center" className="bg-destructive text-destructive-foreground">
+                          <p>Créditos insuficientes ({profile?.credits ?? 0} de {estimatedCredits} necessários).</p>
+                        </TooltipContent>
+                      )}
+                      {(estimatedCredits === 0 && (getValues("scriptText") || "").trim().length >= 10) && (
+                        <TooltipContent side="top" align="center" className="bg-destructive text-destructive-foreground">
+                          <p>Erro no cálculo de créditos. Verifique o roteiro.</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  )}
+                </div>
+              </TooltipProvider>
             </CardFooter>
           </form>
         </Form>
