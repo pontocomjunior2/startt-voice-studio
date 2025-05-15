@@ -23,6 +23,7 @@ export interface ProfileInPedido {
   id: string;
   full_name?: string | null;
   username?: string | null;
+  email?: string | null;
 }
 
 // Interface AdminPedido movida para cá

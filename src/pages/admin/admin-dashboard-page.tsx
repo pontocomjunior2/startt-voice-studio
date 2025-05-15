@@ -38,13 +38,16 @@ import { Textarea } from "@/components/ui/textarea";
 import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
 
+// Importações para filtros
+import { type DateRange } from "react-day-picker";
+import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import { supabase } from '@/lib/supabaseClient'; // Para a query direta
+
 // Hook e tipo customizado
 import { useFetchAdminDashboardStats } from '../../hooks/queries/use-fetch-admin-dashboard-stats.hook';
 import type { AdminDashboardStats } from '../../hooks/queries/use-fetch-admin-dashboard-stats.hook';
 
-// Hook e tipo para pedidos pendentes/ativos
-import { useFetchAdminActiveOrders } from '../../hooks/queries/use-fetch-admin-pending-orders.hook';
-import { useFetchAdminFinalizedOrders } from '../../hooks/queries/use-fetch-admin-finalized-orders.hook';
+// RESTAURAR IMPORTAÇÕES DE TIPO E HOOK
 import type { AdminPedido, SolicitacaoRevisaoDetalhada, VersaoAudioRevisadoDetalhada } from '../../types/pedido.type';
 import { useUpdatePedidoStatus } from '../../hooks/mutations/use-update-pedido-status.hook';
 
@@ -61,7 +64,7 @@ import { processarRevisaoAdminAction } from '@/actions/revisao-actions';
 import { useAction } from 'next-safe-action/react';
 
 // Date-fns para formatação
-import { format } from 'date-fns';
+import { format, endOfDay, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 // Definição dos status possíveis do pedido
@@ -87,21 +90,13 @@ function AdminDashboardPage() {
     error: fetchStatsError 
   } = useFetchAdminDashboardStats();
 
-  const {
-    data: activeOrders = [],
-    isLoading: isLoadingActiveOrders,
-    isFetching: isFetchingActiveOrders,
-    isError: isFetchActiveOrdersError,
-    error: fetchActiveOrdersError
-  } = useFetchAdminActiveOrders();
-
-  const {
-    data: finalizedOrders = [],
-    isLoading: isLoadingFinalizedOrders,
-    isFetching: isFetchingFinalizedOrders,
-    isError: isFetchFinalizedOrdersError,
-    error: fetchFinalizedOrdersError
-  } = useFetchAdminFinalizedOrders();
+  // Estados para os filtros
+  const [filtroStatus, setFiltroStatus] = useState<string>('todos');
+  const [filtroData, setFiltroData] = useState<DateRange | undefined>(undefined);
+  
+  // Estados para os pedidos filtrados e loading
+  const [pedidosAdmin, setPedidosAdmin] = useState<AdminPedido[]>([]);
+  const [loadingPedidosAdmin, setLoadingPedidosAdmin] = useState(true);
 
   const {
     solicitacoes: solicitacoesRevisao = [],
@@ -113,10 +108,6 @@ function AdminDashboardPage() {
   console.log(
     'AdminDashboard RENDER: isFetchingStats:',
     isFetchingStats,
-    'isFetchingActiveOrders:',
-    isFetchingActiveOrders,
-    'isFetchingFinalizedOrders:',
-    isFetchingFinalizedOrders,
     'isLoadingSolicitacoesRevisao:',
     isLoadingSolicitacoesRevisao
   );
@@ -169,8 +160,8 @@ function AdminDashboardPage() {
         console.log('[AdminDashboardPage] processarRevisaoAdminAction onSuccess - Chamando setIsRevisaoDetailsModalOpen(false)');
         setIsRevisaoDetailsModalOpen(false);
         refreshSolicitacoesRevisao(); 
-        queryClient.invalidateQueries({ queryKey: ['adminActiveOrders'] });
-        queryClient.invalidateQueries({ queryKey: ['adminFinalizedOrders'] });
+        queryClient.invalidateQueries({ queryKey: ['adminDashboardStats'] });
+        fetchPedidosAdmin();
 
         setAdminFeedbackText("");
         setRevisaoAudioFile(null);
@@ -227,16 +218,76 @@ function AdminDashboardPage() {
     }
   });
 
+  // Nova função para buscar pedidos com filtros
+  const fetchPedidosAdmin = async () => {
+    console.log('[AdminDashboardPage] fetchPedidosAdmin chamado com filtros:', { filtroStatus, filtroData });
+    setLoadingPedidosAdmin(true);
+    try {
+      let query = supabase
+        .from('pedidos')
+        .select(`
+          id,
+          created_at,
+          status,
+          texto_roteiro,
+          creditos_debitados,
+          titulo,
+          estilo_locucao,
+          audio_final_url,
+          downloaded_at,
+          tipo_audio,
+          orientacoes,
+          id_pedido_serial,
+          user_id,
+          profile:profiles ( id, full_name, email, username ),
+          locutores ( id, nome )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (filtroStatus !== 'todos') {
+        query = query.eq('status', filtroStatus);
+      }
+
+      if (filtroData?.from) {
+        query = query.gte('created_at', format(startOfDay(filtroData.from), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"));
+      }
+      if (filtroData?.to) {
+        query = query.lte('created_at', format(endOfDay(filtroData.to), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"));
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('[AdminDashboardPage] Erro ao buscar pedidos admin:', error);
+        toast.error('Erro ao buscar pedidos.');
+        setPedidosAdmin([]);
+      } else {
+        // Garantir que profile e locutores sejam objetos ou null
+        const pedidosFormatados = data.map(p => {
+          const profileData = Array.isArray(p.profile) ? p.profile[0] : p.profile;
+          const locutorData = Array.isArray(p.locutores) ? p.locutores[0] : p.locutores;
+          return {
+            ...p,
+            profile: profileData || null,
+            locutores: locutorData || null,
+          };
+        }) as AdminPedido[];
+        console.log('[AdminDashboardPage] Pedidos recebidos e formatados:', pedidosFormatados);
+        setPedidosAdmin(pedidosFormatados);
+      }
+    } catch (e) {
+      console.error('[AdminDashboardPage] Exceção ao buscar pedidos admin:', e);
+      toast.error('Ocorreu uma exceção ao buscar os pedidos.');
+      setPedidosAdmin([]);
+    } finally {
+      setLoadingPedidosAdmin(false);
+    }
+  };
+
+  // useEffect para buscar pedidos quando os filtros mudarem
   useEffect(() => {
-    if (activeOrders.length > 0) {
-      console.log("[AdminDashboardPage] Pedidos Ativos Recebidos (amostra):");
-      activeOrders.slice(0, 2).forEach(p => console.log({ id: p.id_pedido_serial, tipo_audio: p.tipo_audio, status: p.status, titulo: p.titulo }));
-    }
-    if (finalizedOrders.length > 0) {
-      console.log("[AdminDashboardPage] Pedidos Finalizados Recebidos (amostra):");
-      finalizedOrders.slice(0, 2).forEach(p => console.log({ id: p.id_pedido_serial, tipo_audio: p.tipo_audio, status: p.status, titulo: p.titulo }));
-    }
-  }, [activeOrders, finalizedOrders]);
+    fetchPedidosAdmin();
+  }, [filtroStatus, filtroData]);
 
   const handleOpenViewModal = (pedido: AdminPedido) => {
     console.log('[AdminDashboardPage] Abrindo modal para pedido (objeto completo):', pedido);
@@ -395,13 +446,24 @@ function AdminDashboardPage() {
     },
   ];
 
-  const isLoading = isLoadingStats || isLoadingActiveOrders || isLoadingFinalizedOrders;
+  const isLoading = isLoadingStats || loadingPedidosAdmin || isLoadingSolicitacoesRevisao;
 
   const adminRevisaoStatusOptions = [
     { value: REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN, label: 'Concluir Revisão (Enviar Feedback/Áudio)' },
     { value: REVISAO_STATUS_ADMIN.NEGADA, label: 'Negar Solicitação de Revisão' },
     { value: REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN, label: 'Marcar como: Em Andamento pelo Admin' },
     { value: REVISAO_STATUS_ADMIN.AGUARDANDO_UPLOAD_ADMIN, label: 'Marcar como: Aguardando Upload Interno' },
+  ];
+
+  // Opções para o filtro de status, incluindo "Todos Status" e "Em Revisão"
+  const PEDIDO_STATUS_OPTIONS_FILTRO = [
+    { value: 'todos', label: 'Todos Status' },
+    { value: 'pendente', label: 'Pendente' },
+    { value: 'em_revisao', label: 'Em Revisão' },
+    { value: 'gravando', label: 'Gravando' },
+    { value: 'concluido', label: 'Concluído' },
+    { value: 'cancelado', label: 'Cancelado' },
+    // Adicione mais status se necessário, ex: rejeitado (se houver)
   ];
 
   return (
@@ -416,27 +478,24 @@ function AdminDashboardPage() {
               console.log('--- Botão Atualizar Tudo CLICADO ---');
               console.log('Estados de Fetching ANTES da invalidação/refresh:');
               console.log('isFetchingStats:', isFetchingStats);
-              console.log('isFetchingActiveOrders:', isFetchingActiveOrders);
-              console.log('isFetchingFinalizedOrders:', isFetchingFinalizedOrders);
+              console.log('isFetchingActiveOrders:', 'isFetchingFinalizedOrders:', 'isLoadingSolicitacoesRevisao:', isLoadingSolicitacoesRevisao);
+              console.log('isLoadingPedidosAdmin (antes do fetch direto):', loadingPedidosAdmin);
               console.log('isLoadingSolicitacoesRevisao (antes do refresh direto):', isLoadingSolicitacoesRevisao);
 
               console.log('Invalidando adminDashboardStats...');
               queryClient.invalidateQueries({ queryKey: ['adminDashboardStats'] });
               
-              console.log('Invalidando adminActiveOrders...');
-              queryClient.invalidateQueries({ queryKey: ['adminActiveOrders'] });
-              
-              console.log('Invalidando adminFinalizedOrders...');
-              queryClient.invalidateQueries({ queryKey: ['adminFinalizedOrders'] });
+              console.log('Chamando fetchPedidosAdmin diretamente...');
+              fetchPedidosAdmin();
 
               console.log('Chamando refreshSolicitacoesRevisao...');
               refreshSolicitacoesRevisao(); 
               
               console.log('--- Invalidações e Refresh Chamados ---');
             }}
-            disabled={isFetchingStats || isFetchingActiveOrders || isFetchingFinalizedOrders || isLoadingSolicitacoesRevisao}
+            disabled={isFetchingStats || loadingPedidosAdmin || isLoadingSolicitacoesRevisao}
           >
-            <RefreshCw className={cn("h-4 w-4 mr-2", (isFetchingStats || isFetchingActiveOrders || isFetchingFinalizedOrders || isLoadingSolicitacoesRevisao) && "animate-spin")} />
+            <RefreshCw className={cn("h-4 w-4 mr-2", (isFetchingStats || loadingPedidosAdmin || isLoadingSolicitacoesRevisao) && "animate-spin")} />
             Atualizar Tudo
           </Button>
         </div>
@@ -499,172 +558,136 @@ function AdminDashboardPage() {
 
       <div>
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-foreground">Pedidos Ativos (Pendentes e Gravando)</h2>
+          <h2 className="text-xl font-semibold text-foreground">Lista de Pedidos</h2>
         </div>
         <Separator className="my-4" />
-        {isFetchActiveOrdersError && (
-          <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
-            Erro ao carregar pedidos ativos: {fetchActiveOrdersError?.message}
+
+        {/* Seção de Filtros */}
+        <div className="mb-6 p-4 border rounded-lg shadow-sm">
+          <h2 className="text-xl font-semibold mb-4 text-gray-700">Filtrar Pedidos</h2>
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-end"> {/* Alterado para items-end para alinhar botão com inputs */}
+            {/* Filtro de Status */}
+            <div className="flex-1 min-w-[200px] md:min-w-[250px]">
+              <Label htmlFor="filtro-status-pedido" className="mb-1 block text-sm font-medium text-gray-700">Status do Pedido</Label>
+              <Select
+                value={filtroStatus}
+                onValueChange={setFiltroStatus}
+              >
+                <SelectTrigger id="filtro-status-pedido" className="w-full">
+                  <SelectValue placeholder="Selecione um status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PEDIDO_STATUS_OPTIONS_FILTRO.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Filtro de Data */}
+            <div className="flex-1 min-w-[280px] md:min-w-[320px]">
+              <Label htmlFor="filtro-data-pedido" className="mb-1 block text-sm font-medium text-gray-700">Período</Label>
+              <DatePickerWithRange
+                date={filtroData}
+                onDateChange={setFiltroData}
+                className="w-full" // O ID é aplicado no botão dentro do DatePickerWithRange
+              />
+            </div>
+            
+            {/* Botão Limpar Filtros */}
+            <Button 
+              onClick={() => { 
+                setFiltroStatus('todos'); 
+                setFiltroData(undefined); 
+              }} 
+              variant="outline" 
+              className="w-full md:w-auto" // Ajuste de largura para responsividade
+            >
+              Limpar Filtros
+            </Button>
           </div>
-        )}
-        {isLoadingActiveOrders ? (
-          <div className="flex items-center justify-center py-10">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="ml-2">Carregando pedidos ativos...</p>
-          </div>
-        ) : activeOrders.length === 0 && !isFetchActiveOrdersError ? (
-          <div className="text-center py-10">
-            <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-2 text-sm font-medium text-foreground">Nenhum Pedido Ativo</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Não há pedidos pendentes ou em gravação no momento.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto relative border border-border rounded-md">
-            <Table>
-              <TableCaption className="py-3">Lista de pedidos com status 'pendente' ou 'gravando'.</TableCaption>
-              <TableHeader className="bg-muted/50">
-                <TableRow>
-                  <TableHead className="w-[120px]">Nº Pedido</TableHead>
-                  <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap"><CalendarDays className="inline-block mr-1 h-4 w-4"/>Data/Hora Pedido</TableHead>
-                  <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"><UserCircle className="inline-block mr-1 h-4 w-4"/>Cliente</TableHead>
-                  <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Trecho do Roteiro</TableHead>
-                  <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</TableHead>
-                  <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="bg-card divide-y divide-border">
-                {activeOrders.map((pedido) => {
-                  const clienteNome = pedido.profile 
-                                    ? pedido.profile.full_name || pedido.profile.username 
-                                    : 'Usuário Desconhecido';
-                  return (
-                    <TableRow key={pedido.id} className="hover:bg-muted/50 odd:bg-muted/20">
+        </div>
+
+        {/* Tabela de Pedidos Unificada */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <ListChecks className="mr-2 h-5 w-5 text-blue-500" />
+              Pedidos ({loadingPedidosAdmin ? '...' : pedidosAdmin.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingPedidosAdmin ? (
+              <div className="flex justify-center items-center h-40">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                <p className="ml-2 text-gray-600">Carregando pedidos...</p>
+              </div>
+            ) : pedidosAdmin.length > 0 ? (
+              <Table>
+                <TableCaption>
+                  {pedidosAdmin.length === 0 ? "Nenhum pedido encontrado com os filtros atuais." : `Exibindo ${pedidosAdmin.length} pedido(s).`}
+                </TableCaption>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[100px]">ID Pedido</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Locutor</TableHead>
+                    <TableHead>Título</TableHead>
+                    <TableHead className="w-[150px]">Data</TableHead>
+                    <TableHead className="w-[120px]">Status</TableHead>
+                    <TableHead className="text-right w-[120px]">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pedidosAdmin.map((pedido) => (
+                    <TableRow key={pedido.id} className="hover:bg-muted/50">
                       <TableCell className="font-medium">{pedido.id_pedido_serial}</TableCell>
-                      <TableCell className="px-4 py-3 whitespace-nowrap">
-                        {new Date(pedido.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      <TableCell>
+                        <div className="font-medium">{pedido.profile?.full_name || pedido.profile?.username || 'N/A'}</div>
+                        <div className="text-xs text-muted-foreground">{pedido.profile?.email}</div>
                       </TableCell>
-                      <TableCell className="px-4 py-3 font-medium whitespace-nowrap">{clienteNome}</TableCell>
-                      <TableCell className="px-4 py-3 max-w-sm truncate" title={pedido.texto_roteiro || ''}>{pedido.texto_roteiro ? `${pedido.texto_roteiro.substring(0, 100)}...` : 'N/A'}</TableCell>
-                      <TableCell className="px-4 py-3 whitespace-nowrap">
-                        <Badge
-                          variant="outline"
+                      <TableCell>{pedido.locutores?.nome || 'Não definido'}</TableCell>
+                      <TableCell className="max-w-[200px] truncate" title={pedido.titulo || ''}>{pedido.titulo || 'Sem título'}</TableCell>
+                      <TableCell>{format(new Date(pedido.created_at), 'dd/MM/yy HH:mm', { locale: ptBR })}</TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={
+                            pedido.status === 'pendente' ? 'default' :
+                            pedido.status === 'gravando' ? 'secondary' :
+                            pedido.status === 'concluido' ? 'outline' :
+                            pedido.status === 'cancelado' ? 'destructive' :
+                            pedido.status === 'em_revisao' ? 'outline' :
+                            'outline'
+                          }
                           className={cn(
-                            "font-semibold py-1 px-2.5 text-xs rounded-full",
-                            pedido.status === 'pendente' && "text-status-orange border-status-orange bg-status-orange/10",
-                            pedido.status === 'gravando' && "text-status-blue border-status-blue bg-status-blue/10",
-                            pedido.status === 'concluido' && "text-status-green border-status-green bg-status-green/10",
-                            pedido.status === 'cancelado' && "text-status-red border-status-red bg-status-red/10"
+                            "capitalize",
+                            pedido.status === 'concluido' && "border-green-500 bg-green-100 text-green-700 dark:border-green-400 dark:bg-green-900/30 dark:text-green-300",
+                            pedido.status === 'em_revisao' && "border-yellow-500 bg-yellow-100 text-yellow-700 dark:border-yellow-400 dark:bg-yellow-900/30 dark:text-yellow-300"
                           )}
                         >
-                          {pedido.status.charAt(0).toUpperCase() + pedido.status.slice(1)}
+                          {PEDIDO_STATUS_OPTIONS_FILTRO.find(opt => opt.value === pedido.status)?.label || pedido.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="px-4 py-3 whitespace-nowrap">
-                        <Button variant="outline" size="sm" onClick={() => handleOpenViewModal(pedido)}>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => handleOpenViewModal(pedido)}>
                           <Eye className="h-4 w-4 mr-1" /> Visualizar
                         </Button>
                       </TableCell>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </div>
-
-      <div className="mt-12">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-foreground">Histórico de Pedidos (Concluídos e Cancelados)</h2>
-        </div>
-        <Separator className="my-4" />
-        {isFetchFinalizedOrdersError && (
-          <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
-            Erro ao carregar histórico de pedidos: {fetchFinalizedOrdersError?.message}
-          </div>
-        )}
-        {isLoadingFinalizedOrders ? (
-          <div className="flex items-center justify-center py-10">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="ml-2">Carregando histórico de pedidos...</p>
-          </div>
-        ) : finalizedOrders.length === 0 && !isFetchFinalizedOrdersError ? (
-          <div className="text-center py-10">
-            <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-2 text-sm font-medium text-foreground">Nenhum Pedido no Histórico</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Ainda não há pedidos concluídos ou cancelados.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto relative border border-border rounded-md">
-            <Table>
-              <TableCaption className="py-3">Lista de pedidos com status 'concluído' ou 'cancelado'.</TableCaption>
-              <TableHeader className="bg-muted/50">
-                <TableRow>
-                  <TableHead className="w-[120px]">Nº Pedido</TableHead>
-                  <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap"><CalendarDays className="inline-block mr-1 h-4 w-4"/>Data/Hora Pedido</TableHead>
-                  <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"><UserCircle className="inline-block mr-1 h-4 w-4"/>Cliente</TableHead>
-                  <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Trecho do Roteiro</TableHead>
-                  <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</TableHead>
-                  <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Áudio</TableHead>
-                  <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="bg-card divide-y divide-border">
-                {finalizedOrders.map((pedido) => {
-                  const clienteNome = pedido.profile 
-                                    ? pedido.profile.full_name || pedido.profile.username 
-                                    : 'Usuário Desconhecido';
-                  return (
-                    <TableRow key={pedido.id} className="hover:bg-muted/50 odd:bg-muted/20">
-                      <TableCell className="font-medium">{pedido.id_pedido_serial}</TableCell>
-                      <TableCell className="px-4 py-3 whitespace-nowrap">
-                        {new Date(pedido.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </TableCell>
-                      <TableCell className="px-4 py-3 font-medium whitespace-nowrap">{clienteNome}</TableCell>
-                      <TableCell className="px-4 py-3 max-w-sm truncate" title={pedido.texto_roteiro || ''}>{pedido.texto_roteiro ? `${pedido.texto_roteiro.substring(0, 100)}...` : 'N/A'}</TableCell>
-                      <TableCell className="px-4 py-3 whitespace-nowrap">
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "font-semibold py-1 px-2.5 text-xs rounded-full",
-                            pedido.status === 'concluido' && "text-status-green border-status-green bg-status-green/10",
-                            pedido.status === 'cancelado' && "text-status-red border-status-red bg-status-red/10"
-                          )}
-                        >
-                          {pedido.status.charAt(0).toUpperCase() + pedido.status.slice(1)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-4 py-3 whitespace-nowrap">
-                        {pedido.audio_final_url ? (
-                          <a
-                            href={pedido.audio_final_url}
-                            download
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center px-2 py-1 bg-status-green text-white rounded hover:bg-status-green/90 text-xs font-medium transition-colors"
-                          >
-                            <UploadCloud className="h-4 w-4 mr-1" /> Baixar
-                          </a>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="px-4 py-3 whitespace-nowrap">
-                        {pedido.status === 'cancelado' ? (
-                          <span className="text-xs text-status-red italic font-medium">Pedido Cancelado</span>
-                        ) : (
-                          <Button variant="outline" size="sm" onClick={() => handleOpenViewModal(pedido)}>
-                            <Eye className="h-4 w-4 mr-1" /> Detalhes
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-10">
+                <FileText className="mx-auto h-12 w-12 text-gray-400" />
+                <p className="mt-2 text-sm text-gray-500">Nenhum pedido encontrado.</p>
+                <p className="text-xs text-gray-400">Tente ajustar os filtros ou aguarde novos pedidos.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {selectedPedido && (
