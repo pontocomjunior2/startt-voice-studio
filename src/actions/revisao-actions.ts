@@ -123,8 +123,12 @@ export const processarRevisaoAdminAction = actionClientAdmin
         .eq('id', solicitacaoId);
 
       if (updateSolicitacaoError) {
-        console.error('[processarRevisaoAdminAction:NEGADA] Erro ao atualizar solicitação:', updateSolicitacaoError);
-        return { failure: 'Erro ao marcar a revisão como negada.' };
+        console.error(
+          '[processarRevisaoAdminAction:NEGADA] Erro ao atualizar solicitação:', 
+          JSON.stringify(updateSolicitacaoError, null, 2) 
+        );
+        const errorMessage = updateSolicitacaoError.message || 'Erro desconhecido ao atualizar a solicitação.';
+        return { failure: `Erro ao marcar a revisão como negada: ${errorMessage}` };
       }
 
       const { error: updatePedidoError } = await supabase
@@ -178,9 +182,13 @@ export const processarRevisaoAdminAction = actionClientAdmin
         });
 
         if (insertVersaoError) {
-          console.error('[processarRevisaoAdminAction:CONCLUIDA] Erro insert versoes_audio_revisado:', insertVersaoError);
+          console.error(
+            '[processarRevisaoAdminAction:CONCLUIDA] Erro insert versoes_audio_revisado:', 
+            JSON.stringify(insertVersaoError, null, 2)
+          );
           if (uploadPathParaRollback) await supabase.storage.from('audios-revisados').remove([uploadPathParaRollback]);
-          return { failure: 'Erro salvar detalhes áudio.' };
+          const errorMessage = insertVersaoError.message || 'Erro ao salvar detalhes do áudio.';
+          return { failure: `Erro ao salvar detalhes do áudio: ${errorMessage}` };
         }
         console.log('[processarRevisaoAdminAction:CONCLUIDA] DB versoes_audio_revisado OK.');
       } else {
@@ -194,9 +202,13 @@ export const processarRevisaoAdminAction = actionClientAdmin
       }).eq('id', solicitacaoId);
 
       if (updateSolicitacaoError) {
-        console.error('[processarRevisaoAdminAction:CONCLUIDA] Erro update solicitacoes_revisao:', updateSolicitacaoError);
+        console.error(
+          '[processarRevisaoAdminAction:CONCLUIDA] Erro update solicitacoes_revisao:',
+          JSON.stringify(updateSolicitacaoError, null, 2)
+        );
         if (uploadPathParaRollback) { /* TODO: Tentar deletar de versoes_audio_revisado também */ await supabase.storage.from('audios-revisados').remove([uploadPathParaRollback]);}
-        return { failure: 'Erro finalizar solicitação.' };
+        const errorMessage = updateSolicitacaoError.message || 'Erro ao finalizar solicitação.';
+        return { failure: `Erro ao finalizar solicitação: ${errorMessage}` };
       }
       console.log('[processarRevisaoAdminAction:CONCLUIDA] DB solicitacoes_revisao OK.');
 
@@ -207,9 +219,13 @@ export const processarRevisaoAdminAction = actionClientAdmin
       }).eq('id', pedidoId);
 
       if (updatePedidoError) {
-        console.error('[processarRevisaoAdminAction:CONCLUIDA] Erro update pedidos:', updatePedidoError);
+        console.error(
+          '[processarRevisaoAdminAction:CONCLUIDA] Erro update pedidos:', 
+          JSON.stringify(updatePedidoError, null, 2)
+        );
         // Rollback mais complexo aqui: reverter status da solicitação, deletar de versoes_audio_revisado, remover do storage.
-        return { failure: 'Revisão OK, mas falha atualizar pedido principal.' };
+        const errorMessage = updatePedidoError.message || 'Erro ao atualizar pedido principal.';
+        return { failure: `Revisão OK, mas falha atualizar pedido principal: ${errorMessage}` };
       }
       console.log('[processarRevisaoAdminAction:CONCLUIDA] DB pedidos OK.');
       return { success: `Revisão concluída. ${audioFile ? 'Áudio enviado.' : 'Feedback enviado.'}` };
@@ -226,8 +242,12 @@ export const processarRevisaoAdminAction = actionClientAdmin
       }).eq('id', solicitacaoId);
 
       if (updateSolicitacaoError) {
-        console.error(`[processarRevisaoAdminAction:INTERMEDIARIO] Erro ao atualizar solicitação para ${novoStatusRevisao}:`, updateSolicitacaoError);
-        return { failure: `Erro ao atualizar status da revisão para ${novoStatusRevisao}.` };
+        console.error(
+          `[processarRevisaoAdminAction:INTERMEDIARIO] Erro ao atualizar solicitação para ${novoStatusRevisao}:`,
+          JSON.stringify(updateSolicitacaoError, null, 2)
+        );
+        const errorMessage = updateSolicitacaoError.message || 'Erro desconhecido ao atualizar status.';
+        return { failure: `Erro ao atualizar status da revisão para ${novoStatusRevisao}: ${errorMessage}` };
       }
       // O status do pedido principal (pedidos.status) não muda para status intermediários da revisão.
       return { success: `Status da revisão atualizado para ${novoStatusRevisao}.` };

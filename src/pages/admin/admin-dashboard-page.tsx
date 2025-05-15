@@ -49,7 +49,7 @@ import { useUpdatePedidoStatus } from '../../hooks/mutations/use-update-pedido-s
 
 // Hook para solicitações de revisão
 import { useFetchAdminSolicitacoesRevisao } from '../../hooks/admin/use-fetch-admin-solicitacoes-revisao.hook';
-import type { SolicitacaoRevisaoAdmin } from '../../types/revisao.type';
+import type { SolicitacaoRevisaoAdmin, TipoRevisaoStatusAdmin } from '../../types/revisao.type';
 import { REVISAO_STATUS_ADMIN } from '../../types/revisao.type';
 
 // Action para processar revisão
@@ -131,6 +131,7 @@ function AdminDashboardPage() {
   const [adminFeedbackText, setAdminFeedbackText] = useState("");
   const [revisaoAudioFile, setRevisaoAudioFile] = useState<File | null>(null);
   const [isSubmittingRevisaoAdmin, setIsSubmittingRevisaoAdmin] = useState(false);
+  const [selectedAdminActionStatus, setSelectedAdminActionStatus] = useState<TipoRevisaoStatusAdmin | undefined>(undefined);
 
   // Inicializar a mutation
   const updateStatusMutation = useUpdatePedidoStatus();
@@ -148,44 +149,73 @@ function AdminDashboardPage() {
     onExecute: () => {
       console.log('[AdminDashboardPage] Executando processarRevisaoAdminAction...');
       toast.loading('Processando revisão...');
+      setIsSubmittingRevisaoAdmin(true);
     },
     onSuccess: (data: Awaited<ReturnType<typeof processarRevisaoAdminAction>>) => {
       toast.dismiss();
-      if (data && 'success' in data && data.success) {
-        toast.success(data.success);
+      console.log('[AdminDashboardPage] processarRevisaoAdminAction onSuccess - Data:', JSON.stringify(data, null, 2));
+
+      if (data?.data?.success && typeof data.data.success === 'string') {
+        toast.success(data.data.success);
+        console.log('[AdminDashboardPage] processarRevisaoAdminAction onSuccess - Chamando setIsRevisaoDetailsModalOpen(false)');
         setIsRevisaoDetailsModalOpen(false);
-        refreshSolicitacoesRevisao();
+        refreshSolicitacoesRevisao(); 
+        queryClient.invalidateQueries({ queryKey: ['adminActiveOrders'] });
+        queryClient.invalidateQueries({ queryKey: ['adminFinalizedOrders'] });
+
         setAdminFeedbackText("");
         setRevisaoAudioFile(null);
-      } else if (data && 'failure' in data && data.failure) {
-        toast.error(`Falha ao processar revisão: ${data.failure}`);
-      } else if (data && 'serverError' in data && data.serverError) {
+        setSelectedAdminActionStatus(undefined); 
+      } else if (data?.data?.failure && typeof data.data.failure === 'string') {
+        toast.error(`Falha ao processar revisão: ${data.data.failure}`);
+        console.log('[AdminDashboardPage] processarRevisaoAdminAction onSuccess - Failure branch (from action). Modal NÃO será fechado automaticamente.');
+      } else if (data?.serverError && typeof data.serverError === 'string') {
         if (data.serverError === "ACESSO_NEGADO_ADMIN") {
           toast.error("Acesso negado. Você não tem permissão para executar esta ação.");
         } else {
           toast.error(`Erro do servidor: ${data.serverError}`);
         }
+        console.log('[AdminDashboardPage] processarRevisaoAdminAction onSuccess - ServerError branch (from next-safe-action). Modal NÃO será fechado automaticamente.');
+      } else if (data?.validationErrors) {
+        console.log('[AdminDashboardPage] processarRevisaoAdminAction onSuccess - ValidationErrors branch. Modal NÃO será fechado automaticamente (deveria ser pego pelo onError).');
+      } else {
+        console.log('[AdminDashboardPage] processarReivadoAdminAction onSuccess - Data não reconhecida ou estrutura inesperada. Modal NÃO será fechado.', data);
+        toast.error('Resposta inesperada ao processar a revisão.');
       }
-      resetProcessarRevisaoAction();
     },
     onError: (error: import('next-safe-action/react').HookActionErr) => {
       toast.dismiss();
       console.error('[AdminDashboardPage] Erro ao processar revisão (onError):', error);
-      if (error.serverError === "ACESSO_NEGADO_ADMIN") {
-        toast.error("Acesso negado. Você não tem permissão para executar esta ação.");
+      
+      let errorMessage = 'Erro desconhecido ao processar revisão.';
+      if (error.serverError) {
+        errorMessage = error.serverError === "ACESSO_NEGADO_ADMIN" 
+          ? "Acesso negado. Você não tem permissão para executar esta ação." 
+          : `Erro do servidor: ${error.serverError}`;
       } else if (error.validationErrors) {
+        const fieldMapping: Record<string, string> = {
+            solicitacaoId: 'ID da Solicitação',
+            adminFeedback: 'Feedback do Admin',
+            audioFile: 'Arquivo de Áudio',
+            novoStatusRevisao: 'Ação da Revisão',
+        };
         const validationMessages = Object.entries(error.validationErrors)
           .map(([field, fieldMessages]) => {
-            const messagesString = Array.isArray(fieldMessages) ? fieldMessages.join(', ') : 'Erro de validação desconhecido';
-            return `${field}: ${messagesString}`;
+            const fieldName = fieldMapping[field] || field;
+            const messagesString = Array.isArray(fieldMessages) ? fieldMessages.join(', ') : 'Erro de validação';
+            return `${fieldName}: ${messagesString}`;
           })
           .join('\n');
-        toast.error(`Erro de validação:\n${validationMessages}`);
-      } else {
-        toast.error(error.serverError || error.fetchError || 'Erro desconhecido ao processar revisão.');
+        errorMessage = `Erro de validação:\n${validationMessages}`;
+      } else if (error.fetchError) {
+        errorMessage = `Erro de comunicação: ${error.fetchError}`;
       }
-      resetProcessarRevisaoAction();
+      toast.error(errorMessage);
     },
+    onSettled: () => {
+      resetProcessarRevisaoAction();
+      setIsSubmittingRevisaoAdmin(false);
+    }
   });
 
   // Log para verificar dados dos hooks
@@ -286,9 +316,30 @@ function AdminDashboardPage() {
   // Nova função para abrir o modal de detalhes da revisão
   const handleOpenRevisaoDetailsModal = (solicitacao: SolicitacaoRevisaoAdmin) => {
     setSelectedSolicitacaoRevisao(solicitacao);
-    setAdminFeedbackText(solicitacao.admin_feedback || ""); // Preenche com feedback existente, se houver
-    setRevisaoAudioFile(null); // Reseta o arquivo
-    setIsSubmittingRevisaoAdmin(false); // Reseta o estado de submissão
+    setAdminFeedbackText(solicitacao.admin_feedback || "");
+    setRevisaoAudioFile(null);
+    
+    // Define o status inicial para o select no modal.
+    // Força o admin a escolher uma ação se a solicitação estiver 'solicitada'
+    // ou se o status atual for finalizado (embora não devesse abrir o modal).
+    // Caso contrário, preenche com o status atual se for intermediário.
+    if (
+      solicitacao.status_revisao === REVISAO_STATUS_ADMIN.SOLICITADA ||
+      solicitacao.status_revisao === REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN ||
+      solicitacao.status_revisao === REVISAO_STATUS_ADMIN.NEGADA
+    ) {
+      setSelectedAdminActionStatus(undefined); 
+    } else if (
+      solicitacao.status_revisao === REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN ||
+      solicitacao.status_revisao === REVISAO_STATUS_ADMIN.AGUARDANDO_UPLOAD_ADMIN
+    ) {
+      setSelectedAdminActionStatus(solicitacao.status_revisao as TipoRevisaoStatusAdmin);
+    } else {
+      setSelectedAdminActionStatus(undefined); // Default para outros casos
+    }
+
+    setIsSubmittingRevisaoAdmin(false);
+    resetProcessarRevisaoAction(); // Garante que erros de validação anteriores sejam limpos
     setIsRevisaoDetailsModalOpen(true);
   };
 
@@ -304,24 +355,16 @@ function AdminDashboardPage() {
       toast.error("Nenhuma solicitação de revisão selecionada.");
       return;
     }
-    if (!revisaoAudioFile) {
-      toast.error("Por favor, selecione um arquivo de áudio revisado.");
+    if (!selectedAdminActionStatus) {
+      toast.error("Por favor, selecione uma ação para a revisão.");
       return;
     }
-
-    const formData = new FormData();
-    formData.append('solicitacaoId', selectedSolicitacaoRevisao.id_solicitacao);
-    if (adminFeedbackText) {
-      formData.append('adminFeedback', adminFeedbackText);
-    }
-    formData.append('audioFile', revisaoAudioFile);
     
-    // next-safe-action espera um objeto quando o schema é definido, não FormData diretamente.
-    // O `z.instanceof(File)` no schema cuidará do arquivo.
     executeProcessarRevisao({
       solicitacaoId: selectedSolicitacaoRevisao.id_solicitacao,
-      adminFeedback: adminFeedbackText || undefined, // Enviar undefined se vazio para o optional() do Zod
-      audioFile: revisaoAudioFile,
+      adminFeedback: adminFeedbackText || undefined,
+      audioFile: revisaoAudioFile || undefined,
+      novoStatusRevisao: selectedAdminActionStatus,
     });
   };
 
@@ -340,6 +383,16 @@ function AdminDashboardPage() {
       subtext: "Soma de créditos dos clientes",
       iconColorClass: "text-status-green",
     },
+    {
+      title: "Correções Pendentes", 
+      icon: MessageSquare, // Ícone para correções pendentes
+      // valueKey não se aplica diretamente, usaremos solicitacoesRevisao.length
+      value: solicitacoesRevisao.length, // Valor direto
+      isLoadingProperty: isLoadingSolicitacoesRevisao, // Propriedade de loading específica
+      subtext: "Solicitações de revisão aguardando processamento",
+      iconColorClass: "text-status-orange", // Cor similar a Pedidos Pendentes
+      tagColorClass: "bg-status-orange text-white"
+    },
     { 
       title: "Pedidos Pendentes", 
       valueKey: "pendingorders",
@@ -351,7 +404,14 @@ function AdminDashboardPage() {
     },
   ];
 
-  const isLoading = isLoadingStats || isLoadingActiveOrders || isLoadingFinalizedOrders || isLoadingSolicitacoesRevisao;
+  const isLoading = isLoadingStats || isLoadingActiveOrders || isLoadingFinalizedOrders; // Removido isLoadingSolicitacoesRevisao daqui, pois cada card trata seu loading
+
+  const adminRevisaoStatusOptions = [
+    { value: REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN, label: 'Concluir Revisão (Enviar Feedback/Áudio)' },
+    { value: REVISAO_STATUS_ADMIN.NEGADA, label: 'Negar Solicitação de Revisão' },
+    { value: REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN, label: 'Marcar como: Em Andamento pelo Admin' },
+    { value: REVISAO_STATUS_ADMIN.AGUARDANDO_UPLOAD_ADMIN, label: 'Marcar como: Aguardando Upload Interno' },
+  ];
 
   return (
     <div className="space-y-8">
@@ -363,10 +423,11 @@ function AdminDashboardPage() {
             size="sm" 
             onClick={() => {
               console.log('--- Botão Atualizar Tudo CLICADO ---');
-              console.log('Estados de Fetching ANTES da invalidação:');
+              console.log('Estados de Fetching ANTES da invalidação/refresh:');
               console.log('isFetchingStats:', isFetchingStats);
               console.log('isFetchingActiveOrders:', isFetchingActiveOrders);
               console.log('isFetchingFinalizedOrders:', isFetchingFinalizedOrders);
+              console.log('isLoadingSolicitacoesRevisao (antes do refresh direto):', isLoadingSolicitacoesRevisao);
 
               console.log('Invalidando adminDashboardStats...');
               queryClient.invalidateQueries({ queryKey: ['adminDashboardStats'] });
@@ -376,12 +437,15 @@ function AdminDashboardPage() {
               
               console.log('Invalidando adminFinalizedOrders...');
               queryClient.invalidateQueries({ queryKey: ['adminFinalizedOrders'] });
+
+              console.log('Chamando refreshSolicitacoesRevisao...');
+              refreshSolicitacoesRevisao(); // Adicionado refresh das solicitações de revisão
               
-              console.log('--- Invalidações Chamadas ---');
+              console.log('--- Invalidações e Refresh Chamados ---');
             }}
-            disabled={isFetchingStats || isFetchingActiveOrders || isFetchingFinalizedOrders}
+            disabled={isFetchingStats || isFetchingActiveOrders || isFetchingFinalizedOrders || isLoadingSolicitacoesRevisao}
           >
-            <RefreshCw className={cn("h-4 w-4 mr-2", (isFetchingStats || isFetchingActiveOrders || isFetchingFinalizedOrders) && "animate-spin")} />
+            <RefreshCw className={cn("h-4 w-4 mr-2", (isFetchingStats || isFetchingActiveOrders || isFetchingFinalizedOrders || isLoadingSolicitacoesRevisao) && "animate-spin")} />
             Atualizar Tudo
           </Button>
         </div>
@@ -393,9 +457,20 @@ function AdminDashboardPage() {
         )}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {(isLoading ? Array.from({ length: statCardsData.length }).map((_, i) => ({ id: i, isLoading: true })) : statCardsData).map((cardInfo: any, index) => {
-            const Icon = cardInfo.isLoading ? Loader2 : cardInfo.icon;
-            const value = cardInfo.isLoading ? null : (cardInfo.valueKey && stats ? stats[cardInfo.valueKey as keyof AdminDashboardStats] : cardInfo.fixedValue);
-            const tagText = cardInfo.isLoading ? null : (cardInfo.tagKey && stats ? stats[cardInfo.tagKey as keyof AdminDashboardStats] : cardInfo.tagText);
+            let Icon = cardInfo.isLoading ? Loader2 : cardInfo.icon;
+            let value = cardInfo.isLoading ? null 
+                          : cardInfo.valueKey && stats ? stats[cardInfo.valueKey as keyof AdminDashboardStats] 
+                          : cardInfo.value;
+            let tagText = cardInfo.isLoading ? null : (cardInfo.tagKey && stats ? stats[cardInfo.tagKey as keyof AdminDashboardStats] : cardInfo.tagText);
+
+            // Tratamento específico para o card de Correções Pendentes
+            if (cardInfo.title === "Correções Pendentes") {
+              // Se isLoadingProperty for a chave para o loading deste card específico
+              const specificLoading = cardInfo.isLoadingProperty;
+              Icon = specificLoading ? Loader2 : cardInfo.icon;
+              value = specificLoading ? null : solicitacoesRevisao.length;
+              // tagText pode ser definido se necessário, ex: solicitacoesRevisao.length
+            }
 
             return (
               <Card key={`stat-${index}`} className={`shadow-sm hover:shadow-md transition-shadow rounded-lg`}>
@@ -758,10 +833,7 @@ function AdminDashboardPage() {
           <CardTitle className="flex items-center">
             <MessageSquare className="mr-2 h-6 w-6 text-orange-500" />
             Solicitações de Revisão Pendentes
-            {isLoadingSolicitacoesRevisao && <Loader2 className="ml-2 h-5 w-5 animate-spin" />}
-            <Button onClick={() => refreshSolicitacoesRevisao()} variant="ghost" size="icon" className="ml-auto" disabled={isLoadingSolicitacoesRevisao}>
-              <RefreshCw className={cn("h-4 w-4", isLoadingSolicitacoesRevisao && "animate-spin")} />
-            </Button>
+            {isLoadingSolicitacoesRevisao && !solicitacoesRevisao.length && <Loader2 className="ml-2 h-5 w-5 animate-spin" />}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -836,12 +908,32 @@ function AdminDashboardPage() {
                 Data da Solicitação: {new Date(selectedSolicitacaoRevisao.data_solicitacao).toLocaleString()} <br />
                 Título do Pedido: {selectedSolicitacaoRevisao.pedido_titulo || 'Não informado'} <br />
                 Descrição da Solicitação pelo Cliente: <br />
-                <p className="mt-1 p-2 border rounded-md bg-stone-50 whitespace-pre-wrap">
+                <div className="mt-1 p-2 border rounded-md bg-stone-50 whitespace-pre-wrap text-sm">
                   {selectedSolicitacaoRevisao.descricao_cliente}
-                </p>
+                </div>
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="revisaoAdminStatus" className="text-right">
+                  Ação da Revisão <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={selectedAdminActionStatus}
+                  onValueChange={(value) => setSelectedAdminActionStatus(value as TipoRevisaoStatusAdmin)}
+                >
+                  <SelectTrigger id="revisaoAdminStatus" className="col-span-3">
+                    <SelectValue placeholder="Selecione a ação para esta revisão" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {adminRevisaoStatusOptions.map(option => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="adminFeedback" className="text-right">
                   Feedback do Admin
@@ -892,14 +984,14 @@ function AdminDashboardPage() {
               </DialogClose>
               <Button 
                 onClick={handleSubmitAdminRevisao} 
-                disabled={processarRevisaoStatus === 'executing' || !revisaoAudioFile}
+                disabled={processarRevisaoStatus === 'executing' || !selectedAdminActionStatus || isSubmittingRevisaoAdmin}
               >
-                {processarRevisaoStatus === 'executing' ? (
+                {processarRevisaoStatus === 'executing' || isSubmittingRevisaoAdmin ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <UploadCloud className="mr-2 h-4 w-4" />
+                  <Save className="mr-2 h-4 w-4" />
                 )}
-                Enviar Revisão
+                Processar Revisão
               </Button>
             </DialogFooter>
           </DialogContent>
