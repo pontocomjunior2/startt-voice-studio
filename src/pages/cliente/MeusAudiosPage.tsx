@@ -636,7 +636,9 @@ function MeusAudiosPage() {
                               "bg-red-700 text-white border-red-700",
                           )}
                         >
-                          {pedido.status.charAt(0).toUpperCase() + pedido.status.slice(1)}
+                          {pedido.status === PEDIDO_STATUS.EM_REVISAO 
+                            ? 'Em Revisão' 
+                            : pedido.status.charAt(0).toUpperCase() + pedido.status.slice(1)}
                         </Badge>
                       ) : (
                         <span className="text-muted-foreground italic">N/D</span>
