@@ -94,29 +94,40 @@ export const solicitarRevisaoAction = actionClient
         return { failure: 'Erro ao atualizar o status do pedido.' };
       }
 
-      console.log('[solicitarRevisaoAction] Inserindo solicitação de revisão.');
-      const { error: insertSolicitacaoError } = await supabase
+      console.log(`[solicitarRevisaoAction] Inserindo solicitação de revisão com os seguintes dados: pedido_id=${pedidoId}, user_id=${userId}, status_revisao='solicitada', descricao_length=${descricao?.length || 0}`);
+      const { data: insertData, error: insertSolicitacaoError } = await supabase
         .from('solicitacoes_revisao')
         .insert({
           pedido_id: pedidoId,
           user_id: userId,
           data_solicitacao: new Date().toISOString(),
-          status_revisao: 'solicitada', // Status inicial da solicitação de revisão
+          status_revisao: 'solicitada', 
           descricao: descricao,
-        });
+        })
+        .select(); // Adicionar .select() para obter os dados inseridos ou um erro mais detalhado
       
       if (insertSolicitacaoError) {
-        console.error("[solicitarRevisaoAction] Erro detalhado ao criar solicitação de revisão:", JSON.stringify(insertSolicitacaoError, null, 2));
-        console.log(`[solicitarRevisaoAction] Revertendo status do pedido para ${PEDIDO_STATUS.CONCLUIDO}.`);
-        // Tenta reverter o status do pedido em caso de falha na inserção da solicitação
+        console.error("[solicitarRevisaoAction] ERRO AO CRIAR SOLICITAÇÃO DE REVISÃO (Supabase Error):", JSON.stringify(insertSolicitacaoError, null, 2));
+        console.log(`[solicitarRevisaoAction] Tentando reverter status do pedido ${pedidoId} para ${PEDIDO_STATUS.CONCLUIDO}.`);
         const { error: revertError } = await supabase.from('pedidos').update({ status: PEDIDO_STATUS.CONCLUIDO }).eq('id', pedidoId);
         if (revertError) {
-            console.error("[solicitarRevisaoAction] ERRO AO TENTAR REVERTER o status do pedido:", JSON.stringify(revertError, null, 2));
-            // Mesmo que a reversão falhe, o erro principal é na criação da solicitação
+            console.error("[solicitarRevisaoAction] ERRO CRÍTICO AO TENTAR REVERTER o status do pedido:", JSON.stringify(revertError, null, 2));
         }
-        return { failure: 'Erro ao registrar a solicitação de revisão. O status do pedido pode ter sido revertido.' };
+        return { failure: `Erro ao registrar a solicitação de revisão. Detalhes: ${insertSolicitacaoError.message}. O status do pedido pode não ter sido alterado corretamente.` };
+      }
+
+      if (!insertData || insertData.length === 0) {
+        console.warn("[solicitarRevisaoAction] NENHUM DADO RETORNADO APÓS INSERT em solicitacoes_revisao, mas sem erro direto do Supabase. Isso pode indicar um problema de RLS ou configuração da tabela. Dados que seriam inseridos:", { pedido_id: pedidoId, user_id: userId, descricao_length: descricao?.length });
+        // Ainda assim, vamos tentar reverter o status do pedido para CONCLUIDO, pois a revisão não foi confirmada.
+        console.log(`[solicitarRevisaoAction] Revertendo status do pedido ${pedidoId} para ${PEDIDO_STATUS.CONCLUIDO} devido à ausência de dados de confirmação da revisão.`);
+        const { error: revertErrorOnNoData } = await supabase.from('pedidos').update({ status: PEDIDO_STATUS.CONCLUIDO }).eq('id', pedidoId);
+        if (revertErrorOnNoData) {
+            console.error("[solicitarRevisaoAction] ERRO AO TENTAR REVERTER o status do pedido (no data case):", JSON.stringify(revertErrorOnNoData, null, 2));
+        }
+        return { failure: 'Falha ao confirmar o registro da solicitação de revisão. A operação foi cancelada.' };
       }
       
+      console.log(`[solicitarRevisaoAction] Solicitação de revisão inserida com sucesso. Dados retornados: ${JSON.stringify(insertData, null, 2)}`);
       console.log(`[solicitarRevisaoAction] Operações concluídas. Retornando sucesso com novoStatus: ${novoStatusParaAtualizar} para pedidoId: ${pedidoId}`);
       return { 
         success: 'Solicitação de revisão enviada com sucesso!', 

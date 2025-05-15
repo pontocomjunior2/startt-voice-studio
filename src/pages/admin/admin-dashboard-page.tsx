@@ -560,37 +560,42 @@ function AdminDashboardPage() {
     setLoadingRevisao(true);
     setActiveRevisao(null); // Limpa revisão anterior ao buscar nova
     try {
-      console.log(`[AdminDashboardPage] Buscando última revisão para pedido ID: ${pedidoId}`);
+      console.log(`[AdminDashboardPage] fetchActiveRevisao: Buscando última revisão para pedido ID: ${pedidoId}`);
       const { data, error } = await supabase
         .from('solicitacoes_revisao')
         .select(`
           *,
+          descricao_cliente:descricao,
           versoes_audio_revisao (
             id,
             solicitacao_id,
             audio_url_revisado:audio_url,
-            nome_arquivo_revisado,
             data_envio:enviado_em,
-            comentario_admin:comentarios_admin,
-            enviado_por_usuario_id
+            comentario_admin:comentarios_admin
           )
         `)
         .eq('pedido_id', pedidoId)
-        // Removido o filtro .not() para pegar a mais recente, independentemente do status
-        // .not('status_revisao', 'in', '("concluida_pelo_admin", "negada")') 
         .order('data_solicitacao', { ascending: false })
         .limit(1)
         .single();
 
+      console.log('[AdminDashboardPage] fetchActiveRevisao: Resultado da query Supabase:', { data, error });
+
       if (error && error.code !== 'PGRST116') { // PGRST116: single() retornou 0 linhas, o que é ok
-        console.error("[AdminDashboardPage] Erro ao buscar revisão ativa:", error);
+        console.error("[AdminDashboardPage] fetchActiveRevisao: Erro ao buscar revisão ativa:", JSON.stringify(error, null, 2));
         toast.error(`Erro ao buscar detalhes da revisão: ${error.message}`);
         setActiveRevisao(null);
       } else {
         const loadedRevisao = data as SolicitacaoRevisaoDetalhada | null;
+        console.log("[AdminDashboardPage] fetchActiveRevisao: Dados carregados (loadedRevisao) ANTES de setActiveRevisao:", JSON.stringify(loadedRevisao, null, 2));
+        
+        if (!loadedRevisao) {
+          console.warn("[AdminDashboardPage] fetchActiveRevisao: Nenhuma revisão ativa encontrada (loadedRevisao é null ou vazio).");
+        }
+        
         setActiveRevisao(loadedRevisao); 
-        console.log("[AdminDashboardPage] Revisão ativa carregada:", loadedRevisao);
-        if (loadedRevisao) {
+        // console.log("[AdminDashboardPage] Revisão ativa carregada:", loadedRevisao); // Log original, mantido para referência mas o acima é mais detalhado
+        if (loadedRevisao) { // Erro de digitação aqui, deve ser loadedRevisao
           // Pré-popular estados para os campos do formulário de revisão
           setCurrentRevisaoAdminFeedback(loadedRevisao.admin_feedback || "");
           // Se o status da revisão já é final, não pré-selecionar para nova ação.
@@ -615,7 +620,7 @@ function AdminDashboardPage() {
         }
       }
     } catch (err: any) {
-      console.error("[AdminDashboardPage] Exceção ao buscar revisão ativa:", err);
+      console.error("[AdminDashboardPage] fetchActiveRevisao: Exceção ao buscar revisão ativa:", err);
       toast.error(`Exceção ao buscar detalhes da revisão: ${err.message}`);
       setActiveRevisao(null);
     } finally {
@@ -1364,7 +1369,7 @@ function AdminDashboardPage() {
                               <div>
                                 <p className="mb-1"><strong>Descrição do Cliente:</strong></p>
                                 <div className="p-2 bg-background rounded-sm text-xs whitespace-pre-wrap border max-h-28 overflow-y-auto">
-                                  {activeRevisao.descricao || 'Nenhuma descrição fornecida.'}
+                                  {activeRevisao.descricao_cliente || 'Nenhuma descrição fornecida.'}
             </div>
                               </div>
                             </div>
@@ -1539,7 +1544,9 @@ function AdminDashboardPage() {
                 </div>
                                 <p className="mb-1"><span className="font-medium text-muted-foreground">Data:</span> {format(new Date(solicitacao.data_solicitacao), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
                                 <p className="mb-1"><span className="font-medium text-muted-foreground">Cliente:</span></p>
-                                <div className="p-2 bg-muted rounded-sm text-xs whitespace-pre-wrap border mb-2 max-h-28 overflow-y-auto">{solicitacao.descricao || 'N/D'}</div>
+                                <div className="p-2 bg-muted rounded-sm text-xs whitespace-pre-wrap border mb-2 max-h-28 overflow-y-auto">
+                                  {solicitacao.descricao_cliente || 'N/D'} {/* Corrigido aqui */}
+                                </div>
                                 {solicitacao.admin_feedback && <><p className="mb-1 mt-2"><span className="font-medium text-muted-foreground">Admin:</span></p><div className="p-2 bg-muted rounded-sm text-xs whitespace-pre-wrap border mb-2 max-h-28 overflow-y-auto">{solicitacao.admin_feedback}</div></>}
                                 {solicitacao.data_conclusao_revisao && <p className="mb-2"><span className="font-medium text-muted-foreground">Conclusão:</span> {format(new Date(solicitacao.data_conclusao_revisao), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>}
                                 {solicitacao.versoes_audio_revisao && solicitacao.versoes_audio_revisao.length > 0 && (<div className="mt-3"><h6 className="text-xs font-semibold text-muted-foreground mb-1">Áudios:</h6><ul className="space-y-2">{solicitacao.versoes_audio_revisao.map((versao: VersaoAudioRevisadoDetalhada) => (<li key={versao.id} className="p-2 border bg-background/50 rounded-md"><div className="flex justify-between items-center"><span className="text-xs font-medium truncate" title={versao.nome_arquivo_revisado || ''}><FileText className="h-3 w-3 mr-1 inline-block" /> {versao.nome_arquivo_revisado || 'Áudio'}</span>{versao.audio_url_revisado && (<a href={versao.audio_url_revisado} download target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs font-medium transition-colors"><DownloadCloud className="h-3 w-3 mr-1" /> Baixar</a>)}</div><p className="text-xs text-muted-foreground mt-1">Em: {format(new Date(versao.data_envio), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>{versao.comentario_admin && (<div className="mt-1"><p className="text-xs font-semibold text-muted-foreground">Comentário:</p><p className="text-xs text-muted-foreground whitespace-pre-wrap">{versao.comentario_admin}</p></div>)}</li>))}</ul></div>)}
