@@ -173,19 +173,34 @@ export const excluirPedidoAction = actionClient
         return { failure: `Este pedido não pode ser excluído pois seu status é "${pedido.status}". Apenas pedidos pendentes podem ser excluídos.` };
       }
 
-      console.log(`[excluirPedidoAction] Excluindo pedido: ${pedidoId}`);
-      const { error: deleteError } = await supabase
-        .from('pedidos')
-        .delete()
-        .eq('id', pedidoId);
+      console.log(`[excluirPedidoAction] Chamando RPC excluir_pedido_e_estornar_creditos para o pedido: ${pedidoId}`);
+      // Substituir a deleção direta pela chamada RPC
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('excluir_pedido_e_estornar_creditos', {
+        p_pedido_id: pedidoId
+      });
 
-      if (deleteError) {
-        console.error("[excluirPedidoAction] Erro ao excluir pedido:", JSON.stringify(deleteError, null, 2));
-        return { failure: "Erro ao tentar excluir o pedido.", details: deleteError.message };
+      if (rpcError) {
+        console.error("[excluirPedidoAction] Erro ao chamar RPC excluir_pedido_e_estornar_creditos:", JSON.stringify(rpcError, null, 2));
+        return { failure: "Erro ao tentar comunicar com o serviço de exclusão.", details: rpcError.message };
       }
 
-      console.log(`[excluirPedidoAction] Pedido ${pedidoId} excluído com sucesso.`);
-      return { success: true, pedidoId };
+      console.log('[excluirPedidoAction] Resultado da RPC:', rpcResult);
+
+      if (rpcResult?.status === 'error') {
+        console.error("[excluirPedidoAction] Erro retornado pela RPC excluir_pedido_e_estornar_creditos:", rpcResult.message);
+        // A mensagem da RPC já deve ser amigável, mas podemos adicionar um prefixo se necessário.
+        return { failure: rpcResult.message || "Falha ao excluir o pedido e estornar créditos." };
+      }
+      
+      if (rpcResult?.status === 'success') {
+        console.log(`[excluirPedidoAction] Pedido ${pedidoId} excluído e créditos estornados com sucesso via RPC.`);
+        // A mensagem de sucesso da RPC pode ser usada, ou uma padrão.
+        return { success: true, message: rpcResult.message || "Pedido excluído e créditos estornados.", pedidoId };
+      }
+
+      // Fallback para caso a resposta da RPC não seja o esperado
+      console.warn("[excluirPedidoAction] Resposta inesperada da RPC:", rpcResult);
+      return { failure: "Resposta inesperada do serviço de exclusão." };
 
     } catch (error: any) {
       console.error("[excluirPedidoAction] Erro inesperado na action:", JSON.stringify(error, null, 2));
@@ -282,5 +297,82 @@ export const atualizarPedidoAction = actionClient
     } catch (error: any) {
       console.error("[atualizarPedidoAction] Erro inesperado na action:", JSON.stringify(error, null, 2));
       return { serverError: "Ocorreu um erro inesperado no servidor ao tentar atualizar o pedido." };
+    }
+  });
+
+// Schema para o admin marcar pedido como em análise
+export const adminMarcarEmAnaliseSchema = z.object({
+  pedidoId: z.string().uuid({ message: "ID do pedido inválido." }),
+});
+
+// Função placeholder para verificar se o usuário é admin
+// Substitua pela sua lógica real de verificação de admin
+const isAdmin = async (userId: string): Promise<boolean> => {
+  // Exemplo: buscar o perfil do usuário e checar um campo 'role' ou 'is_admin'
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .single();
+  if (error || !profile) {
+    console.warn('[isAdmin] Erro ao buscar perfil ou perfil não encontrado para userId:', userId, error);
+    return false;
+  }
+  return profile.role === 'admin'; // Assumindo que existe uma coluna 'role' na tabela 'profiles'
+};
+
+export const adminMarcarPedidoEmAnaliseAction = actionClient
+  .schema(adminMarcarEmAnaliseSchema)
+  .action(async ({ parsedInput }) => {
+    const { pedidoId } = parsedInput;
+    let userId: string;
+
+    try {
+      userId = await getUserId();
+    } catch (error: any) {
+      console.error('[adminMarcarPedidoEmAnaliseAction] Falha ao autenticar usuário:', error.message);
+      return { failure: error.message || 'Falha ao autenticar usuário.' };
+    }
+
+    try {
+      const userIsAdmin = await isAdmin(userId);
+      if (!userIsAdmin) {
+        console.warn(`[adminMarcarPedidoEmAnaliseAction] Usuário ${userId} não é administrador.`);
+        return { failure: "Apenas administradores podem executar esta ação." };
+      }
+
+      console.log(`[adminMarcarPedidoEmAnaliseAction] Admin ${userId} buscando pedido ${pedidoId} para marcar como EM_ANALISE.`);
+      const { data: pedido, error: fetchError } = await supabase
+        .from('pedidos')
+        .select('id, status')
+        .eq('id', pedidoId)
+        .single();
+
+      if (fetchError || !pedido) {
+        console.error("[adminMarcarPedidoEmAnaliseAction] Erro ao buscar pedido ou pedido não encontrado:", JSON.stringify(fetchError, null, 2));
+        return { failure: "Pedido não encontrado ou erro ao buscar." };
+      }
+
+      if (pedido.status !== PEDIDO_STATUS.PENDENTE) {
+        console.log(`[adminMarcarPedidoEmAnaliseAction] Pedido ${pedidoId} não está PENDENTE. Status atual: ${pedido.status}.`);
+        return { failure: `Este pedido não pode ser marcado como EM ANÁLISE, pois seu status atual é "${pedido.status}".` };
+      }
+
+      const { error: updateError } = await supabase
+        .from('pedidos')
+        .update({ status: PEDIDO_STATUS.EM_ANALISE })
+        .eq('id', pedidoId);
+
+      if (updateError) {
+        console.error("[adminMarcarPedidoEmAnaliseAction] Erro ao atualizar status do pedido para EM_ANALISE:", JSON.stringify(updateError, null, 2));
+        return { failure: "Erro ao tentar atualizar o status do pedido.", details: updateError.message };
+      }
+
+      console.log(`[adminMarcarPedidoEmAnaliseAction] Pedido ${pedidoId} atualizado para EM_ANALISE com sucesso.`);
+      return { success: true, message: "Pedido marcado como EM ANÁLISE.", pedidoId, novoStatus: PEDIDO_STATUS.EM_ANALISE };
+
+    } catch (error: any) {
+      console.error("[adminMarcarPedidoEmAnaliseAction] Erro inesperado na action:", JSON.stringify(error, null, 2));
+      return { serverError: "Ocorreu um erro inesperado no servidor." };
     }
   }); 

@@ -606,43 +606,30 @@ function MeusAudiosPage() {
                       )}
                     </TableCell>
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center">
-                      {pedido.status ? (
-                        <Badge 
-                          variant={(() => {
-                            switch (pedido.status) {
-                              case PEDIDO_STATUS.GRAVANDO:
-                                return 'secondary';
-                              case PEDIDO_STATUS.CANCELADO:
-                                return 'destructive';
-                              case PEDIDO_STATUS.PENDENTE:
-                              case PEDIDO_STATUS.CONCLUIDO: 
-                                return 'default';
-                              case PEDIDO_STATUS.EM_REVISAO:
-                                return 'outline';
-                              case PEDIDO_STATUS.REJEITADO:
-                                return 'destructive';
-                            }
-                            return 'secondary'; 
-                          })()}
-                          className={cn(
-                            "whitespace-nowrap",
-                            pedido.status === PEDIDO_STATUS.PENDENTE && 
-                              "bg-status-orange text-primary-foreground border-status-orange",
-                            pedido.status === PEDIDO_STATUS.CONCLUIDO && 
-                              "text-green-700 border-status-green bg-green-100 dark:text-green-300 dark:border-status-green dark:bg-status-green/20",
-                            pedido.status === PEDIDO_STATUS.EM_REVISAO &&
-                              "text-blue-700 border-blue-700 bg-blue-100 dark:text-blue-300 dark:border-blue-300 dark:bg-blue-700/20",
-                            pedido.status === PEDIDO_STATUS.REJEITADO &&
-                              "bg-red-700 text-white border-red-700",
-                          )}
-                        >
-                          {pedido.status === PEDIDO_STATUS.EM_REVISAO 
-                            ? 'Em Revisão' 
-                            : pedido.status.charAt(0).toUpperCase() + pedido.status.slice(1)}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground italic">N/D</span>
-                      )}
+                      <Badge
+                        variant={
+                          pedido.status === PEDIDO_STATUS.CONCLUIDO ? 'default' :
+                          pedido.status === PEDIDO_STATUS.PENDENTE ? 'secondary' :
+                          pedido.status === PEDIDO_STATUS.CANCELADO ? 'destructive' :
+                          pedido.status === PEDIDO_STATUS.EM_PRODUCAO ? 'outline' : // Usar 'outline' como base para cor customizada
+                          pedido.status === PEDIDO_STATUS.EM_ANALISE ? 'outline' :
+                          pedido.status === PEDIDO_STATUS.GRAVANDO ? 'outline' :
+                          pedido.status === PEDIDO_STATUS.EM_REVISAO ? 'outline' :
+                          'outline'
+                        }
+                        className={cn(
+                          "capitalize text-xs px-2 py-0.5",
+                          pedido.status === PEDIDO_STATUS.CONCLUIDO && "bg-green-500 hover:bg-green-600 text-white",
+                          pedido.status === PEDIDO_STATUS.PENDENTE && "bg-yellow-500 hover:bg-yellow-600 text-black",
+                          pedido.status === PEDIDO_STATUS.EM_PRODUCAO && "border-orange-500 bg-orange-100 text-orange-700 dark:border-orange-400 dark:bg-orange-900/30 dark:text-orange-300",
+                          pedido.status === PEDIDO_STATUS.EM_ANALISE && "border-blue-500 bg-blue-100 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300",
+                          pedido.status === PEDIDO_STATUS.GRAVANDO && "border-purple-500 bg-purple-100 text-purple-700 dark:border-purple-400 dark:bg-purple-900/30 dark:text-purple-300",
+                          pedido.status === PEDIDO_STATUS.EM_REVISAO && "border-pink-500 bg-pink-100 text-pink-700 dark:border-pink-400 dark:bg-pink-900/30 dark:text-pink-300",
+                          pedido.status === PEDIDO_STATUS.CANCELADO && "bg-red-600 hover:bg-red-700" // destructive já tem cor
+                        )}
+                      >
+                        {pedido.status.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                      </Badge>
                     </TableCell>
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center font-medium text-foreground">
                       {pedido.creditos_debitados}

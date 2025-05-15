@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, CreditCard, ListChecks, AlertTriangle, Loader2, FileText, CalendarDays, UserCircle, Eye, UploadCloud, Save, RotateCcw, RefreshCw, MessageSquare, DownloadCloud } from 'lucide-react';
+import { Users, CreditCard, ListChecks, AlertTriangle, Loader2, FileText, CalendarDays, UserCircle, Eye, UploadCloud, Save, RotateCcw, RefreshCw, MessageSquare, DownloadCloud, PlayCircle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   Table,
@@ -51,6 +51,12 @@ import type { AdminDashboardStats } from '../../hooks/queries/use-fetch-admin-da
 import type { AdminPedido, SolicitacaoRevisaoDetalhada, VersaoAudioRevisadoDetalhada, PedidoStatus, TipoStatusPedido } from '../../types/pedido.type';
 import { PEDIDO_STATUS } from '../../types/pedido.type'; // Importação crucial
 import { useUpdatePedidoStatus } from '../../hooks/mutations/use-update-pedido-status.hook';
+
+// Actions para o novo fluxo de status do admin
+import {
+  adminMarcarPedidoEmAnaliseAction
+  // adminIniciarGravacaoPedidoAction // Removido
+} from '@/actions/pedido-actions';
 
 // REMOVER HOOK PARA SOLICITAÇÕES DE REVISÃO
 // import { useFetchAdminSolicitacoesRevisao } from '../../hooks/admin/use-fetch-admin-solicitacoes-revisao.hook';
@@ -136,6 +142,7 @@ function AdminDashboardPage() {
   const [currentPedidoStatus, setCurrentPedidoStatus] = useState<string>("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUpdatingPedido, setIsUpdatingPedido] = useState(false);
+  const [isProcessingAutoStatusChange, setIsProcessingAutoStatusChange] = useState(false); // Novo estado para a chamada automática
 
   // Novos estados para a aba de revisão
   const [activeRevisao, setActiveRevisao] = useState<SolicitacaoRevisaoDetalhada | null>(null);
@@ -149,6 +156,10 @@ function AdminDashboardPage() {
 
   // Estado para o AlertDialog de exclusão
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+
+  // Estados para as novas actions de status
+  const [isMarkingEmAnalise, setIsMarkingEmAnalise] = useState(false);
+  const [isStartingGravacao, setIsStartingGravacao] = useState(false);
 
   const { // Este hook busca o histórico para o modal do pedido, deve ser mantido
     data: historicoRevisoesPedido,
@@ -352,19 +363,50 @@ function AdminDashboardPage() {
     fetchPedidosAdmin();
   }, [filtroStatus, filtroData, currentPage, itemsPerPage]); // Adicionado currentPage e itemsPerPage
 
-  const handleOpenViewModal = (pedido: AdminPedido) => {
-    console.log('[AdminDashboardPage] Abrindo modal para pedido (objeto completo):', pedido);
-    console.log('[AdminDashboardPage] Valor de tipo_audio para o modal:', pedido.tipo_audio);
+  const handleOpenViewModal = async (pedido: AdminPedido) => {
+    console.log('[AdminDashboardPage] Abrindo modal para pedido:', pedido);
     setSelectedPedido(pedido);
-    setCurrentPedidoStatus(pedido.status);
+    setCurrentPedidoStatus(pedido.status); // Define o status atual do select
     setSelectedFile(null);
-    setIsViewModalOpen(true);
     setActiveRevisao(null);
     setCurrentRevisaoAdminFeedback("");
     setCurrentRevisaoModalStatus(undefined);
     setRevisaoAudioFile(null);
     setModalActiveTab("detalhesPedido");
+    setIsViewModalOpen(true);
+
+    if (pedido.status === PEDIDO_STATUS.PENDENTE) {
+      console.log(`[AdminDashboardPage] Pedido ${pedido.id} está PENDENTE. Tentando marcar como EM ANÁLISE automaticamente.`);
+      setIsProcessingAutoStatusChange(true); // Feedback visual para a ação automática
+      try {
+        const result = await adminMarcarPedidoEmAnaliseAction({ pedidoId: pedido.id });
+        if (result.data?.success) {
+          toast.success(result.data.message || "Pedido marcado como EM ANÁLISE.");
+          // Atualizar o estado local do pedido selecionado e o select
+          const novoStatusEmAnalise = PEDIDO_STATUS.EM_ANALISE;
+          setSelectedPedido(prev => prev ? { ...prev, status: novoStatusEmAnalise } : null);
+          setCurrentPedidoStatus(novoStatusEmAnalise); // Atualiza o select no modal
+          
+          fetchPedidosAdmin(); // Atualiza a lista de pedidos na tabela
+          queryClient.invalidateQueries({ queryKey: ['adminDashboardStats'] });
+        } else if (result.data?.failure) {
+          toast.error(`Falha automática: ${result.data.failure}`);
+        } else if (result.serverError) {
+          toast.error(`Erro do servidor (auto): ${result.serverError}`);
+        } else {
+          toast.error("Resposta inesperada ao marcar pedido em análise automaticamente.");
+        }
+      } catch (error) {
+        console.error("[AdminDashboardPage] Erro ao chamar adminMarcarPedidoEmAnaliseAction automaticamente:", error);
+        toast.error("Erro crítico ao tentar marcar pedido em análise automaticamente.");
+      } finally {
+        setIsProcessingAutoStatusChange(false);
+      }
+    }
   };
+  
+  // Remover handleMarcarEmAnalise - agora é automático em handleOpenViewModal
+  // Remover handleIniciarGravacao - não existe mais botão dedicado
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
@@ -375,35 +417,69 @@ function AdminDashboardPage() {
   const handleUpdatePedido = async () => {
     if (!selectedPedido) return;
 
+    // Verifica se houve mudança no status selecionado ou se um arquivo foi adicionado.
+    // A principal mudança é que currentPedidoStatus pode agora ser PEDIDO_STATUS.EM_PRODUCAO
     const statusHasChanged = currentPedidoStatus !== selectedPedido.status;
     const fileHasBeenSelected = selectedFile !== null;
 
     if (!statusHasChanged && !fileHasBeenSelected) {
-      setIsViewModalOpen(false);
+      // Se nada mudou efetivamente (ex: o status já era o selecionado e nenhum arquivo novo)
+      // podemos apenas fechar o modal ou não fazer nada.
+      // Considerar se currentPedidoStatus já reflete o estado do BD ou se é apenas o valor do select.
+      // Assumindo que se o select não mudou e não há arquivo, nada a fazer.
+      console.log("[handleUpdatePedido] Nenhuma alteração detectada (status ou arquivo).");
+      // setIsViewModalOpen(false); // Opcional: fechar se nenhuma ação é necessária
       return;
     }
 
     setIsUpdatingPedido(true);
 
     try {
+      let audioUrlToUpdate: string | undefined = undefined;
+
+      // 1. Upload de arquivo, se houver
       if (fileHasBeenSelected && selectedFile) {
         const username = selectedPedido.profile?.username;
-        if (!username) throw new Error('Username do cliente não encontrado.');
+        if (!username) {
+          toast.error('Username do cliente não encontrado para upload.');
+          setIsUpdatingPedido(false);
+          return;
+        }
+        console.log(`[handleUpdatePedido] Fazendo upload do arquivo ${selectedFile.name} para o pedido ${selectedPedido.id}`);
         const uploadResult = await uploadAudioMutation.mutateAsync({ file: selectedFile, username });
-        await updateAudioAndStatusMutation.mutateAsync({
-          pedidoId: selectedPedido.id,
-          audioUrl: uploadResult.filePath,
-          novoStatus: 'concluido',
-        });
-      } else if (statusHasChanged) {
-        await updateStatusMutation.mutateAsync({
-          pedidoId: selectedPedido.id,
-          novoStatus: currentPedidoStatus,
-        });
+        audioUrlToUpdate = uploadResult.filePath;
+        console.log(`[handleUpdatePedido] Upload concluído. Caminho do arquivo: ${audioUrlToUpdate}`);
       }
+
+      // 2. Atualização de Status e/ou URL do Áudio
+      // Se um arquivo foi upado, o status DEVE mudar para CONCLUIDO.
+      // Se não houve upload, apenas o status selecionado (currentPedidoStatus) é aplicado.
+      let novoStatusFinal = currentPedidoStatus;
+      if (audioUrlToUpdate) {
+        novoStatusFinal = PEDIDO_STATUS.CONCLUIDO;
+        console.log(`[handleUpdatePedido] Arquivo upado, definindo status final para CONCLUIDO.`);
+      }
+      
+      console.log(`[handleUpdatePedido] Atualizando pedido ${selectedPedido.id}. Novo status: ${novoStatusFinal}, URL do áudio: ${audioUrlToUpdate || 'sem alteração'}`);
+      await updateAudioAndStatusMutation.mutateAsync({
+        pedidoId: selectedPedido.id,
+        audioUrl: audioUrlToUpdate, // undefined se não houve upload
+        novoStatus: novoStatusFinal, 
+      });
+      
+      toast.success("Pedido atualizado com sucesso!");
+      setSelectedPedido(prev => prev ? { ...prev, status: novoStatusFinal, audio_final_url: audioUrlToUpdate || prev.audio_final_url } : null);
+      setCurrentPedidoStatus(novoStatusFinal);
+      fetchPedidosAdmin();
+      queryClient.invalidateQueries({ queryKey: ['adminDashboardStats'] });
       setIsViewModalOpen(false);
+
     } catch (error) {
       console.error('Erro em handleUpdatePedido:', error);
+      // toast.error já é tratado pelas mutations, mas um fallback pode ser útil
+      if (error instanceof Error && !toast.isActive('upload-error') && !toast.isActive('update-pedido-error')) {
+         toast.error(`Erro ao atualizar pedido: ${error.message}`);
+      }
     } finally {
       setIsUpdatingPedido(false);
     }
@@ -465,13 +541,15 @@ function AdminDashboardPage() {
   const PEDIDO_STATUS_OPTIONS_FILTRO = [
     { value: 'todos', label: 'Todos Status' },
     { value: PEDIDO_STATUS.PENDENTE, label: 'Pendente' },
+    { value: PEDIDO_STATUS.EM_ANALISE, label: 'Em Análise' },
+    { value: PEDIDO_STATUS.EM_PRODUCAO, label: 'Em Produção' }, // Nova opção
+    // { value: PEDIDO_STATUS.GRAVANDO, label: 'Gravando' }, // Ocultar/Remover se EM_PRODUCAO substitui na UI
     { value: PEDIDO_STATUS.EM_REVISAO, label: 'Em Revisão' },
     { value: PEDIDO_STATUS.AGUARDANDO_CLIENTE, label: 'Aguardando Cliente' },
-    { value: PEDIDO_STATUS.GRAVANDO, label: 'Gravando' },
     { value: PEDIDO_STATUS.CONCLUIDO, label: 'Concluído' },
     { value: PEDIDO_STATUS.CANCELADO, label: 'Cancelado' },
-    // Adicione mais status se necessário, ex: rejeitado (se houver)
-  ];
+    { value: PEDIDO_STATUS.REJEITADO, label: 'Rejeitado' }
+  ].filter(opt => opt.value !== PEDIDO_STATUS.GRAVANDO || opt.value === 'todos'); // Remove "Gravando" exceto se for "todos"
 
   // Função para buscar a solicitação de revisão ativa
   const fetchActiveRevisao = async (pedidoId: string) => {
@@ -485,7 +563,18 @@ function AdminDashboardPage() {
       console.log(`[AdminDashboardPage] Buscando última revisão para pedido ID: ${pedidoId}`);
       const { data, error } = await supabase
         .from('solicitacoes_revisao')
-        .select('*, versoes_audio_revisao(*)') // Mantido: Traz também os áudios revisados associados
+        .select(`
+          *,
+          versoes_audio_revisao (
+            id,
+            solicitacao_id,
+            audio_url_revisado:audio_url,
+            nome_arquivo_revisado,
+            data_envio:enviado_em,
+            comentario_admin:comentarios_admin,
+            enviado_por_usuario_id
+          )
+        `)
         .eq('pedido_id', pedidoId)
         // Removido o filtro .not() para pegar a mais recente, independentemente do status
         // .not('status_revisao', 'in', '("concluida_pelo_admin", "negada")') 
@@ -592,6 +681,87 @@ function AdminDashboardPage() {
       console.log('[handleDeletePedido] Finalizada.'); // Log adicionado
     }
   };
+
+  // Handler para marcar pedido como EM ANÁLISE
+  const handleMarcarEmAnalise = async () => {
+    if (!selectedPedido) return;
+
+    console.log(`[AdminDashboardPage] Tentando marcar pedido ${selectedPedido.id} como EM ANÁLISE.`);
+    setIsMarkingEmAnalise(true);
+    try {
+      const result = await adminMarcarPedidoEmAnaliseAction({ pedidoId: selectedPedido.id });
+
+      if (result.data?.success) {
+        toast.success(result.data.message || "Pedido marcado como EM ANÁLISE.");
+        // Atualizar o estado local do pedido selecionado
+        setSelectedPedido(prev => prev ? { ...prev, status: PEDIDO_STATUS.EM_ANALISE } : null);
+        // Atualizar a lista de pedidos (fetchPedidosAdmin) e invalidar queries relevantes
+        fetchPedidosAdmin(); 
+        queryClient.invalidateQueries({ queryKey: ['adminDashboardStats'] });
+        // Poderia fechar o modal ou mudar de aba se necessário
+        // setIsViewModalOpen(false); 
+      } else if (result.data?.failure) {
+        toast.error(`Falha: ${result.data.failure}`);
+      } else if (result.serverError) {
+        toast.error(`Erro do servidor: ${result.serverError}`);
+      } else if (result.validationErrors) {
+        toast.error("Erro de validação ao marcar em análise.");
+      } else {
+        toast.error("Resposta inesperada ao marcar pedido em análise.");
+      }
+    } catch (error) {
+      console.error("[AdminDashboardPage] Erro ao chamar adminMarcarPedidoEmAnaliseAction:", error);
+      toast.error("Erro crítico ao tentar marcar pedido em análise.");
+    } finally {
+      setIsMarkingEmAnalise(false);
+    }
+  };
+
+  // Handler para iniciar gravação do pedido (EM ANÁLISE -> GRAVANDO)
+  const handleIniciarGravacao = async () => {
+    if (!selectedPedido) return;
+
+    console.log(`[AdminDashboardPage] Tentando iniciar gravação para pedido ${selectedPedido.id}.`);
+    setIsStartingGravacao(true);
+    try {
+      const result = await adminIniciarGravacaoPedidoAction({ pedidoId: selectedPedido.id });
+
+      if (result.data?.success) {
+        toast.success(result.data.message || "Pedido enviado para GRAVAÇÃO.");
+        setSelectedPedido(prev => prev ? { ...prev, status: PEDIDO_STATUS.GRAVANDO } : null);
+        fetchPedidosAdmin();
+        queryClient.invalidateQueries({ queryKey: ['adminDashboardStats'] });
+        // setIsViewModalOpen(false); 
+      } else if (result.data?.failure) {
+        toast.error(`Falha: ${result.data.failure}`);
+      } else if (result.serverError) {
+        toast.error(`Erro do servidor: ${result.serverError}`);
+      } else if (result.validationErrors) {
+        toast.error("Erro de validação ao iniciar gravação.");
+      } else {
+        toast.error("Resposta inesperada ao iniciar gravação do pedido.");
+      }
+    } catch (error) {
+      console.error("[AdminDashboardPage] Erro ao chamar adminIniciarGravacaoPedidoAction:", error);
+      toast.error("Erro crítico ao tentar iniciar gravação do pedido.");
+    } finally {
+      setIsStartingGravacao(false);
+    }
+  };
+
+  // Adicionar console.log dentro do corpo do componente para ver estados relevantes
+  console.log('[AdminDashboardPage Render] selectedPedido:', selectedPedido?.id, 'Status:', selectedPedido?.status);
+  console.log('[AdminDashboardPage Render] currentPedidoStatus (do Select):', currentPedidoStatus);
+  console.log('[AdminDashboardPage Render] selectedFile:', selectedFile?.name);
+  console.log('[AdminDashboardPage Render] isProcessingAutoStatusChange:', isProcessingAutoStatusChange);
+  console.log('[AdminDashboardPage Render] isUpdatingPedido:', isUpdatingPedido);
+
+  const showSalvarButtonCondition = modalActiveTab === 'detalhesPedido' && selectedPedido &&
+    selectedPedido.status !== PEDIDO_STATUS.PENDENTE &&
+    selectedPedido.status !== PEDIDO_STATUS.CONCLUIDO &&
+    selectedPedido.status !== PEDIDO_STATUS.CANCELADO &&
+    ((currentPedidoStatus !== selectedPedido.status) || !!selectedFile);
+  console.log('[AdminDashboardPage Render] Condição para mostrar botão Salvar:', showSalvarButtonCondition);
 
   return (
     <div className="space-y-8">
@@ -787,13 +957,19 @@ function AdminDashboardPage() {
                               pedido.status === 'cancelado' ? 'destructive' :
                               pedido.status === 'em_revisao' ? 'outline' : 
                               pedido.status === 'aguardando_cliente' ? 'outline' :
+                              pedido.status === PEDIDO_STATUS.EM_PRODUCAO ? 'outline' : // Adicionado para consistência
+                              pedido.status === PEDIDO_STATUS.EM_ANALISE ? 'outline' : // Adicionado para consistência
                               'outline'
                             }
                           className={cn(
                               "capitalize",
                               pedido.status === 'concluido' && "border-green-500 bg-green-100 text-green-700 dark:border-green-400 dark:bg-green-900/30 dark:text-green-300",
-                              pedido.status === 'em_revisao' && "border-yellow-500 bg-yellow-100 text-yellow-700 dark:border-yellow-400 dark:bg-yellow-900/30 dark:text-yellow-300",
-                              pedido.status === 'aguardando_cliente' && "border-blue-500 bg-blue-100 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300"
+                              pedido.status === 'em_revisao' && "border-pink-500 bg-pink-100 text-pink-700 dark:border-pink-400 dark:bg-pink-900/30 dark:text-pink-300",
+                              pedido.status === 'aguardando_cliente' && "border-blue-500 bg-blue-100 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300",
+                              // ADICIONAR ESTILOS PARA EM_PRODUCAO E EM_ANALISE
+                              pedido.status === PEDIDO_STATUS.EM_PRODUCAO && "border-orange-500 bg-orange-100 text-orange-700 dark:border-orange-400 dark:bg-orange-900/30 dark:text-orange-300",
+                              pedido.status === PEDIDO_STATUS.EM_ANALISE && "border-sky-500 bg-sky-100 text-sky-700 dark:border-sky-400 dark:bg-sky-900/30 dark:text-sky-300", // Exemplo: cor azul céu para EM_ANALISE
+                              pedido.status === PEDIDO_STATUS.PENDENTE && "border-gray-400 bg-gray-100 text-gray-600 dark:border-gray-500 dark:bg-gray-700 dark:text-gray-300" // Exemplo: cor cinza para PENDENTE
                             )}
                           >
                             {PEDIDO_STATUS_OPTIONS_FILTRO.find(opt => opt.value === pedido.status)?.label || pedido.status.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
@@ -1023,16 +1199,50 @@ function AdminDashboardPage() {
                 <Select 
                   value={currentPedidoStatus} 
                   onValueChange={setCurrentPedidoStatus}
-                      disabled={selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado' || isUpdatingPedido}
+                  disabled={ // Condição principal para desabilitar o select
+                    selectedPedido.status === PEDIDO_STATUS.CONCLUIDO || 
+                    selectedPedido.status === PEDIDO_STATUS.CANCELADO ||
+                    isProcessingAutoStatusChange ||
+                    isUpdatingPedido
+                  }
                 >
-                      <SelectTrigger id="status-pedido-principal" className="w-full">
+                  <SelectTrigger id="status-pedido-principal" className="w-full">
                     <SelectValue placeholder="Selecione o novo status" />
                   </SelectTrigger>
                   <SelectContent>
-                        {PEDIDO_STATUS_OPTIONS_FILTRO.filter(opt => opt.value !== 'todos').map(option => (
-                          <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
+                    {PEDIDO_STATUS_OPTIONS_FILTRO
+                      .filter(opt => {
+                        if (opt.value === 'todos') return false;
+                        if (opt.value === PEDIDO_STATUS.PENDENTE) return false; 
+                        // Não permitir selecionar o status atual, a menos que seja para "forçar" um re-save (mas o botão salvar já cuida disso)
+                        // if (opt.value === selectedPedido.status && !selectedFile) return false; 
+
+                        // Se o status é EM_ANALISE, só pode ir para EM_PRODUCAO ou CANCELADO (ou outros terminativos)
+                        if (selectedPedido.status === PEDIDO_STATUS.EM_ANALISE) {
+                          return opt.value === PEDIDO_STATUS.EM_PRODUCAO || opt.value === PEDIDO_STATUS.CANCELADO;
+                        }
+                        // Se o status é EM_PRODUCAO, pode ir para CONCLUIDO (via upload), CANCELADO, ou AGUARDANDO_CLIENTE
+                        if (selectedPedido.status === PEDIDO_STATUS.EM_PRODUCAO) {
+                          return opt.value === PEDIDO_STATUS.CONCLUIDO || opt.value === PEDIDO_STATUS.CANCELADO || opt.value === PEDIDO_STATUS.AGUARDANDO_CLIENTE;
+                        }
+                        // Se o status é GRAVANDO (status interno que pode seguir EM_PRODUCAO)
+                        if (selectedPedido.status === PEDIDO_STATUS.GRAVANDO) {
+                           return opt.value === PEDIDO_STATUS.CONCLUIDO || opt.value === PEDIDO_STATUS.CANCELADO || opt.value === PEDIDO_STATUS.AGUARDANDO_CLIENTE;
+                        }
+                        
+                        // Não permitir REJEITADO aqui se for tratado em outro local
+                        if (opt.value === PEDIDO_STATUS.REJEITADO) return false; 
+                        
+                        // Por padrão, permitir outras transições se não especificadas acima, 
+                        // mas também evitar selecionar o mesmo status se não houver arquivo.
+                        if (opt.value === selectedPedido.status && !selectedFile) return false;
+
+                        return true; // Default allow
+                      })
+                      .map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1345,21 +1555,23 @@ function AdminDashboardPage() {
               </TabsContent>
             </Tabs>
             
-            <DialogFooter className="mt-6">
+            <DialogFooter className="mt-6 pt-6 border-t flex flex-col sm:flex-row sm:justify-end sm:space-x-2 gap-2">
               <DialogClose asChild>
-                 <Button variant="outline" disabled={isUpdatingPedido || updateStatusMutation.isPending || processarRevisaoStatus === 'executing'}>Cancelar</Button>
+                 <Button variant="outline" disabled={isUpdatingPedido || updateStatusMutation.isPending || processarRevisaoStatus === 'executing' || isProcessingAutoStatusChange}>Cancelar</Button>
               </DialogClose>
               
-              {modalActiveTab === 'detalhesPedido' && selectedPedido && (selectedPedido.status !== 'concluido' && selectedPedido.status !== 'cancelado') && (
-              <Button 
+              {/* Aba Detalhes do Pedido - Botão Salvar Alterações */}
+              {showSalvarButtonCondition && (
+                <Button 
                   onClick={handleUpdatePedido} 
-                  disabled={isUpdatingPedido || updateStatusMutation.isPending || (!selectedFile && currentPedidoStatus === selectedPedido.status)}
+                  disabled={isUpdatingPedido || updateStatusMutation.isPending || isProcessingAutoStatusChange}
                 >
-                  {isUpdatingPedido || updateStatusMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} 
-                  Salvar Pedido
+                  {isUpdatingPedido || updateStatusMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} 
+                  Salvar Alterações
                 </Button>
               )}
-
+              
+              {/* Aba Gerenciar Revisão - Botão de Processar Revisão */}
               {modalActiveTab === 'gerenciarRevisao' && activeRevisao && activeRevisao.status_revisao !== REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO && activeRevisao.status_revisao !== REVISAO_STATUS_ADMIN.NEGADA && (
                 <Button
                   onClick={() => {
@@ -1367,8 +1579,7 @@ function AdminDashboardPage() {
                       toast.error("ID da solicitação ou status da ação do admin não definido.");
                       return;
                     }
-
-                    // Validação
+                    // ... (validações existentes)
                     if ((currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.NEGADA || currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE) && !currentRevisaoAdminFeedback.trim()) {
                       toast.error("O campo de feedback/justificativa é obrigatório para esta ação.");
                       return;
@@ -1388,7 +1599,7 @@ function AdminDashboardPage() {
                   disabled={processarRevisaoStatus === 'executing' || !currentRevisaoModalStatus}
                 >
                   {processarRevisaoStatus === 'executing' ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <MessageSquare className="h-4 w-4 mr-2" />}
-                Processar Revisão
+                  Processar Revisão
               </Button>
               )}
             </DialogFooter>

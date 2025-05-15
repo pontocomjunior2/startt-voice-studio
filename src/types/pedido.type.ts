@@ -1,5 +1,7 @@
 export interface PedidoStatus {
   PENDENTE: 'pendente';
+  EM_ANALISE: 'em_analise';
+  EM_PRODUCAO: 'em_producao';
   GRAVANDO: 'gravando';
   CONCLUIDO: 'concluido';
   CANCELADO: 'cancelado';
@@ -10,6 +12,8 @@ export interface PedidoStatus {
 
 export const PEDIDO_STATUS: PedidoStatus = {
   PENDENTE: 'pendente',
+  EM_ANALISE: 'em_analise',
+  EM_PRODUCAO: 'em_producao',
   GRAVANDO: 'gravando',
   CONCLUIDO: 'concluido',
   CANCELADO: 'cancelado',

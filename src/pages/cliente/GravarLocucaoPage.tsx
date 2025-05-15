@@ -1104,7 +1104,7 @@ function GravarLocucaoPage() {
                     </div>
                      {(profile?.credits ?? 0) < estimatedCredits && estimatedCredits > 0 && (
                       <p className="text-sm mt-3 text-destructive text-center">
-                        Você não possui créditos suficientes ({profile?.credits ?? 0}). <Button variant="link" size="sm" className="p-0 h-auto text-destructive" onClick={() => navigate('/cliente/creditos')}>Adquirir mais.</Button>
+                        Você não tem créditos suficientes para este pedido.
                       </p>
                     )}
                   </div>
@@ -1123,11 +1123,6 @@ function GravarLocucaoPage() {
                   {(!(getValues("scriptText") || "").trim() || (getValues("scriptText") || "").trim().length < 10) && estimatedCredits > 0 && (
                      <p className="text-sm text-orange-600 dark:text-orange-500">
                       O roteiro deve ter pelo menos 10 caracteres.
-                    </p>
-                  )}
-                  {estimatedCredits > (profile?.credits ?? 0) && (getValues("scriptText") || "").trim().length >= 10 && (
-                    <p className="text-sm text-destructive">
-                      Você não possui créditos suficientes para este pedido.
                     </p>
                   )}
                 </div>
@@ -1218,7 +1213,7 @@ function GravarLocucaoPage() {
                       )}
                       {(estimatedCredits > 0 && (profile?.credits ?? 0) < estimatedCredits) && (
                          <TooltipContent side="top" align="center" className="bg-destructive text-destructive-foreground">
-                          <p>Créditos insuficientes ({profile?.credits ?? 0} de {estimatedCredits} necessários).</p>
+                          <p>Você não tem créditos suficientes para este pedido.</p>
                         </TooltipContent>
                       )}
                       {(estimatedCredits === 0 && (getValues("scriptText") || "").trim().length >= 10) && (
