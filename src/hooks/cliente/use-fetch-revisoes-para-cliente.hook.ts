@@ -11,7 +11,7 @@ const fetchRevisoesParaCliente = async (pedidoId: string): Promise<SolicitacaoRe
     .from('solicitacoes_revisao')
     .select(`
       id,
-      descricao: descricao_cliente,
+      descricao,
       data_solicitacao,
       admin_feedback,
       data_conclusao_revisao,
