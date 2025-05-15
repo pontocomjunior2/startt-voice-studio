@@ -47,8 +47,9 @@ import { supabase } from '@/lib/supabaseClient'; // Para a query direta
 import { useFetchAdminDashboardStats } from '../../hooks/queries/use-fetch-admin-dashboard-stats.hook';
 import type { AdminDashboardStats } from '../../hooks/queries/use-fetch-admin-dashboard-stats.hook';
 
-// RESTAURAR IMPORTAÇÕES DE TIPO E HOOK
-import type { AdminPedido, SolicitacaoRevisaoDetalhada, VersaoAudioRevisadoDetalhada } from '../../types/pedido.type';
+// Tipos atualizados
+import type { AdminPedido, SolicitacaoRevisaoDetalhada, VersaoAudioRevisadoDetalhada, PedidoStatus, TipoStatusPedido } from '../../types/pedido.type';
+import { PEDIDO_STATUS } from '../../types/pedido.type'; // Importação crucial
 import { useUpdatePedidoStatus } from '../../hooks/mutations/use-update-pedido-status.hook';
 
 // REMOVER HOOK PARA SOLICITAÇÕES DE REVISÃO
@@ -84,6 +85,20 @@ import {
 
 // Importar Tabs
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+// Importar AlertDialog e ícones
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Trash2 } from 'lucide-react'; // Loader2 já importado
 
 function AdminDashboardPage() {
   const queryClient = useQueryClient();
@@ -127,10 +142,13 @@ function AdminDashboardPage() {
   const [loadingRevisao, setLoadingRevisao] = useState(false);
   const [currentRevisaoAdminFeedback, setCurrentRevisaoAdminFeedback] = useState<string>("");
   const [revisaoAudioFile, setRevisaoAudioFile] = useState<File | null>(null);
-  const [selectedAdminActionStatus, setSelectedAdminActionStatus] = useState<TipoRevisaoStatusAdmin | undefined>(undefined);
+  const [currentRevisaoModalStatus, setCurrentRevisaoModalStatus] = useState<TipoRevisaoStatusAdmin | undefined>(undefined);
 
   // Estado para controlar a aba ativa no modal
   const [modalActiveTab, setModalActiveTab] = useState<string>("detalhesPedido");
+
+  // Estado para o AlertDialog de exclusão
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
 
   const { // Este hook busca o histórico para o modal do pedido, deve ser mantido
     data: historicoRevisoesPedido,
@@ -311,6 +329,7 @@ function AdminDashboardPage() {
             estilo_locucao: p.estilo_locucao,
             orientacoes: p.orientacoes,
             tipo_audio: p.tipo_audio,
+            creditos_debitados: p.creditos_debitados, // Adicionar esta linha
             // creditos_debitados e cliente_notificado_em não estão em AdminPedido, mas estão na query.
             // Se forem necessários em AdminPedido, devem ser adicionados ao tipo.
             // Por ora, não são incluídos no objeto mapeado para AdminPedido para evitar erros de tipo.
@@ -342,7 +361,7 @@ function AdminDashboardPage() {
     setIsViewModalOpen(true);
     setActiveRevisao(null);
     setCurrentRevisaoAdminFeedback("");
-    setSelectedAdminActionStatus(undefined);
+    setCurrentRevisaoModalStatus(undefined);
     setRevisaoAudioFile(null);
     setModalActiveTab("detalhesPedido");
   };
@@ -426,7 +445,7 @@ function AdminDashboardPage() {
       subtext: "Soma de créditos dos clientes",
       iconColorClass: "text-status-green",
     },
-    { 
+    {
       title: "Pedidos Pendentes", // Este card ainda pode usar stats.pendingorders se essa métrica vier de useFetchAdminDashboardStats
       valueKey: "pendingorders",
       icon: ListChecks,
@@ -445,11 +464,12 @@ function AdminDashboardPage() {
   // Opções para o filtro de status, incluindo "Todos Status" e "Em Revisão"
   const PEDIDO_STATUS_OPTIONS_FILTRO = [
     { value: 'todos', label: 'Todos Status' },
-    { value: 'pendente', label: 'Pendente' },
-    { value: 'em_revisao', label: 'Em Revisão' },
-    { value: 'gravando', label: 'Gravando' },
-    { value: 'concluido', label: 'Concluído' },
-    { value: 'cancelado', label: 'Cancelado' },
+    { value: PEDIDO_STATUS.PENDENTE, label: 'Pendente' },
+    { value: PEDIDO_STATUS.EM_REVISAO, label: 'Em Revisão' },
+    { value: PEDIDO_STATUS.AGUARDANDO_CLIENTE, label: 'Aguardando Cliente' },
+    { value: PEDIDO_STATUS.GRAVANDO, label: 'Gravando' },
+    { value: PEDIDO_STATUS.CONCLUIDO, label: 'Concluído' },
+    { value: PEDIDO_STATUS.CANCELADO, label: 'Cancelado' },
     // Adicione mais status se necessário, ex: rejeitado (se houver)
   ];
 
@@ -484,17 +504,24 @@ function AdminDashboardPage() {
         if (loadedRevisao) {
           // Pré-popular estados para os campos do formulário de revisão
           setCurrentRevisaoAdminFeedback(loadedRevisao.admin_feedback || "");
-          // Se o status da revisão já é final (concluida ou negada), não pré-selecionar para nova ação,
-          // a menos que queiramos permitir re-processar. Por ora, só pré-seleciona se não for final.
-          if (loadedRevisao.status_revisao !== REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN && loadedRevisao.status_revisao !== REVISAO_STATUS_ADMIN.NEGADA) {
-            setSelectedAdminActionStatus(loadedRevisao.status_revisao as TipoRevisaoStatusAdmin);
+          // Se o status da revisão já é final, não pré-selecionar para nova ação.
+          // Se for uma revisão 'solicitada' ou sem status definido (pode acontecer se o enum mudar e o dado no DB for antigo),
+          // sugere 'em_andamento_admin'.
+          if (loadedRevisao.status_revisao && 
+              (loadedRevisao.status_revisao === REVISAO_STATUS_ADMIN.NEGADA || 
+               loadedRevisao.status_revisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO ||
+               loadedRevisao.status_revisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE)) {
+            setCurrentRevisaoModalStatus(loadedRevisao.status_revisao as TipoRevisaoStatusAdmin);
+          } else if (loadedRevisao.status_revisao === REVISAO_STATUS_ADMIN.SOLICITADA || !loadedRevisao.status_revisao) {
+            setCurrentRevisaoModalStatus(REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN);
           } else {
-            setSelectedAdminActionStatus(undefined); // Limpa ação se revisão já está finalizada
+            // Para outros status que podem já estar como 'em_andamento_admin'
+            setCurrentRevisaoModalStatus(loadedRevisao.status_revisao as TipoRevisaoStatusAdmin);
           }
           setRevisaoAudioFile(null); // Limpar seleção de arquivo anterior
         } else {
           setCurrentRevisaoAdminFeedback("");
-          setSelectedAdminActionStatus(undefined);
+          setCurrentRevisaoModalStatus(REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN); // Default para nova revisão ou sem revisão ativa
           setRevisaoAudioFile(null);
         }
       }
@@ -515,10 +542,56 @@ function AdminDashboardPage() {
     } else {
       setActiveRevisao(null); // Limpa se o modal fechar ou não houver pedido
       setCurrentRevisaoAdminFeedback("");
-      setSelectedAdminActionStatus(undefined);
+      setCurrentRevisaoModalStatus(undefined); // Limpar status da revisão modal
       setRevisaoAudioFile(null);
     }
   }, [isViewModalOpen, selectedPedido?.id]);
+
+  // Handler para exclusão de pedido
+  const handleDeletePedido = async () => {
+    console.log('[handleDeletePedido] Iniciada.'); // Log adicionado
+    if (!selectedPedido) {
+      console.warn('[handleDeletePedido] Pedido não selecionado. Abortando.');
+      return;
+    }
+    setIsUpdatingPedido(true); 
+
+    try {
+      console.log(`[handleDeletePedido] Tentando excluir pedido ID: ${selectedPedido.id}, Serial: ${selectedPedido.id_pedido_serial}`); // Log adicionado
+      // Verificar se supabaseClient está definido ou se supabase (global) deve ser usado
+      // Assumindo que supabase (importado de @/lib/supabaseClient) é o correto
+      console.log('[handleDeletePedido] Chamando RPC excluir_pedido_e_estornar_creditos...'); // Log adicionado
+      const { data: result, error } = await supabase.rpc('excluir_pedido_e_estornar_creditos', {
+        p_pedido_id: selectedPedido.id
+      });
+
+      console.log('[handleDeletePedido] RPC Result:', result); // Log adicionado
+      console.log('[handleDeletePedido] RPC Error:', error); // Log adicionado
+
+      if (error) {
+        console.error("[handleDeletePedido] Erro RPC ao excluir pedido:", error);
+        throw new Error(error.message || 'Falha ao chamar RPC para excluir pedido.');
+      }
+      
+      if (result?.status === 'error') {
+        console.error("[handleDeletePedido] Erro retornado pela RPC excluir_pedido_e_estornar_creditos:", result.message);
+        throw new Error(result?.message || 'Falha ao excluir pedido conforme resposta da RPC.');
+      }
+
+      toast.success(result?.message || "Pedido excluído e créditos estornados com sucesso.");
+      setIsDeleteAlertOpen(false); 
+      setIsViewModalOpen(false);  
+      fetchPedidosAdmin();      
+      queryClient.invalidateQueries({ queryKey: ['adminDashboardStats'] }); 
+
+    } catch (err: any) {
+      console.error("[handleDeletePedido] Catch:", err); // Log adicionado
+      toast.error(err.message || "Ocorreu um erro ao tentar excluir o pedido.");
+    } finally {
+      setIsUpdatingPedido(false);
+      console.log('[handleDeletePedido] Finalizada.'); // Log adicionado
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -539,7 +612,7 @@ function AdminDashboardPage() {
               
               console.log('Chamando fetchPedidosAdmin diretamente...');
               fetchPedidosAdmin();
-
+              
               console.log('--- Invalidações e Refresh Chamados ---');
             }}
             disabled={isFetchingStats || loadingPedidos}
@@ -637,7 +710,7 @@ function AdminDashboardPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+          </div>
 
             {/* Filtro de Data */}
             <div className="flex-1 min-w-[280px] md:min-w-[320px]">
@@ -647,7 +720,7 @@ function AdminDashboardPage() {
                 onDateChange={setFiltroData}
                 className="w-full" // O ID é aplicado no botão dentro do DatePickerWithRange
               />
-            </div>
+          </div>
             
             {/* Botão Limpar Filtros */}
             <Button 
@@ -678,12 +751,12 @@ function AdminDashboardPage() {
                 <p className="ml-2 text-gray-600">Carregando pedidos...</p>
               </div>
             ) : pedidosExibidos.length > 0 ? ( // Usar pedidosExibidos
-              <Table>
+            <Table>
                 <TableCaption>
                   {totalPedidosCount === 0 ? "Nenhum pedido encontrado com os filtros atuais." : `Exibindo ${pedidosExibidos.length} de ${totalPedidosCount} pedido(s).`}
                 </TableCaption>
                 <TableHeader>
-                  <TableRow>
+                <TableRow>
                     <TableHead className="w-[100px]">ID Pedido</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Locutor</TableHead>
@@ -691,8 +764,8 @@ function AdminDashboardPage() {
                     <TableHead className="w-[150px]">Data</TableHead>
                     <TableHead className="w-[120px]">Status</TableHead>
                     <TableHead className="text-right w-[120px]">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
+                </TableRow>
+              </TableHeader>
                 <TableBody>
                   {pedidosExibidos.map((pedido) => ( // Usar pedidosExibidos
                     <TableRow key={pedido.id} className="hover:bg-muted/50">
@@ -706,23 +779,25 @@ function AdminDashboardPage() {
                       <TableCell>{format(new Date(pedido.created_at), 'dd/MM/yy HH:mm', { locale: ptBR })}</TableCell>
                       <TableCell>
                           {/* Lógica do Badge de Status mantida */}
-                          <Badge 
+                        <Badge
                             variant={
                               pedido.status === 'pendente' ? 'default' :
                               pedido.status === 'gravando' ? 'secondary' :
                               pedido.status === 'concluido' ? 'outline' : 
                               pedido.status === 'cancelado' ? 'destructive' :
                               pedido.status === 'em_revisao' ? 'outline' : 
+                              pedido.status === 'aguardando_cliente' ? 'outline' :
                               'outline'
                             }
-                            className={cn(
+                          className={cn(
                               "capitalize",
                               pedido.status === 'concluido' && "border-green-500 bg-green-100 text-green-700 dark:border-green-400 dark:bg-green-900/30 dark:text-green-300",
-                              pedido.status === 'em_revisao' && "border-yellow-500 bg-yellow-100 text-yellow-700 dark:border-yellow-400 dark:bg-yellow-900/30 dark:text-yellow-300"
+                              pedido.status === 'em_revisao' && "border-yellow-500 bg-yellow-100 text-yellow-700 dark:border-yellow-400 dark:bg-yellow-900/30 dark:text-yellow-300",
+                              pedido.status === 'aguardando_cliente' && "border-blue-500 bg-blue-100 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300"
                             )}
                           >
-                            {PEDIDO_STATUS_OPTIONS_FILTRO.find(opt => opt.value === pedido.status)?.label || pedido.status}
-                          </Badge>
+                            {PEDIDO_STATUS_OPTIONS_FILTRO.find(opt => opt.value === pedido.status)?.label || pedido.status.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm" onClick={() => handleOpenViewModal(pedido)}>
@@ -731,21 +806,21 @@ function AdminDashboardPage() {
                       </TableCell>
                     </TableRow>
                   ))}
-                </TableBody>
-              </Table>
+              </TableBody>
+            </Table>
             ) : (
               <div className="text-center py-10">
                 <FileText className="mx-auto h-12 w-12 text-gray-400" />
                 <p className="mt-2 text-sm text-gray-500">Nenhum pedido encontrado.</p>
                 <p className="text-xs text-gray-400">Tente ajustar os filtros ou aguarde novos pedidos.</p>
-              </div>
-            )}
+          </div>
+        )}
             {/* Componentes de Paginação */} 
             {totalPedidosCount > 0 && (
               <div className="mt-6 flex flex-col md:flex-row justify-between items-center gap-4">
                 <div className="text-sm text-muted-foreground">
                   Mostrando {pedidosExibidos.length} de {totalPedidosCount} pedidos.
-                </div>
+      </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Itens por página:</span>
                   <Select
@@ -766,7 +841,7 @@ function AdminDashboardPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+        </div>
                 <Pagination>
                   <PaginationContent>
                     <PaginationItem>
@@ -843,8 +918,8 @@ function AdminDashboardPage() {
                     </PaginationItem>
                   </PaginationContent>
                 </Pagination>
-              </div>
-            )}
+          </div>
+        )}
           </CardContent>
         </Card>
       </div>
@@ -856,7 +931,7 @@ function AdminDashboardPage() {
             setSelectedPedido(null); 
             setActiveRevisao(null); 
             setCurrentRevisaoAdminFeedback("");
-            setSelectedAdminActionStatus(undefined);
+            setCurrentRevisaoModalStatus(undefined);
             setRevisaoAudioFile(null);
             setModalActiveTab("detalhesPedido"); 
           }
@@ -886,120 +961,158 @@ function AdminDashboardPage() {
               {/* Aba 1: Detalhes do Pedido */}
               <TabsContent value="detalhesPedido">
                 <div className="space-y-6 py-4 pr-3 overflow-y-auto max-h-[calc(80vh-200px)]">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3 text-sm">
-                    <div className="font-medium text-muted-foreground">Cliente:</div>
-                    <div className="md:col-span-2">{selectedPedido.profile?.full_name || selectedPedido.profile?.username || 'N/A'}</div>
-                    
-                    <div className="font-medium text-muted-foreground">Data/Hora:</div>
-                    <div className="md:col-span-2">
-                      {new Date(selectedPedido.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3 text-sm">
+                <div className="font-medium text-muted-foreground">Cliente:</div>
+                <div className="md:col-span-2">{selectedPedido.profile?.full_name || selectedPedido.profile?.username || 'N/A'}</div>
+                
+                <div className="font-medium text-muted-foreground">Data/Hora:</div>
+                <div className="md:col-span-2">
+                  {new Date(selectedPedido.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </div>
 
-                    <div className="font-medium text-muted-foreground">Título do Pedido:</div>
-                    <div className="md:col-span-2">{selectedPedido.titulo || 'N/A'}</div>
+                <div className="font-medium text-muted-foreground">Título do Pedido:</div>
+                <div className="md:col-span-2">{selectedPedido.titulo || 'N/A'}</div>
 
-                    <div className="font-medium text-muted-foreground">Locutor:</div>
-                    <div className="md:col-span-2">{selectedPedido.locutores?.nome || 'N/A'}</div>
+                <div className="font-medium text-muted-foreground">Locutor:</div>
+                <div className="md:col-span-2">{selectedPedido.locutores?.nome || 'N/A'}</div>
 
-                    <div className="font-medium text-muted-foreground">Estilo de Locução:</div>
-                    <div className="md:col-span-2">{selectedPedido.estilo_locucao || 'N/A'}</div>
+                <div className="font-medium text-muted-foreground">Estilo de Locução:</div>
+                <div className="md:col-span-2">{selectedPedido.estilo_locucao || 'N/A'}</div>
 
-                    <div className="font-medium text-muted-foreground self-start pt-1">Tipo de Áudio:</div>
-                    <div className="md:col-span-2">
-                      {selectedPedido.tipo_audio ? (
-                        <Badge 
-                          variant={selectedPedido.tipo_audio === 'off' ? 'secondary' : 'default'}
-                          className={cn(
-                            "text-sm px-3 py-1 font-semibold",
-                            selectedPedido.tipo_audio === 'off' && "bg-blue-100 text-blue-700 border-blue-300",
-                            selectedPedido.tipo_audio === 'produzido' && "bg-green-100 text-green-700 border-green-300"
-                          )}
-                        >
-                          {selectedPedido.tipo_audio === 'off' ? 'Áudio em OFF' : 'Áudio Produzido'}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">Não especificado</span>
+                <div className="font-medium text-muted-foreground self-start pt-1">Tipo de Áudio:</div>
+                <div className="md:col-span-2">
+                  {selectedPedido.tipo_audio ? (
+                    <Badge 
+                      variant={selectedPedido.tipo_audio === 'off' ? 'secondary' : 'default'}
+                      className={cn(
+                        "text-sm px-3 py-1 font-semibold",
+                        selectedPedido.tipo_audio === 'off' && "bg-blue-100 text-blue-700 border-blue-300",
+                        selectedPedido.tipo_audio === 'produzido' && "bg-green-100 text-green-700 border-green-300"
                       )}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Orientações (Briefing):</h4>
-                    <div className="p-3 bg-muted/50 rounded-md max-h-32 overflow-y-auto text-sm whitespace-pre-wrap border">
-                      {selectedPedido.orientacoes || 'Nenhuma orientação fornecida.'}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Roteiro Completo:</h4>
-                    <div className="p-3 bg-muted/50 rounded-md max-h-40 overflow-y-auto text-sm whitespace-pre-wrap border">
-                      {selectedPedido.texto_roteiro || 'Nenhum roteiro fornecido.'}
-                    </div>
-                  </div>
-                  
-                  <Separator className="my-4" />
-                  {/* Campos para alterar status e enviar áudio do pedido principal */}
-                  <div className="space-y-2">
-                    <Label htmlFor="status-pedido-principal" className="text-sm font-medium">Alterar Status do Pedido Principal:</Label>
-                    <Select 
-                      value={currentPedidoStatus} 
-                      onValueChange={setCurrentPedidoStatus}
-                      disabled={selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado' || isUpdatingPedido}
                     >
+                      {selectedPedido.tipo_audio === 'off' ? 'Áudio em OFF' : 'Áudio Produzido'}
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground">Não especificado</span>
+                  )}
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-1">Orientações (Briefing):</h4>
+                <div className="p-3 bg-muted/50 rounded-md max-h-32 overflow-y-auto text-sm whitespace-pre-wrap border">
+                  {selectedPedido.orientacoes || 'Nenhuma orientação fornecida.'}
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-1">Roteiro Completo:</h4>
+                <div className="p-3 bg-muted/50 rounded-md max-h-40 overflow-y-auto text-sm whitespace-pre-wrap border">
+                  {selectedPedido.texto_roteiro || 'Nenhum roteiro fornecido.'}
+                </div>
+              </div>
+
+              <Separator className="my-4" />
+                  {/* Campos para alterar status e enviar áudio do pedido principal */}
+              <div className="space-y-2">
+                    <Label htmlFor="status-pedido-principal" className="text-sm font-medium">Alterar Status do Pedido Principal:</Label>
+                <Select 
+                  value={currentPedidoStatus} 
+                  onValueChange={setCurrentPedidoStatus}
+                      disabled={selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado' || isUpdatingPedido}
+                >
                       <SelectTrigger id="status-pedido-principal" className="w-full">
-                        <SelectValue placeholder="Selecione o novo status" />
-                      </SelectTrigger>
-                      <SelectContent>
+                    <SelectValue placeholder="Selecione o novo status" />
+                  </SelectTrigger>
+                  <SelectContent>
                         {PEDIDO_STATUS_OPTIONS_FILTRO.filter(opt => opt.value !== 'todos').map(option => (
                           <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                  <div className="space-y-2">
+              <div className="space-y-2">
                     <Label htmlFor="audio-file-principal" className="text-sm font-medium">Enviar Áudio Finalizado (Principal):</Label>
-                    <Input 
+                <Input 
                       id="audio-file-principal" 
-                      type="file" 
-                      accept=".mp3,.wav,.ogg,.aac" 
-                      onChange={handleFileChange} 
-                      className="w-full h-10 px-3 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" 
+                  type="file" 
+                  accept=".mp3,.wav,.ogg,.aac" 
+                  onChange={handleFileChange} 
+                  className="w-full h-10 px-3 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" 
                       disabled={selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado' || isUpdatingPedido}
-                    />
-                    {selectedFile && <p className="text-xs text-muted-foreground mt-1">Arquivo selecionado: {selectedFile.name}</p>}
-                    {selectedPedido.audio_final_url && (
-                      <a
-                        href={selectedPedido.audio_final_url}
-                        download
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center mt-2 px-3 py-1 bg-status-green text-white rounded hover:bg-status-green/90 text-xs font-medium transition-colors"
-                      >
+                />
+                {selectedFile && <p className="text-xs text-muted-foreground mt-1">Arquivo selecionado: {selectedFile.name}</p>}
+                {selectedPedido.audio_final_url && (
+                  <a
+                    href={selectedPedido.audio_final_url}
+                    download
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center mt-2 px-3 py-1 bg-status-green text-white rounded hover:bg-status-green/90 text-xs font-medium transition-colors"
+                  >
                         <DownloadCloud className="h-4 w-4 mr-1" /> Baixar Áudio Principal Atual
-                      </a>
-                    )}
-                  </div>
+                  </a>
+                )}
+              </div>
 
-                  {(selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado') && (
-                    <div className="pt-4">
-                      <Button 
-                        variant="outline"
-                        className="w-full border-status-orange text-status-orange hover:bg-status-orange/10 hover:text-status-orange"
-                        onClick={handleReopenPedido}
-                        disabled={isUpdatingPedido || updateStatusMutation.isPending}
-                      >
-                        <RotateCcw className="h-4 w-4 mr-2" />
-                        Reabrir Pedido para Edição
-                      </Button>
-                    </div>
-                  )}
+              {(selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado') && (
+                <div className="pt-4">
+                  <Button 
+                    variant="outline"
+                    className="w-full border-status-orange text-status-orange hover:bg-status-orange/10 hover:text-status-orange"
+                    onClick={handleReopenPedido}
+                    disabled={isUpdatingPedido || updateStatusMutation.isPending}
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Reabrir Pedido para Edição
+                  </Button>
+                </div>
+              )}
+
+              {/* Seção de Ações de Risco */}
+              <div className="mt-6 border-t pt-6">
+                <h4 className="mb-3 text-md font-semibold text-destructive">Ações de Risco</h4>
+                <AlertDialog open={isDeleteAlertOpen} onOpenChange={(open) => {
+                  console.log('[AlertDialog Excluir] onOpenChange. Novo estado:', open);
+                  setIsDeleteAlertOpen(open);
+                }}>
+                  <AlertDialogTrigger asChild>
+                <Button 
+                      variant="destructive" 
+                      className="w-full sm:w-auto disabled:opacity-50"
+                      disabled={isUpdatingPedido}
+                      onClick={() => {
+                        console.log('[Excluir Pedido BUTTON] Clicado!'); // Log de clique direto no botão
+                      }}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Excluir Pedido e Estornar Créditos
+                </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta ação é irreversível. O pedido ID <span className="font-mono bg-muted px-1 rounded text-foreground font-semibold">{selectedPedido?.id_pedido_serial || selectedPedido?.id.substring(0,8)}</span> será excluído e os créditos ({selectedPedido?.creditos_debitados}) serão estornados ao cliente. Deseja continuar?
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={isUpdatingPedido}>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeletePedido} disabled={isUpdatingPedido} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                        {isUpdatingPedido ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Confirmar Exclusão
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+
                 </div> {/* Fim do scrollable-area da Aba 1 */}
               </TabsContent>
 
@@ -1007,18 +1120,18 @@ function AdminDashboardPage() {
               <TabsContent value="gerenciarRevisao">
                 <div className="space-y-6 py-4 pr-3 overflow-y-auto max-h-[calc(80vh-200px)]">
                   <Card>
-                    <CardHeader>
+        <CardHeader>
                       <CardTitle>Gerenciamento da Solicitação de Revisão</CardTitle>
                       <CardDescription>
                         Detalhes e ações para a solicitação de revisão ativa deste pedido.
                       </CardDescription>
-                    </CardHeader>
+        </CardHeader>
                     <CardContent className="space-y-4">
                       {loadingRevisao && (
                         <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                           <Loader2 className="h-5 w-5 animate-spin" />
                           <span>Carregando detalhes da revisão...</span>
-                        </div>
+            </div>
                       )}
                       {!loadingRevisao && !activeRevisao && selectedPedido?.status !== 'em_revisao' && (
                         <p className="text-sm text-muted-foreground">
@@ -1042,11 +1155,12 @@ function AdminDashboardPage() {
                                 <p className="mb-1"><strong>Descrição do Cliente:</strong></p>
                                 <div className="p-2 bg-background rounded-sm text-xs whitespace-pre-wrap border max-h-28 overflow-y-auto">
                                   {activeRevisao.descricao || 'Nenhuma descrição fornecida.'}
-                                </div>
+            </div>
                               </div>
                             </div>
                           </div>
 
+                          {/* Histórico de áudios anteriores desta solicitação de revisão */}
                           {activeRevisao.versoes_audio_revisao && activeRevisao.versoes_audio_revisao.length > 0 && (
                             <div>
                               <h4 className="text-sm font-semibold text-muted-foreground mb-1">Áudios de Revisão Anteriores (nesta solicitação)</h4>
@@ -1078,57 +1192,84 @@ function AdminDashboardPage() {
                             <h4 className="text-sm font-semibold text-muted-foreground mb-2">Ações do Administrador</h4>
                             <div className="space-y-4">
                               <div>
-                                <Label htmlFor="admin-action-status" className="text-xs font-medium">Definir Status da Revisão:</Label>
-                                <Select 
-                                  value={selectedAdminActionStatus}
-                                  onValueChange={(value) => setSelectedAdminActionStatus(value as TipoRevisaoStatusAdmin)}
-                                  disabled={processarRevisaoStatus === 'executing' || activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN || activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.NEGADA}
+                                <Label htmlFor="revisao-status-select" className="text-xs font-medium">Ação/Status da Revisão:</Label>
+                <Select
+                                  value={currentRevisaoModalStatus}
+                                  onValueChange={(value) => setCurrentRevisaoModalStatus(value as TipoRevisaoStatusAdmin)}
+                                  disabled={processarRevisaoStatus === 'executing' || 
+                                            activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO || 
+                                            activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.NEGADA
+                                  }
                                 >
-                                  <SelectTrigger id="admin-action-status">
-                                    <SelectValue placeholder="Selecione uma ação/status" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {Object.values(REVISAO_STATUS_ADMIN)
-                                      .filter(status => status !== REVISAO_STATUS_ADMIN.SOLICITADA) 
-                                      .map(status => (
-                                        <SelectItem key={status} value={status}>
-                                          {status.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
-                                        </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                {(activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN || activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.NEGADA) && (
-                                  <p className="text-xs text-muted-foreground mt-1">Esta solicitação de revisão já foi finalizada.</p>
+                                  <SelectTrigger id="revisao-status-select">
+                                    <SelectValue placeholder="Selecione uma ação..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                                    <SelectItem value={REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN}>Marcar como "Em Andamento"</SelectItem>
+                                    <SelectItem value={REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO}>Revisado (Anexar áudio)</SelectItem>
+                                    <SelectItem value={REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE}>Solicitar Mais Informações</SelectItem>
+                                    <SelectItem value={REVISAO_STATUS_ADMIN.NEGADA}>Negar Revisão</SelectItem>
+                  </SelectContent>
+                </Select>
+                                {(activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO || activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.NEGADA) && (
+                                  <p className="text-xs text-muted-foreground mt-1">Esta solicitação de revisão já foi finalizada ({activeRevisao.status_revisao.replace(/_/g, ' ').toLocaleLowerCase()}).</p>
                                 )}
-                              </div>
+              </div>
 
                               <div>
-                                <Label htmlFor="admin-feedback-revisao" className="text-xs font-medium">Feedback para o Cliente (Opcional):</Label>
-                                <Textarea
-                                  id="admin-feedback-revisao"
-                                  placeholder="Seu feedback sobre a revisão..."
+                                <Label htmlFor="revisao-admin-feedback" className="text-xs font-medium">
+                                  {currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE 
+                                    ? "Texto da Solicitação de Informações (Obrigatório):" 
+                                    : currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.NEGADA 
+                                      ? "Justificativa da Negação (Obrigatório):"
+                                      : "Feedback para o Cliente (Opcional):"
+                                  }
+                </Label>
+                <Textarea
+                                  id="revisao-admin-feedback"
+                                  placeholder={
+                                    currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE 
+                                    ? "Detalhe quais informações adicionais são necessárias..."
+                                    : currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.NEGADA
+                                      ? "Explique o motivo da negação da revisão..."
+                                      : "Seu feedback sobre a revisão (ex: correções realizadas)..."
+                                  }
                                   value={currentRevisaoAdminFeedback}
                                   onChange={(e) => setCurrentRevisaoAdminFeedback(e.target.value)}
-                                  rows={3}
-                                  disabled={processarRevisaoStatus === 'executing' || activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN || activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.NEGADA}
-                                />
-                              </div>
+                                  rows={4}
+                                  disabled={processarRevisaoStatus === 'executing' || 
+                                            activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO || 
+                                            activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.NEGADA
+                                  }
+                                  required={currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.NEGADA || currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE}
+                />
+              </div>
                               
-                              <div>
-                                <Label htmlFor="revisao-audio-file" className="text-xs font-medium">Enviar Novo Áudio Revisado (se aplicável):</Label>
-                                <Input
-                                  id="revisao-audio-file"
-                                  type="file"
-                                  accept=".mp3,.wav,.ogg,.aac"
-                                  onChange={(e) => setRevisaoAudioFile(e.target.files ? e.target.files[0] : null)}
-                                  className="h-10 px-3 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
-                                  disabled={processarRevisaoStatus === 'executing' || selectedAdminActionStatus !== REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN || activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN || activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.NEGADA}
-                                />
-                                {revisaoAudioFile && <p className="text-xs text-muted-foreground mt-1">Arquivo selecionado: {revisaoAudioFile.name}</p>}
-                                 {selectedAdminActionStatus !== REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN && activeRevisao.status_revisao !== REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN && activeRevisao.status_revisao !== REVISAO_STATUS_ADMIN.NEGADA && (
-                                   <p className="text-xs text-muted-foreground mt-1">O upload de áudio só é habilitado ao selecionar "Concluída pelo Admin".</p>
-                                 )}
-                              </div>
+                              {currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO && (
+                                <div>
+                                  <Label htmlFor="revisao-audio-file" className="text-xs font-medium">Novo Áudio Revisado (Obrigatório):</Label>
+                  <Input
+                                    id="revisao-audio-file"
+                    type="file"
+                                    accept="audio/*" //.mp3,.wav,.ogg,.aac
+                                    onChange={(e) => setRevisaoAudioFile(e.target.files ? e.target.files[0] : null)}
+                                    className="h-10 px-3 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                                    disabled={processarRevisaoStatus === 'executing' || 
+                                              activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO || 
+                                              activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.NEGADA
+                                    }
+                                    required={currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO}
+                                  />
+                                  {revisaoAudioFile && <p className="text-xs text-muted-foreground mt-1">Arquivo selecionado: {revisaoAudioFile.name}</p>}
+                                  {/* NOVO AVISO NA UI */}
+                                  {currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO && !revisaoAudioFile && (
+                                    <p className="text-xs text-red-600 mt-1 font-semibold">
+                                      <AlertTriangle className="h-3 w-3 inline-block mr-1" /> 
+                                      O upload de um novo arquivo de áudio é obrigatório para este status.
+                    </p>
+                  )}
+                </div>
+                              )}
                             </div> {/* Fechamento do div space-y-4 das Ações do Admin */}
                           </div> {/* Fechamento do div que engloba Ações do Administrador */}
                         </div> /* Fechamento do div space-y-6 principal de activeRevisao */
@@ -1149,13 +1290,13 @@ function AdminDashboardPage() {
                         <div className="flex items-center space-x-2">
                           <Loader2 className="h-5 w-5 animate-spin" />
                           <span>Carregando histórico de revisões...</span>
-                        </div>
+              </div>
                       )}
                       {isErrorHistoricoRevisoesPedido && (
                         <p className="text-sm text-red-600">
                           Erro ao carregar histórico: {errorHistoricoRevisoesPedido?.message}
-                        </p>
-                      )}
+                    </p>
+                  )}
                       {!isLoadingHistoricoRevisoesPedido && !isErrorHistoricoRevisoesPedido && historicoRevisoesPedido && (
                         <div className="p-3 bg-muted/30 rounded-md max-h-96 overflow-y-auto text-xs border space-y-4">
                           {historicoRevisoesPedido.length === 0 ? (
@@ -1169,19 +1310,23 @@ function AdminDashboardPage() {
                                   </h5>
                                   <Badge 
                                     variant={solicitacao.status_revisao === REVISAO_STATUS_ADMIN.SOLICITADA ? 'outline' : 
-                                              solicitacao.status_revisao === REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN ? 'default' :
+                                              solicitacao.status_revisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO ? 'default' :
                                               solicitacao.status_revisao === REVISAO_STATUS_ADMIN.NEGADA ? 'destructive' : 
+                                              solicitacao.status_revisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE ? 'secondary' :
+                                              solicitacao.status_revisao === REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN ? 'secondary' :
                                               'secondary'
                                             }
                                     className={cn(
                                       solicitacao.status_revisao === REVISAO_STATUS_ADMIN.SOLICITADA && 'border-orange-500 text-orange-500',
-                                      solicitacao.status_revisao === REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN && 'bg-green-600 text-white',
-                                      solicitacao.status_revisao === REVISAO_STATUS_ADMIN.NEGADA && 'bg-red-600 text-white'
+                                      solicitacao.status_revisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO && 'bg-green-600 text-white',
+                                      solicitacao.status_revisao === REVISAO_STATUS_ADMIN.NEGADA && 'bg-red-600 text-white',
+                                      solicitacao.status_revisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE && 'border-blue-500 text-blue-500',
+                                      solicitacao.status_revisao === REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN && 'border-gray-500 text-gray-500'
                                     )}
                                   >
                                     {solicitacao.status_revisao.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                                   </Badge>
-                                </div>
+                </div>
                                 <p className="mb-1"><span className="font-medium text-muted-foreground">Data:</span> {format(new Date(solicitacao.data_solicitacao), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
                                 <p className="mb-1"><span className="font-medium text-muted-foreground">Cliente:</span></p>
                                 <div className="p-2 bg-muted rounded-sm text-xs whitespace-pre-wrap border mb-2 max-h-28 overflow-y-auto">{solicitacao.descricao || 'N/D'}</div>
@@ -1189,14 +1334,14 @@ function AdminDashboardPage() {
                                 {solicitacao.data_conclusao_revisao && <p className="mb-2"><span className="font-medium text-muted-foreground">Conclusão:</span> {format(new Date(solicitacao.data_conclusao_revisao), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>}
                                 {solicitacao.versoes_audio_revisao && solicitacao.versoes_audio_revisao.length > 0 && (<div className="mt-3"><h6 className="text-xs font-semibold text-muted-foreground mb-1">Áudios:</h6><ul className="space-y-2">{solicitacao.versoes_audio_revisao.map((versao: VersaoAudioRevisadoDetalhada) => (<li key={versao.id} className="p-2 border bg-background/50 rounded-md"><div className="flex justify-between items-center"><span className="text-xs font-medium truncate" title={versao.nome_arquivo_revisado || ''}><FileText className="h-3 w-3 mr-1 inline-block" /> {versao.nome_arquivo_revisado || 'Áudio'}</span>{versao.audio_url_revisado && (<a href={versao.audio_url_revisado} download target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs font-medium transition-colors"><DownloadCloud className="h-3 w-3 mr-1" /> Baixar</a>)}</div><p className="text-xs text-muted-foreground mt-1">Em: {format(new Date(versao.data_envio), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>{versao.comentario_admin && (<div className="mt-1"><p className="text-xs font-semibold text-muted-foreground">Comentário:</p><p className="text-xs text-muted-foreground whitespace-pre-wrap">{versao.comentario_admin}</p></div>)}</li>))}</ul></div>)}
                                 {index < historicoRevisoesPedido.length - 1 && <Separator className="my-3" />}
-                              </div>
+              </div>
                             ))
-                          )}
-                        </div>
-                      )}
+              )}
+            </div>
+              )}
                     </CardContent>
                   </Card>
-                </div>
+            </div>
               </TabsContent>
             </Tabs>
             
@@ -1206,7 +1351,7 @@ function AdminDashboardPage() {
               </DialogClose>
               
               {modalActiveTab === 'detalhesPedido' && selectedPedido && (selectedPedido.status !== 'concluido' && selectedPedido.status !== 'cancelado') && (
-                <Button 
+              <Button 
                   onClick={handleUpdatePedido} 
                   disabled={isUpdatingPedido || updateStatusMutation.isPending || (!selectedFile && currentPedidoStatus === selectedPedido.status)}
                 >
@@ -1215,26 +1360,36 @@ function AdminDashboardPage() {
                 </Button>
               )}
 
-              {modalActiveTab === 'gerenciarRevisao' && activeRevisao && activeRevisao.status_revisao !== REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN && activeRevisao.status_revisao !== REVISAO_STATUS_ADMIN.NEGADA && (
+              {modalActiveTab === 'gerenciarRevisao' && activeRevisao && activeRevisao.status_revisao !== REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO && activeRevisao.status_revisao !== REVISAO_STATUS_ADMIN.NEGADA && (
                 <Button
                   onClick={() => {
-                    if (!activeRevisao?.id || !selectedAdminActionStatus) {
+                    if (!activeRevisao?.id || !currentRevisaoModalStatus) {
                       toast.error("ID da solicitação ou status da ação do admin não definido.");
                       return;
                     }
-                    // Lógica para CONCLUIDA_PELO_ADMIN e audioFile pode ser mantida ou ajustada
+
+                    // Validação
+                    if ((currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.NEGADA || currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE) && !currentRevisaoAdminFeedback.trim()) {
+                      toast.error("O campo de feedback/justificativa é obrigatório para esta ação.");
+                      return;
+                    }
+                    if (currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO && !revisaoAudioFile) {
+                      toast.error("O novo áudio revisado é obrigatório para finalizar a revisão.");
+                      return;
+                    }
+
                     executeProcessarRevisao({
                       solicitacaoId: activeRevisao.id,
-                      adminFeedback: currentRevisaoAdminFeedback,
-                      audioFile: revisaoAudioFile, 
-                      novoStatusRevisao: selectedAdminActionStatus,
+                      adminFeedback: currentRevisaoAdminFeedback.trim(),
+                      audioFile: currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO ? revisaoAudioFile : null, 
+                      novoStatusRevisao: currentRevisaoModalStatus,
                     });
                   }}
-                  disabled={processarRevisaoStatus === 'executing' || !selectedAdminActionStatus}
+                  disabled={processarRevisaoStatus === 'executing' || !currentRevisaoModalStatus}
                 >
                   {processarRevisaoStatus === 'executing' ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <MessageSquare className="h-4 w-4 mr-2" />}
-                  Processar Revisão
-                </Button>
+                Processar Revisão
+              </Button>
               )}
             </DialogFooter>
           </DialogContent>

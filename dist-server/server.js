@@ -194,17 +194,13 @@ app.post('/api/revisoes/processar-upload/:clientUsername', (req, res) => {
             relativeFilePathForDb = `/uploads/audios/${sanitizedClientName}/revisoes/${req.file.filename}`;
             absoluteFilePathParaRollback = req.file.path;
         }
-        else if (novoStatusRevisao === 'concluida_pelo_admin') {
-            // Se é concluida_pelo_admin, mas não tem arquivo, é um erro de lógica ou fluxo não esperado aqui.
-            // Este endpoint espera um arquivo se o status for concluida_pelo_admin.
-            // Se for para permitir "concluir" sem novo áudio, a action não deveria chamar este endpoint.
-            console.warn('[API /processar-upload REVISAO] Status é concluida_pelo_admin mas nenhum arquivo foi enviado para este endpoint.');
-            // No entanto, a server action já trata esse caso e não deveria chamar este endpoint.
-            // Se chegou aqui, é uma inconsistência.
+        else if (novoStatusRevisao === 'revisado_finalizado') {
+            console.error(`[API /processar-upload REVISAO] Tentativa de processar '${novoStatusRevisao}' sem arquivo. Isso não deveria ocorrer aqui.`);
+            throw new Error('Arquivo de áudio é obrigatório para finalizar a revisão neste ponto da API.');
         }
         try {
-            // Lógica de banco de dados que estava na Server Action
-            if (relativeFilePathForDb && req.file) { // Apenas insere versão se houve upload
+            // 1. Inserir em versoes_audio_revisao (SE HOUVER ARQUIVO)
+            if (relativeFilePathForDb && req.file) {
                 const { count: existingVersionsCount, error: countError } = await supabase
                     .from('versoes_audio_revisao')
                     .select('id', { count: 'exact', head: true })
@@ -219,6 +215,7 @@ app.post('/api/revisoes/processar-upload/:clientUsername', (req, res) => {
                     audio_url: relativeFilePathForDb,
                     comentarios_admin: adminFeedback || null,
                     numero_versao: proximoNumeroVersao,
+                    data_envio: new Date().toISOString(),
                 });
                 if (insertError) {
                     console.error('[API /processar-upload REVISAO] Erro ao inserir em versoes_audio_revisao:', insertError);
@@ -226,14 +223,21 @@ app.post('/api/revisoes/processar-upload/:clientUsername', (req, res) => {
                 }
                 console.log(`[API /processar-upload REVISAO] Áudio de revisão salvo no DB: ${relativeFilePathForDb}, Versão: ${proximoNumeroVersao}`);
             }
-            // Atualizar solicitacoes_revisao
+            else if (novoStatusRevisao === 'revisado_finalizado' && !req.file) {
+                console.error(`[API /processar-upload REVISAO] Tentativa de processar '${novoStatusRevisao}' sem arquivo. Isso não deveria ocorrer aqui.`);
+                throw new Error('Arquivo de áudio é obrigatório para finalizar a revisão neste ponto da API.');
+            }
+            // 2. Atualizar solicitacoes_revisao
             const updateSolicitacaoPayload = {
                 status_revisao: novoStatusRevisao,
                 admin_feedback: adminFeedback || null,
-                data_conclusao_revisao: (novoStatusRevisao === 'concluida_pelo_admin' || novoStatusRevisao === 'negada') ? new Date().toISOString() : null,
             };
+            // Adicionar data_conclusao_revisao apenas se o status for finalizador
+            if (novoStatusRevisao === 'revisado_finalizado' || novoStatusRevisao === 'negada') {
+                updateSolicitacaoPayload.data_conclusao_revisao = new Date().toISOString();
+            }
+            console.log('[API /processar-upload REVISAO] Payload para atualizar solicitacoes_revisao:', updateSolicitacaoPayload);
             const { error: updateSolError } = await supabase.from('solicitacoes_revisao')
-                // @ts-ignore
                 .update(updateSolicitacaoPayload)
                 .eq('id', solicitacaoId);
             if (updateSolError) {
@@ -241,19 +245,32 @@ app.post('/api/revisoes/processar-upload/:clientUsername', (req, res) => {
                 throw new Error(`Erro ao atualizar status da solicitação: ${updateSolError.message}`);
             }
             console.log(`[API /processar-upload REVISAO] solicitacoes_revisao atualizada para status: ${novoStatusRevisao}`);
-            // Atualizar pedidos, se a revisão foi concluída ou negada
-            if (novoStatusRevisao === 'concluida_pelo_admin' || novoStatusRevisao === 'negada') {
+            // 3. Atualizar pedidos.status
+            let novoStatusPedidoPrincipal = null;
+            if (novoStatusRevisao === 'revisado_finalizado' || novoStatusRevisao === 'negada') {
+                novoStatusPedidoPrincipal = 'concluido';
+            }
+            else if (novoStatusRevisao === 'info_solicitada_ao_cliente') {
+                novoStatusPedidoPrincipal = 'aguardando_cliente';
+            }
+            else if (novoStatusRevisao === 'em_andamento_admin') {
+                novoStatusPedidoPrincipal = 'em_revisao';
+            }
+            if (novoStatusPedidoPrincipal) {
+                console.log(`[API /processar-upload REVISAO] Payload para atualizar pedidos: { status: ${novoStatusPedidoPrincipal} }, pedidoId: ${pedidoId}`);
                 const { error: updatePedidoError } = await supabase.from('pedidos')
-                    .update({ status: 'concluido' }) // PEDIDO_STATUS.CONCLUIDO
+                    .update({ status: novoStatusPedidoPrincipal })
                     .eq('id', pedidoId);
                 if (updatePedidoError) {
-                    console.error('[API /processar-upload REVISAO] Erro ao atualizar pedidos:', updatePedidoError);
-                    // Não lançar erro aqui, pois a solicitação já foi atualizada. Registrar e talvez lidar de outra forma.
-                    console.warn(`[API /processar-upload REVISAO] Revisão processada, mas falha ao atualizar status do pedido principal ${pedidoId} para concluído.`);
+                    console.error(`[API /processar-upload REVISAO] Erro ao atualizar pedidos.status para ${novoStatusPedidoPrincipal}:`, updatePedidoError);
+                    console.warn(`[API /processar-upload REVISAO] Revisão processada, mas falha ao atualizar status do pedido principal ${pedidoId} para ${novoStatusPedidoPrincipal}.`);
                 }
                 else {
-                    console.log(`[API /processar-upload REVISAO] Pedido ${pedidoId} atualizado para status: concluido`);
+                    console.log(`[API /processar-upload REVISAO] Pedido ${pedidoId} atualizado para status: ${novoStatusPedidoPrincipal}`);
                 }
+            }
+            else {
+                console.warn(`[API /processar-upload REVISAO] Nenhum novo status para o pedido principal foi definido para o status de revisão: ${novoStatusRevisao}`);
             }
             return res.status(200).json({
                 success: true,
@@ -263,7 +280,7 @@ app.post('/api/revisoes/processar-upload/:clientUsername', (req, res) => {
         }
         catch (dbError) {
             console.error('[API /processar-upload REVISAO] Erro nas operações de banco de dados:', dbError);
-            if (absoluteFilePathParaRollback) {
+            if (absoluteFilePathParaRollback && fs.existsSync(absoluteFilePathParaRollback)) {
                 fs.unlink(absoluteFilePathParaRollback, (unlinkErr) => {
                     if (unlinkErr)
                         console.error('[API /processar-upload REVISAO] Erro ao tentar remover arquivo após falha no DB:', unlinkErr);

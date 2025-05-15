@@ -33,8 +33,8 @@
     --popover-foreground: 205 20% 25%;
     --muted: 205 20% 92%;             /* Cinza claro */
     --muted-foreground: 205 15% 55%;  /* Cinza médio */
-    --destructive: 205 20% 88%;          /* Vermelho */
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;          /* Vermelho (corrigido) */
+    --destructive-foreground: 0 0% 100%; /* Branco (mantido) */
     --border: 205 20% 88%;            /* Cinza claro (borda) */
     --input: 205 20% 88%;             /* Cinza claro (input) */
     --ring: 205 86% 51%;              /* Azul (sky-500) para anel de foco */

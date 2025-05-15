@@ -4,6 +4,7 @@ export interface PedidoStatus {
   CONCLUIDO: 'concluido';
   CANCELADO: 'cancelado';
   EM_REVISAO: 'em_revisao';
+  AGUARDANDO_CLIENTE: 'aguardando_cliente';
   REJEITADO?: 'rejeitado';
 }
 
@@ -13,6 +14,7 @@ export const PEDIDO_STATUS: PedidoStatus = {
   CONCLUIDO: 'concluido',
   CANCELADO: 'cancelado',
   EM_REVISAO: 'em_revisao',
+  AGUARDANDO_CLIENTE: 'aguardando_cliente',
   REJEITADO: 'rejeitado',
 };
 
@@ -41,6 +43,7 @@ export interface AdminPedido {
   estilo_locucao?: string;
   orientacoes: string | null;
   tipo_audio?: string | null;
+  creditos_debitados?: number | null;
 }
 
 export interface Pedido {

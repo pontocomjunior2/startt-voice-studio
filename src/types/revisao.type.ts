@@ -3,20 +3,20 @@ import type { Pedido, TipoStatusPedido } from './pedido.type';
 export interface RevisaoStatusAdmin {
   SOLICITADA: 'solicitada';
   EM_ANDAMENTO_ADMIN: 'em_andamento_admin';
-  AGUARDANDO_UPLOAD_ADMIN: 'aguardando_upload_admin';
-  CONCLUIDA_PELO_ADMIN: 'concluida_pelo_admin';
+  REVISADO_FINALIZADO: 'revisado_finalizado';
+  INFO_SOLICITADA_AO_CLIENTE: 'info_solicitada_ao_cliente';
   NEGADA: 'negada';
 }
 
-export const REVISAO_STATUS_ADMIN: RevisaoStatusAdmin = {
+export const REVISAO_STATUS_ADMIN = {
   SOLICITADA: 'solicitada',
   EM_ANDAMENTO_ADMIN: 'em_andamento_admin',
-  AGUARDANDO_UPLOAD_ADMIN: 'aguardando_upload_admin',
-  CONCLUIDA_PELO_ADMIN: 'concluida_pelo_admin',
+  REVISADO_FINALIZADO: 'revisado_finalizado',
+  INFO_SOLICITADA_AO_CLIENTE: 'info_solicitada_ao_cliente',
   NEGADA: 'negada',
-};
+} as const;
 
-export type TipoRevisaoStatusAdmin = RevisaoStatusAdmin[keyof RevisaoStatusAdmin];
+export type TipoRevisaoStatusAdmin = typeof REVISAO_STATUS_ADMIN[keyof typeof REVISAO_STATUS_ADMIN];
 
 export interface SolicitacaoRevisaoAdmin {
   id_solicitacao: string;
