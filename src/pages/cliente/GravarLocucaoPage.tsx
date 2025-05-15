@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { estimateCreditsFromText } from '@/utils/creditUtils';
 import { cn } from '@/lib/utils';
-import { PlayCircle, Send, Loader2, UserCircle, Users, ChevronLeft, ChevronRight } from 'lucide-react';
+import { PlayCircle, Send, Loader2, UserCircle, Users, ChevronLeft, ChevronRight, Heart, Filter, Star } from 'lucide-react';
 import { Separator } from "@/components/ui/separator";
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -118,6 +118,10 @@ function GravarLocucaoPage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingPedidoId, setEditingPedidoId] = useState<string | null>(null);
   const [loadingPedidoParaEdicao, setLoadingPedidoParaEdicao] = useState(false);
+
+  // Estados para Favoritos
+  const [idsLocutoresFavoritos, setIdsLocutoresFavoritos] = useState<string[]>([]);
+  const [mostrarApenasFavoritos, setMostrarApenasFavoritos] = useState(false);
 
   const { animatedSeconds } = useSpring({
     reset: true,
@@ -246,26 +250,46 @@ function GravarLocucaoPage() {
     if (!user) {
       setLocutores([]);
       setLoadingLocutores(false);
+      setIdsLocutoresFavoritos([]);
       return;
     }
     setLoadingLocutores(true);
     setErrorLocutores(null);
     try {
-      const { data, error } = await supabase
+      // Busca locutores
+      const { data: locutoresData, error: locutoresError } = await supabase
         .from('locutores')
         .select('*')
         .eq('ativo', true)
         .order('nome');
-      if (error) throw error;
-      setLocutores(data || []);
+      
+      if (locutoresError) throw locutoresError;
+      setLocutores(locutoresData || []);
+
+      // Busca favoritos do usuário
+      if (user.id) { // user.id é mais direto aqui do que profile?.id se user já foi verificado
+        const { data: favoritosData, error: favoritosError } = await supabase
+          .from('locutores_favoritos')
+          .select('locutor_id')
+          .eq('user_id', user.id);
+
+        if (favoritosError) {
+          console.error("Erro ao buscar locutores favoritos:", favoritosError);
+          // Não vamos setar erro global de locutores por causa disso, apenas logar
+        } else {
+          setIdsLocutoresFavoritos(favoritosData?.map(f => f.locutor_id) || []);
+        }
+      }
+
     } catch (error) {
-      console.error('Erro ao buscar locutores:', error);
+      console.error('Erro ao buscar locutores e/ou favoritos:', error);
       setErrorLocutores('Não foi possível carregar os locutores. Tente novamente mais tarde.');
       setLocutores([]);
+      setIdsLocutoresFavoritos([]);
     } finally {
       setLoadingLocutores(false);
     }
-  }, [user]);
+  }, [user]); // user já inclui profile?.id implicitamente através do AuthContext
 
   useEffect(() => {
     fetchLocutores();
@@ -304,16 +328,77 @@ function GravarLocucaoPage() {
     }
   };
 
+  const toggleFavorito = async (locutorId: string, isFavoritoAtual: boolean) => {
+    if (!user?.id) { // Usar user.id que já vem do useAuth()
+      toast.error("Erro de Autenticação", { description: "Você precisa estar logado para favoritar." });
+      return;
+    }
+
+    if (isFavoritoAtual) { // Desfavoritar
+      const { error } = await supabase
+        .from('locutores_favoritos')
+        .delete()
+        .match({ user_id: user.id, locutor_id: locutorId });
+
+      if (error) {
+        toast.error("Erro ao Desfavoritar", { description: "Não foi possível remover o locutor dos favoritos." });
+      } else {
+        setIdsLocutoresFavoritos(prev => prev.filter(id => id !== locutorId));
+        toast.success("Locutor Desfavoritado", { description: "Locutor removido dos seus favoritos." });
+      }
+    } else { // Favoritar
+      const { error } = await supabase
+        .from('locutores_favoritos')
+        .insert({ user_id: user.id, locutor_id: locutorId });
+
+      if (error) {
+        if (error.code === '23505') { // Código de violação de chave única (já favorito)
+          toast.info("Já Favoritado", { description: "Este locutor já estava nos seus favoritos." });
+          if (!idsLocutoresFavoritos.includes(locutorId)) { // Garantir consistência do estado
+             setIdsLocutoresFavoritos(prev => [...prev, locutorId]);
+          }
+        } else {
+          toast.error("Erro ao Favoritar", { description: "Não foi possível adicionar o locutor aos favoritos." });
+        }
+      } else {
+        setIdsLocutoresFavoritos(prev => [...prev, locutorId]);
+        toast.success("Locutor Favoritado!", { description: "Locutor adicionado aos seus favoritos." });
+      }
+    }
+  };
+
   const onSubmitForm = async (values: z.infer<typeof multiStepGravarLocucaoFormSchema>) => {
     if (!user || !profile) {
       toast.error("Erro de Autenticação", { description: "Usuário não autenticado. Faça login novamente." });
       return;
     }
-    if (!selectedLocutor || values.locutorId !== selectedLocutor.id) {
-      toast.error("Erro de Validação", { description: "Locutor inválido ou não selecionado. Volte e selecione um." });
+
+    // Nova lógica de validação e obtenção do locutor para submissão
+    const locutorIdFromForm = values.locutorId;
+    if (!locutorIdFromForm) {
+      toast.error("Erro de Validação", { description: "Nenhum locutor selecionado no formulário. Volte para a Etapa 2 e selecione um." });
+      setCurrentStep(2); 
+      return;
+    }
+
+    const locutorParaSubmissao = locutores.find(l => l.id === locutorIdFromForm);
+    if (!locutorParaSubmissao) {
+      toast.error("Erro de Validação", { description: "O locutor selecionado no formulário é inválido. Volte para a Etapa 2 e selecione um válido." });
+      setValue("locutorId", "", { shouldValidate: true, shouldTouch: true }); // Limpa o campo inválido
+      setSelectedLocutor(null); // Limpa também o estado React para consistência da UI
       setCurrentStep(2);
       return;
     }
+    
+    // Se chegou aqui, locutorParaSubmissao contém os dados do locutor válidos baseados no formulário.
+    // Para garantir que a UI (como o resumo do locutor na Etapa 3) e o estado geral estejam consistentes,
+    // podemos atualizar o estado selectedLocutor, embora a lógica de submissão usará locutorParaSubmissao.
+    if (!selectedLocutor || selectedLocutor.id !== locutorParaSubmissao.id) {
+        // Isso é mais uma sincronização para a UI, caso estivesse dessincronizada.
+        // A lógica de submissão usará locutorParaSubmissao diretamente.
+        setSelectedLocutor(locutorParaSubmissao);
+    }
+
     // Validação de créditos e roteiro apenas para novos pedidos
     if (!isEditMode) {
       if ((profile.credits ?? 0) < estimatedCredits) {
@@ -358,10 +443,10 @@ function GravarLocucaoPage() {
         pedidoId: editingPedidoId,
         titulo: values.tituloPedido || undefined, 
         tipoAudio: values.tipoAudio, 
-        locutorId: selectedLocutor.id, 
+        locutorId: locutorParaSubmissao.id, // USAR locutorParaSubmissao.id
         textoRoteiro: values.scriptText || '',
-        estiloLocucao: estiloParaAction, // Enviando o valor correto para o schema da action
-        orientacoes: values.orientacoes || undefined, // Enviando o valor correto para o schema da action
+        estiloLocucao: estiloParaAction, 
+        orientacoes: values.orientacoes || undefined,
       });
 
       // Tratar resultadoUpdate similar à exclusão e outras actions
@@ -406,7 +491,7 @@ function GravarLocucaoPage() {
       try {
         const pedidoData = {
           user_id: user.id,
-          locutor_id: selectedLocutor.id,
+          locutor_id: locutorParaSubmissao.id, // USAR locutorParaSubmissao.id
           texto_roteiro: values.scriptText || '',
           status: PEDIDO_STATUS.PENDENTE, // Usar o enum importado
           titulo: values.tituloPedido || '',
@@ -462,20 +547,31 @@ function GravarLocucaoPage() {
         isValid = false;
       }
     } else if (currentStep === 2) {
-      isValid = await trigger("locutorId");
+      await trigger("locutorId"); // Tenta validar o campo primeiro para obter erros de schema base se houver
       const locId = getValues("locutorId");
-      if (locId && locutores.length > 0) {
-        const foundLocutor = locutores.find(l => l.id === locId);
-        if (foundLocutor) {
-          setSelectedLocutor(foundLocutor);
-          isValid = true;
-        } else {
-          setFormError("locutorId", { type: "manual", message: "Locutor selecionado não encontrado na lista." });
-          isValid = false;
-        }
-      } else {
+
+      if (!locId) {
         setFormError("locutorId", { type: "manual", message: "Por favor, selecione um locutor." });
+        setSelectedLocutor(null);
         isValid = false;
+      } else {
+        const foundLocutor = locutores.find(l => l.id === locId);
+        if (!foundLocutor) {
+          setFormError("locutorId", { type: "manual", message: "Locutor selecionado não foi encontrado na lista de locutores ativos." });
+          setSelectedLocutor(null);
+          isValid = false;
+        } else {
+          // Locutor encontrado na lista geral, agora verificar contra o filtro de favoritos
+          if (mostrarApenasFavoritos && !idsLocutoresFavoritos.includes(locId)) {
+            setFormError("locutorId", { type: "manual", message: "O locutor selecionado não está na sua lista de favoritos. Selecione um favorito ou desative o filtro." });
+            setSelectedLocutor(null); 
+            isValid = false;
+          } else {
+            // Tudo ok: locutor existe e, se filtro ativo, é um favorito
+            setSelectedLocutor(foundLocutor);
+            isValid = true;
+          }
+        }
       }
     }
     // Para a etapa 3, a validação completa é feita pelo Zod no submit, mas isFormValid pode ser usado para o botão.
@@ -601,6 +697,42 @@ function GravarLocucaoPage() {
                     <h2 className="text-2xl font-semibold">Selecione o Locutor</h2>
                     <p className="text-muted-foreground">Escolha a voz para o seu projeto.</p>
                   </div>
+
+                  {/* Controle de Filtro de Favoritos com Button */}
+                  <div className="flex justify-start my-4"> {/* Ajustado para justify-start, pode ser center ou end conforme preferência */}
+                    <Button
+                      type="button"
+                      variant={mostrarApenasFavoritos ? "secondary" : "outline"}
+                      onClick={() => {
+                        const novoEstadoFiltro = !mostrarApenasFavoritos;
+                        setMostrarApenasFavoritos(novoEstadoFiltro);
+                        setCurrentPageLocutores(1); // Resetar paginação
+
+                        const locutorIdAtual = getValues("locutorId");
+                        if (locutorIdAtual) {
+                          if (novoEstadoFiltro && !idsLocutoresFavoritos.includes(locutorIdAtual)) {
+                            setSelectedLocutor(null);
+                            setValue("locutorId", "", { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+                            // Se já estiver na etapa de seleção de locutor, acionar validação para mostrar erro se campo ficou vazio
+                            if (currentStep === 2) {
+                              trigger("locutorId"); 
+                            }
+                          }
+                        }
+                      }}
+                      className="flex items-center gap-2 group"
+                    >
+                      {mostrarApenasFavoritos ? (
+                        <Star className="h-4 w-4 text-primary fill-primary transition-all group-hover:scale-110" />
+                      ) : (
+                        <Filter className="h-4 w-4 text-muted-foreground transition-all group-hover:text-primary" />
+                      )}
+                      <span>
+                        {mostrarApenasFavoritos ? "Mostrando Favoritos" : "Locutores Favoritos"}
+                      </span>
+                    </Button>
+                  </div>
+
                   {loadingLocutores && (
                     <div className="flex justify-center items-center py-10">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -626,108 +758,161 @@ function GravarLocucaoPage() {
                   )}
                   {!loadingLocutores && !errorLocutores && locutores.length > 0 && (
                     <>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {currentLocutoresToDisplay.map((locutor) => (
-                          <Card
-                            key={locutor.id}
-                            onClick={() => {
-                              setSelectedLocutor(locutor);
-                              setValue("locutorId", locutor.id, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-                            }}
-                            className={cn(
-                              "cursor-pointer transition-all duration-200 ease-in-out transform hover:shadow-xl hover:-translate-y-1 focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2",
-                              watchedLocutorId === locutor.id && "ring-2 ring-primary shadow-xl -translate-y-1",
-                              "flex flex-col h-full"
-                            )}
-                            tabIndex={0}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                setSelectedLocutor(locutor);
-                                setValue("locutorId", locutor.id, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-                              }
-                            }}
-                          >
-                            <CardContent className="p-0 flex flex-col flex-grow">
-                              <CardHeader className="p-3 flex-shrink-0">
-                                <div className="flex items-center space-x-3">
-                                  <Avatar className="h-12 w-12 border-2 border-muted">
-                                    <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome} />
-                                    <AvatarFallback className="text-xs">
-                                      {locutor.nome.substring(0, 2).toUpperCase()}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <div className="flex-1 min-w-0">
-                                    <CardTitle className="text-base font-semibold truncate" title={locutor.nome}>
-                                      {locutor.nome}
-                                    </CardTitle>
-                                    <CardDescription className="text-xs line-clamp-2 h-8 leading-tight">
-                                      {locutor.descricao || locutor.tipo_voz || 'Voz profissional'}
-                                    </CardDescription>
-                                  </div>
-                                </div>
-                              </CardHeader>
-                              <CardContent className="p-3 pt-0 text-center flex-grow flex flex-col justify-end">
+                      {/* Lógica de filtragem */}
+                      {(() => {
+                        const locutoresFiltrados = mostrarApenasFavoritos
+                          ? locutores.filter(locutor => idsLocutoresFavoritos.includes(locutor.id))
+                          : locutores;
+                        
+                        const locutoresPaginados = locutoresFiltrados.slice(indexOfFirstLocutor, indexOfLastLocutor);
+                        const totalPagesFiltradas = Math.ceil(locutoresFiltrados.length / LOCUTORES_PER_PAGE);
+
+                        if (locutoresFiltrados.length === 0 && mostrarApenasFavoritos) {
+                          return (
+                            <div className="text-center py-10">
+                              <Heart className="mx-auto h-12 w-12 text-muted-foreground" />
+                              <p className="mt-2 font-semibold">Nenhum favorito encontrado</p>
+                              <p className="text-sm text-muted-foreground">Você ainda não favoritou nenhum locutor. Clique no coração para adicionar.</p>
+                            </div>
+                          );
+                        }
+                        
+                        if (locutoresPaginados.length === 0 && locutoresFiltrados.length > 0) {
+                           // Isso pode acontecer se o usuário estiver em uma página que não existe mais após filtrar
+                           // Melhor resetar para a primeira página em vez de mostrar nada.
+                           // A lógica de resetar currentPageLocutores no onCheckedChange já deve ajudar com isso.
+                           // Mas para segurança, podemos forçar aqui se locutoresPaginados está vazio mas filtrados não.
+                           // Contudo, a paginação deve ser baseada em totalPagesFiltradas.
+                        }
+
+
+                        return (
+                          <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {locutoresPaginados.map((locutor) => {
+                                const isFavorito = idsLocutoresFavoritos.includes(locutor.id);
+                                return (
+                                  <Card
+                                    key={locutor.id}
+                                    // Removido onClick daqui para não conflitar com o botão de favoritar. A seleção será pelo radio/hidden input.
+                                    className={cn(
+                                      "relative cursor-pointer transition-all duration-200 ease-in-out transform hover:shadow-xl hover:-translate-y-1 focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2",
+                                      watchedLocutorId === locutor.id && "ring-2 ring-primary shadow-xl -translate-y-1",
+                                      "flex flex-col h-full"
+                                    )}
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        setSelectedLocutor(locutor);
+                                        setValue("locutorId", locutor.id, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+                                      }
+                                    }}
+                                  >
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={(e) => {
+                                            e.stopPropagation(); // Evitar que o clique no coração selecione o card
+                                            toggleFavorito(locutor.id, isFavorito);
+                                        }}
+                                        className="absolute top-2 right-2 text-muted-foreground hover:text-destructive z-10" // Adicionado z-10
+                                        aria-label={isFavorito ? "Desfavoritar locutor" : "Favoritar locutor"}
+                                    >
+                                        <Heart
+                                            className={cn("h-5 w-5 transition-colors", isFavorito ? "fill-destructive text-destructive" : "text-gray-400 hover:text-destructive/80")}
+                                        />
+                                    </Button>
+                                    <CardContent 
+                                      className="p-0 flex flex-col flex-grow"
+                                      onClick={() => { // Adicionado onClick aqui para selecionar o locutor
+                                        setSelectedLocutor(locutor);
+                                        setValue("locutorId", locutor.id, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+                                      }}
+                                    >
+                                      <CardHeader className="p-3 flex-shrink-0">
+                                        <div className="flex items-center space-x-3">
+                                          <Avatar className="h-12 w-12 border-2 border-muted">
+                                            <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome} />
+                                            <AvatarFallback className="text-xs">
+                                              {locutor.nome.substring(0, 2).toUpperCase()}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                          <div className="flex-1 min-w-0">
+                                            <CardTitle className="text-base font-semibold truncate" title={locutor.nome}>
+                                              {locutor.nome}
+                                            </CardTitle>
+                                            <CardDescription className="text-xs line-clamp-2 h-8 leading-tight">
+                                              {locutor.descricao || locutor.tipo_voz || 'Voz profissional'}
+                                            </CardDescription>
+                                          </div>
+                                        </div>
+                                      </CardHeader>
+                                      <CardContent className="p-3 pt-0 text-center flex-grow flex flex-col justify-end">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="w-full text-xs mt-auto"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handlePlayPreview(locutor);
+                                          }}
+                                          disabled={!locutor.amostra_audio_url}
+                                        >
+                                          <PlayCircle className={cn("mr-1.5 h-3.5 w-3.5", isPlayingPreview === locutor.id && "animate-pulse text-primary")} />
+                                          {isPlayingPreview === locutor.id ? 'Pausar' : 'Ouvir Demo'}
+                                        </Button>
+                                      </CardContent>
+                                    </CardContent>
+                                  </Card>
+                                );
+                              })}
+                            </div>
+                            {totalPagesFiltradas > 1 && (
+                              <div className="flex justify-center items-center space-x-2 mt-6 pt-0">
                                 <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="w-full text-xs mt-auto"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handlePlayPreview(locutor);
-                                  }}
-                                  disabled={!locutor.amostra_audio_url}
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setCurrentPageLocutores(prev => Math.max(prev - 1, 1))}
+                                  disabled={currentPageLocutores === 1}
+                                  aria-label="Página anterior de locutores"
                                 >
-                                  <PlayCircle className={cn("mr-1.5 h-3.5 w-3.5", isPlayingPreview === locutor.id && "animate-pulse text-primary")} />
-                                  {isPlayingPreview === locutor.id ? 'Pausar' : 'Ouvir Demo'}
+                                  <ChevronLeft className="h-5 w-5" />
                                 </Button>
-                              </CardContent>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                      {totalLocutoresPages > 1 && (
-                        <div className="flex justify-center items-center space-x-2 mt-6 pt-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={handlePreviousLocutoresPage}
-                            disabled={currentPageLocutores === 1}
-                            aria-label="Página anterior de locutores"
-                          >
-                            <ChevronLeft className="h-5 w-5" />
-                          </Button>
 
-                          {/* Container para os pontos */}
-                          <div className="flex items-center space-x-1.5">
-                            {Array.from({ length: totalLocutoresPages }, (_, i) => (
-                              <button
-                                key={i}
-                                onClick={() => setCurrentPageLocutores(i + 1)} // Navegação direta
-                                className={cn(
-                                  "h-2 w-2 rounded-full transition-all duration-150 ease-in-out",
-                                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2", // Estilo de foco melhorado
-                                  currentPageLocutores === i + 1
-                                    ? "bg-primary scale-125 transform" // Ponto ativo: cor primária e um pouco maior
-                                    : "bg-muted hover:bg-muted-foreground/70" // Ponto inativo
-                                )}
-                                aria-label={`Ir para página ${i + 1}`}
-                                aria-current={currentPageLocutores === i + 1 ? "page" : undefined}
-                              />
-                            ))}
-                          </div>
+                                {/* Container para os pontos */}
+                                <div className="flex items-center space-x-1.5">
+                                  {Array.from({ length: totalPagesFiltradas }, (_, i) => (
+                                    <button
+                                      key={i}
+                                      onClick={() => setCurrentPageLocutores(i + 1)} // Navegação direta
+                                      className={cn(
+                                        "h-2 w-2 rounded-full transition-all duration-150 ease-in-out",
+                                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2", // Estilo de foco melhorado
+                                        currentPageLocutores === i + 1
+                                          ? "bg-primary scale-125 transform" // Ponto ativo: cor primária e um pouco maior
+                                          : "bg-muted hover:bg-muted-foreground/70" // Ponto inativo
+                                      )}
+                                      aria-label={`Ir para página ${i + 1}`}
+                                      aria-current={currentPageLocutores === i + 1 ? "page" : undefined}
+                                    />
+                                  ))}
+                                </div>
 
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={handleNextLocutoresPage}
-                            disabled={currentPageLocutores === totalLocutoresPages}
-                            aria-label="Próxima página de locutores"
-                          >
-                            <ChevronRight className="h-5 w-5" />
-                          </Button>
-                        </div>
-                      )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setCurrentPageLocutores(prev => Math.min(prev + 1, totalPagesFiltradas))}
+                                  disabled={currentPageLocutores === totalPagesFiltradas}
+                                  aria-label="Próxima página de locutores"
+                                >
+                                  <ChevronRight className="h-5 w-5" />
+                                </Button>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </>
                   )}
                   <FormField control={control} name="locutorId" render={({ field }) => ( <FormItem><FormControl><Input type="hidden" {...field} /></FormControl><FormMessage className="text-center pt-2" /></FormItem> )} />
@@ -914,7 +1099,11 @@ function GravarLocucaoPage() {
                     disabled={
                       isSubmitting ||
                       (currentStep === 1 && !watchedTipoAudio) ||
-                      (currentStep === 2 && (!watchedLocutorId || locutores.length === 0))
+                      (currentStep === 2 && (!watchedLocutorId || 
+                        (mostrarApenasFavoritos 
+                          ? locutores.filter(l => idsLocutoresFavoritos.includes(l.id)).length === 0 
+                          : locutores.length === 0)
+                      ))
                     }
                   >
                     Avançar
