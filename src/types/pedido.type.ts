@@ -73,7 +73,7 @@ export interface SolicitacaoRevisaoDetalhada {
   id: string; // ID da solicitação de revisão
   pedido_id: string;
   user_id: string; // ID do cliente que solicitou
-  descricao_cliente: string; // Descrição feita pelo cliente
+  descricao: string; // CORRIGIDO: Descrição feita pelo cliente
   data_solicitacao: string;
   status_revisao: string; // Usar TipoRevisaoStatusAdmin se possível, ou string genérica
   admin_feedback?: string | null; // Feedback geral do admin para esta solicitação
