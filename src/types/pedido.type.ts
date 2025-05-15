@@ -3,7 +3,8 @@ export interface PedidoStatus {
   GRAVANDO: 'gravando';
   CONCLUIDO: 'concluido';
   CANCELADO: 'cancelado';
-  EM_REVISAO: 'Em Revisão';
+  EM_REVISAO: 'em_revisao';
+  REJEITADO?: 'rejeitado';
 }
 
 export const PEDIDO_STATUS: PedidoStatus = {
@@ -11,7 +12,8 @@ export const PEDIDO_STATUS: PedidoStatus = {
   GRAVANDO: 'gravando',
   CONCLUIDO: 'concluido',
   CANCELADO: 'cancelado',
-  EM_REVISAO: 'Em Revisão',
+  EM_REVISAO: 'em_revisao',
+  REJEITADO: 'rejeitado',
 };
 
 export type TipoStatusPedido = PedidoStatus[keyof PedidoStatus];
@@ -53,6 +55,7 @@ export interface Pedido {
   locutores: { nome: string } | null;
   titulo?: string | null;
   tipo_audio?: string | null;
+  solicitacoes_revisao_count?: number;
 }
 
 // Tipos para o Histórico Detalhado do Pedido e Revisões

@@ -38,6 +38,9 @@ import type { Pedido, TipoStatusPedido } from '@/types/pedido.type'; // Importar
 import { useFetchRevisoesParaCliente } from '@/hooks/cliente/use-fetch-revisoes-para-cliente.hook';
 import type { SolicitacaoRevisaoParaCliente, VersaoAudioRevisadoCliente } from '@/types/revisao.type';
 
+// Importar o novo Dialog
+import { DetalhesPedidoDownloadDialog } from '@/components/cliente/detalhes-pedido-download-dialog'; // Ajuste o caminho se necessário
+
 // Componente para o Dialog de Histórico de Revisões
 interface HistoricoRevisoesDialogProps {
   isOpen: boolean;
@@ -210,6 +213,10 @@ function MeusAudiosPage() {
   const [isHistoricoRevisoesModalOpen, setIsHistoricoRevisoesModalOpen] = useState(false);
   const [pedidoParaHistoricoRevisoes, setPedidoParaHistoricoRevisoes] = useState<Pedido | null>(null);
 
+  // NOVOS ESTADOS para o modal de Detalhes e Download
+  const [isDetalhesDownloadModalOpen, setIsDetalhesDownloadModalOpen] = useState(false);
+  const [pedidoParaDetalhesDownload, setPedidoParaDetalhesDownload] = useState<Pedido | null>(null);
+
   // Estados para o modal de CONFIRMAÇÃO DE EXCLUSÃO
   const [isConfirmarExclusaoModalOpen, setIsConfirmarExclusaoModalOpen] = useState(false);
   const [pedidoParaExcluir, setPedidoParaExcluir] = useState<Pedido | null>(null);
@@ -239,7 +246,8 @@ function MeusAudiosPage() {
           downloaded_at,
           cliente_notificado_em,
           tipo_audio,
-          locutores ( nome )
+          locutores ( nome ),
+          solicitacoes_revisao ( count )
         `)
         .eq('user_id', profile.id)
         .order('created_at', { ascending: false });
@@ -253,9 +261,17 @@ function MeusAudiosPage() {
       // LOG ADICIONADO PARA VER OS DADOS FRESCOS
       console.log('[fetchAllPedidos] Dados recebidos do Supabase APÓS ATUALIZAÇÃO:', data);
 
-      const mappedPedidos: Pedido[] = (data || []).map((pedido: any) => ({
-        ...pedido,
-        locutores: Array.isArray(pedido.locutores) ? pedido.locutores[0] : pedido.locutores,
+      const mappedPedidos: Pedido[] = (data || []).map((item: any) => ({
+        ...item,
+        // Supabase retorna a relação como um array, mesmo que seja uma contagem ou um objeto único de relação.
+        // Se a relação for 'locutores (nome)', ele vem como item.locutores (objeto) ou item.locutores[0] (se for array)
+        // Para 'solicitacoes_revisao(count)', ele vem como item.solicitacoes_revisao (array com um objeto {count: X})
+        // Para 'solicitacoes_revisao(count)', ele vem como item.solicitacoes_revisao (array com um objeto {count: X})
+        locutores: Array.isArray(item.locutores) ? item.locutores[0] : item.locutores,
+        solicitacoes_revisao_count: (item.solicitacoes_revisao && item.solicitacoes_revisao.length > 0) ? item.solicitacoes_revisao[0].count : 0,
+        // Garantir que os campos opcionais da interface Pedido estejam presentes, mesmo que como null/undefined
+        // para evitar problemas de tipo se a query não os retornar para todos os pedidos.
+        // Isso já deve ser tratado pela query select, mas é uma boa prática estar ciente.
       }));
       setPedidos(mappedPedidos);
 
@@ -294,7 +310,7 @@ function MeusAudiosPage() {
     }
   }, [profile?.id]);
 
-  const handleDownload = async (pedido: Pedido) => {
+  const handleDownloadOriginal = async (pedido: Pedido) => {
     if (!pedido.audio_final_url) {
       toast.error("Download Indisponível", { description: "O áudio para este pedido ainda não está pronto ou não foi encontrado." });
       return;
@@ -302,7 +318,7 @@ function MeusAudiosPage() {
     try {
       const link = document.createElement('a');
       link.href = pedido.audio_final_url;
-      const fileName = pedido.audio_final_url.substring(pedido.audio_final_url.lastIndexOf('/') + 1) || 'audio_pedido_' + pedido.id;
+      const fileName = pedido.audio_final_url.substring(pedido.audio_final_url.lastIndexOf('/') + 1) || 'audio_pedido_' + pedido.id; // Corrigido para pedido.id
       link.setAttribute('download', fileName);
       document.body.appendChild(link);
       link.click();
@@ -312,11 +328,11 @@ function MeusAudiosPage() {
         const { error } = await supabase
           .from('pedidos')
           .update({ downloaded_at: new Date().toISOString() })
-          .eq('id', pedido.id);
+          .eq('id', pedido.id); // Corrigido para pedido.id
         if (error) {
           console.warn("Não foi possível marcar o pedido como baixado:", error);
         } else {
-          setPedidos(prev => prev.map(p => p.id === pedido.id ? {...p, downloaded_at: new Date().toISOString()} : p));
+          setPedidos(prev => prev.map(p => p.id === pedido.id ? {...p, downloaded_at: new Date().toISOString()} : p)); // Corrigido para p.id === pedido.id
         }
       }
     } catch (error) {
@@ -325,9 +341,31 @@ function MeusAudiosPage() {
     }
   };
 
+  // Modificada para nova lógica
+  const handleAbrirModalDetalhesOuBaixar = (pedido: Pedido) => {
+    if (pedido.solicitacoes_revisao_count && pedido.solicitacoes_revisao_count > 0) {
+      setPedidoParaDetalhesDownload(pedido);
+      setIsDetalhesDownloadModalOpen(true);
+    } else {
+      // Se não há revisões, executa o download direto do áudio principal (se existir)
+      if (pedido.audio_final_url) {
+        handleDownloadOriginal(pedido);
+      } else {
+        // Se não há revisões E não há áudio final, pode abrir o modal de detalhes
+        // para mostrar as informações do pedido, mesmo que sem downloads.
+        // Ou exibir um toast informando que não há nada para baixar.
+        // Por ora, vamos abrir o modal de detalhes para consistência, ele mostrará "nenhuma revisão" e ausência de áudio original.
+        setPedidoParaDetalhesDownload(pedido);
+        setIsDetalhesDownloadModalOpen(true); 
+        // Alternativamente, poderia ser:
+        // toast.info("Informações do Pedido", { description: "Este pedido não possui áudios para download no momento." });
+      }
+    }
+  };
+
   const handleOpenRevisaoModal = (pedido: Pedido) => {
     setPedidoParaRevisao(pedido);
-    setDescricaoRevisao(""); // Limpar descrição anterior
+    setDescricaoRevisao("");
     setIsRevisaoModalOpen(true);
   };
 
@@ -568,32 +606,41 @@ function MeusAudiosPage() {
                       )}
                     </TableCell>
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center">
-                      <Badge 
-                        variant={(() => {
-                          switch (pedido.status) {
-                            case PEDIDO_STATUS.GRAVANDO:
-                              return 'secondary';
-                            case PEDIDO_STATUS.CANCELADO:
-                              return 'destructive';
-                            case PEDIDO_STATUS.PENDENTE: // Mantém a cor laranja já definida via className
-                            case PEDIDO_STATUS.CONCLUIDO: 
-                              return 'default';
-                            case PEDIDO_STATUS.EM_REVISAO:
-                              return 'outline';
-                            default:
-                              return 'secondary';
-                          }
-                        })()}
-                        className={cn(
-                          "whitespace-nowrap",
-                          pedido.status === PEDIDO_STATUS.PENDENTE && 
-                            "bg-status-orange text-primary-foreground border-status-orange",
-                          pedido.status === PEDIDO_STATUS.CONCLUIDO && 
-                            "text-green-700 border-status-green bg-green-100 dark:text-green-300 dark:border-status-green dark:bg-status-green/20",
-                        )}
-                      >
-                        {pedido.status === PEDIDO_STATUS.EM_REVISAO ? 'Em Revisão' : pedido.status.charAt(0).toUpperCase() + pedido.status.slice(1)}
-                      </Badge>
+                      {pedido.status ? (
+                        <Badge 
+                          variant={(() => {
+                            switch (pedido.status) {
+                              case PEDIDO_STATUS.GRAVANDO:
+                                return 'secondary';
+                              case PEDIDO_STATUS.CANCELADO:
+                                return 'destructive';
+                              case PEDIDO_STATUS.PENDENTE:
+                              case PEDIDO_STATUS.CONCLUIDO: 
+                                return 'default';
+                              case PEDIDO_STATUS.EM_REVISAO:
+                                return 'outline';
+                              case PEDIDO_STATUS.REJEITADO:
+                                return 'destructive';
+                            }
+                            return 'secondary'; 
+                          })()}
+                          className={cn(
+                            "whitespace-nowrap",
+                            pedido.status === PEDIDO_STATUS.PENDENTE && 
+                              "bg-status-orange text-primary-foreground border-status-orange",
+                            pedido.status === PEDIDO_STATUS.CONCLUIDO && 
+                              "text-green-700 border-status-green bg-green-100 dark:text-green-300 dark:border-status-green dark:bg-status-green/20",
+                            pedido.status === PEDIDO_STATUS.EM_REVISAO &&
+                              "text-blue-700 border-blue-700 bg-blue-100 dark:text-blue-300 dark:border-blue-300 dark:bg-blue-700/20",
+                            pedido.status === PEDIDO_STATUS.REJEITADO &&
+                              "bg-red-700 text-white border-red-700",
+                          )}
+                        >
+                          {pedido.status.charAt(0).toUpperCase() + pedido.status.slice(1)}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground italic">N/D</span>
+                      )}
                     </TableCell>
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center font-medium text-foreground">
                       {pedido.creditos_debitados}
@@ -632,7 +679,7 @@ function MeusAudiosPage() {
                           <>
                             <Button
                               size="sm"
-                              onClick={() => handleDownload(pedido)}
+                              onClick={() => handleAbrirModalDetalhesOuBaixar(pedido)}
                               className={cn(
                                 "flex items-center",
                                 "bg-status-green text-primary-foreground hover:bg-green-600 dark:bg-status-green dark:hover:bg-green-600",
@@ -641,7 +688,7 @@ function MeusAudiosPage() {
                               disabled={!pedido.audio_final_url}
                             >
                               <DownloadCloud className="mr-2 h-4 w-4" />
-                              Baixar
+                              {pedido.solicitacoes_revisao_count && pedido.solicitacoes_revisao_count > 0 ? "Ver Detalhes/Baixar" : "Baixar"}
                             </Button>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -655,10 +702,6 @@ function MeusAudiosPage() {
                                   <Edit3 className="mr-2 h-4 w-4" />
                                   Solicitar Revisão
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOpenHistoricoRevisoesModal(pedido)}>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  Ver Detalhes
-                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </>
@@ -671,7 +714,7 @@ function MeusAudiosPage() {
                               variant="outline"
                               size="sm"
                               className="opacity-70" 
-                              onClick={() => handleDownload(pedido)}
+                              onClick={() => handleAbrirModalDetalhesOuBaixar(pedido)}
                               aria-label="Baixar áudio original (atualmente em revisão)"
                               title="Baixar áudio original (atualmente em revisão)"
                             >
@@ -752,12 +795,21 @@ function MeusAudiosPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal para Histórico de Revisões */} 
-      <HistoricoRevisoesDialog 
-        isOpen={isHistoricoRevisoesModalOpen}
-        onOpenChange={setIsHistoricoRevisoesModalOpen}
-        pedido={pedidoParaHistoricoRevisoes}
+      {/* Modal para Detalhes do Pedido e Downloads (NOVO) */}
+      <DetalhesPedidoDownloadDialog
+        isOpen={isDetalhesDownloadModalOpen}
+        onOpenChange={setIsDetalhesDownloadModalOpen}
+        pedido={pedidoParaDetalhesDownload}
       />
+
+      {/* Modal para Histórico de Revisões (LEGADO - pode ser removido se o novo for suficiente) */}
+      {isHistoricoRevisoesModalOpen && (
+        <HistoricoRevisoesDialog 
+          isOpen={isHistoricoRevisoesModalOpen}
+          onOpenChange={setIsHistoricoRevisoesModalOpen}
+          pedido={pedidoParaHistoricoRevisoes} // Note que este usa pedidoParaHistoricoRevisoes
+        />
+      )}
 
       {/* Modal para Confirmar Exclusão de Pedido */}
       <Dialog open={isConfirmarExclusaoModalOpen} onOpenChange={setIsConfirmarExclusaoModalOpen}>

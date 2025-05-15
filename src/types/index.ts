@@ -9,7 +9,7 @@ export interface Locutor {
   ativo?: boolean;
 }
 
-export type PedidoStatus = 'pendente' | 'gravando' | 'concluido' | 'cancelado' | 'rejeitado';
+export type PedidoStatus = 'pendente' | 'gravando' | 'concluido' | 'cancelado' | 'rejeitado' | 'em_revisao';
 
 export interface Pedido {
   id_pedido: string;
@@ -27,4 +27,8 @@ export interface Pedido {
   baixado_em?: string | null;
   cliente_notificado_em?: string | null;
   id_pedido_serial: string;
+  solicitacoes_revisao_count?: number;
+  locutores?: { nome: string } | null;
+  tipo_audio?: string;
+  audio_final_url?: string | null;
 } 

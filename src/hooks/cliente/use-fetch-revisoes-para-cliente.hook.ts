@@ -25,7 +25,7 @@ const fetchRevisoesParaCliente = async (pedidoId: string): Promise<SolicitacaoRe
       )
     `)
     .eq('pedido_id', pedidoId)
-    .eq('status_revisao', REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN)
+    .in('status_revisao', [REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN, REVISAO_STATUS_ADMIN.NEGADA])
     .order('data_solicitacao', { ascending: false })
     .order('numero_versao', { foreignTable: 'versoes_audio_revisao', ascending: true });
 
