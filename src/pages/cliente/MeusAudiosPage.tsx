@@ -83,13 +83,74 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Histórico de Revisões do Pedido</DialogTitle>
+          <DialogTitle>Detalhes do Pedido e Histórico de Revisões</DialogTitle>
           <DialogDescription>
-            Pedido: #{pedido.id_pedido_serial} - {pedido.titulo || "Sem título"}
+            Acompanhe os detalhes e o histórico de revisões para o pedido: #{pedido.id_pedido_serial} - {pedido.titulo || "Sem título"}
           </DialogDescription>
         </DialogHeader>
         
         <div className="flex-grow overflow-y-auto pr-2 space-y-6 py-4">
+          {/* Nova Seção: Detalhes do Pedido */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-xl">Informações do Pedido</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2">
+                <div className="font-medium text-muted-foreground">Nº Pedido:</div>
+                <div className="md:col-span-2">{pedido.id_pedido_serial}</div>
+
+                <div className="font-medium text-muted-foreground">Data/Hora:</div>
+                <div className="md:col-span-2">{formatarDataHora(pedido.created_at)}</div>
+
+                <div className="font-medium text-muted-foreground">Título:</div>
+                <div className="md:col-span-2">{pedido.titulo || <span className="italic text-muted-foreground">N/A</span>}</div>
+
+                <div className="font-medium text-muted-foreground">Locutor:</div>
+                <div className="md:col-span-2">{pedido.locutores?.nome || <span className="italic text-muted-foreground">Não definido</span>}</div>
+
+                <div className="font-medium text-muted-foreground">Estilo de Locução:</div>
+                <div className="md:col-span-2">{pedido.estilo_locucao || <span className="italic text-muted-foreground">N/A</span>}</div>
+                
+                <div className="font-medium text-muted-foreground self-start">Tipo de Áudio:</div>
+                <div className="md:col-span-2">
+                  {pedido.tipo_audio ? (
+                    <Badge 
+                      variant={pedido.tipo_audio.toLowerCase() === 'off' ? 'secondary' : 'default'}
+                      className={cn(
+                        "text-xs px-2 py-0.5 font-semibold",
+                        pedido.tipo_audio.toLowerCase() === 'off' && "bg-blue-100 text-blue-700 border-blue-300",
+                        pedido.tipo_audio.toLowerCase() === 'produzido' && "bg-green-100 text-green-700 border-green-300",
+                        pedido.tipo_audio.toLowerCase() !== 'off' && pedido.tipo_audio.toLowerCase() !== 'produzido' && "bg-gray-100 text-gray-700 border-gray-300"
+                      )}
+                    >
+                      {pedido.tipo_audio.toLowerCase() === 'off' ? 'Áudio em OFF' 
+                       : pedido.tipo_audio.toLowerCase() === 'produzido' ? 'Áudio Produzido' 
+                       : pedido.tipo_audio}
+                    </Badge>
+                  ) : (
+                    <span className="italic text-muted-foreground">Não especificado</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <h4 className="text-sm font-medium text-muted-foreground mb-1">Orientações (Briefing):</h4>
+                <div className="p-3 bg-muted/30 rounded-md max-h-32 overflow-y-auto text-xs whitespace-pre-wrap border">
+                  {pedido.orientacoes || <span className="italic text-muted-foreground">Nenhuma orientação fornecida.</span>}
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <h4 className="text-sm font-medium text-muted-foreground mb-1">Roteiro Completo:</h4>
+                <div className="p-3 bg-muted/30 rounded-md max-h-40 overflow-y-auto text-xs whitespace-pre-wrap border">
+                  {pedido.texto_roteiro || <span className="italic text-muted-foreground">Nenhum roteiro fornecido.</span>}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Seção Existente: Histórico de Revisões */}
           {isLoadingHistorico && (
             <div className="flex flex-col items-center justify-center h-full">
               <Loader2 className="h-10 w-10 animate-spin text-primary mb-3" />
@@ -300,6 +361,8 @@ function MeusAudiosPage() {
           downloaded_at,
           cliente_notificado_em,
           tipo_audio,
+          estilo_locucao,
+          orientacoes,
           locutores ( nome ),
           solicitacoes_revisao ( count )
         `)
@@ -312,21 +375,16 @@ function MeusAudiosPage() {
         throw error;
       }
 
-      // LOG ADICIONADO PARA VER OS DADOS FRESCOS
-      console.log('[fetchAllPedidos] Dados recebidos do Supabase APÓS ATUALIZAÇÃO:', data);
+      const mappedPedidos: Pedido[] = (data || []).map((item: any) => {
+        return {
+          ...item,
+          locutores: Array.isArray(item.locutores) ? item.locutores[0] : item.locutores,
+          solicitacoes_revisao_count: (item.solicitacoes_revisao && item.solicitacoes_revisao.length > 0) ? item.solicitacoes_revisao[0].count : 0,
+          estilo_locucao: item.estilo_locucao,
+          orientacoes: item.orientacoes,
+        };
+      });
 
-      const mappedPedidos: Pedido[] = (data || []).map((item: any) => ({
-        ...item,
-        // Supabase retorna a relação como um array, mesmo que seja uma contagem ou um objeto único de relação.
-        // Se a relação for 'locutores (nome)', ele vem como item.locutores (objeto) ou item.locutores[0] (se for array)
-        // Para 'solicitacoes_revisao(count)', ele vem como item.solicitacoes_revisao (array com um objeto {count: X})
-        // Para 'solicitacoes_revisao(count)', ele vem como item.solicitacoes_revisao (array com um objeto {count: X})
-        locutores: Array.isArray(item.locutores) ? item.locutores[0] : item.locutores,
-        solicitacoes_revisao_count: (item.solicitacoes_revisao && item.solicitacoes_revisao.length > 0) ? item.solicitacoes_revisao[0].count : 0,
-        // Garantir que os campos opcionais da interface Pedido estejam presentes, mesmo que como null/undefined
-        // para evitar problemas de tipo se a query não os retornar para todos os pedidos.
-        // Isso já deve ser tratado pela query select, mas é uma boa prática estar ciente.
-      }));
       setPedidos(mappedPedidos);
 
       if (mappedPedidos && mappedPedidos.length > 0 && refreshNotifications) {
@@ -456,10 +514,6 @@ function MeusAudiosPage() {
         .limit(1)
         .single();
 
-      // ADICIONAR LOG DETALHADO DO OBJETO SOLICITACAO
-      console.log("MeusAudiosPage: handleOpenResponderInfoModal - Objeto solicitacao retornado pela query:", JSON.stringify(solicitacao, null, 2));
-      console.log("MeusAudiosPage: handleOpenResponderInfoModal - Erro da query:", JSON.stringify(error, null, 2));
-  
       if (error && error.code !== 'PGRST116') { 
         console.error("Erro ao buscar detalhes da solicitação do admin:", error);
         toast.error("Erro ao carregar informações", { description: "Não foi possível carregar os detalhes da solicitação do administrador." });
@@ -509,7 +563,6 @@ function MeusAudiosPage() {
     try {
       const resultado = await excluirPedidoAction({ pedidoId: pedidoParaExcluir.id });
 
-      // Embora next-safe-action deva sempre retornar um objeto, adicionamos uma checagem para o linter.
       if (!resultado) {
         console.error('Resultado inesperado (undefined) da action de exclusão.');
         toast.error("Erro Desconhecido", { description: "Falha ao comunicar com o servidor." });
@@ -519,7 +572,7 @@ function MeusAudiosPage() {
 
       if (resultado.validationErrors) {
         let errorMsg = "Erro de validação.";
-        const ve = resultado.validationErrors; // Alias para encurtar
+        const ve = resultado.validationErrors;
         if (ve.pedidoId && Array.isArray(ve.pedidoId) && ve.pedidoId.length > 0) {
           errorMsg = ve.pedidoId.join(', ');
         } else if (ve._errors && Array.isArray(ve._errors) && ve._errors.length > 0) {
@@ -578,7 +631,6 @@ function MeusAudiosPage() {
         console.error('Falha retornada pela action:', resultado.data.failure);
         toast.error("Falha na Solicitação", { description: resultado.data.failure });
       } else if (resultado?.data && resultado.data.success && resultado.data.pedidoId && resultado.data.novoStatus) {
-        // Checagem explícita de resultado.data para o linter
         const { success, pedidoId, novoStatus } = resultado.data;
         console.log('[handleSolicitarRevisao] Sucesso da action:', success);
         console.log('[handleSolicitarRevisao] Pedido ID retornado:', pedidoId);
@@ -604,7 +656,6 @@ function MeusAudiosPage() {
       toast.error("Erro na Solicitação", { description: "Ocorreu um erro inesperado." });
     } finally {
       setSubmittingRevisao(false);
-      // setLoadingRevisao(null); // Comentado anteriormente
     }
   };
 
@@ -682,9 +733,6 @@ function MeusAudiosPage() {
             </TableHeader>
             <TableBody className="bg-card divide-y divide-border">
               {pedidos.map((pedido) => {
-                // Log para verificar o status no momento da renderização
-                console.log(`[Render Tabela] Pedido ID: ${pedido.id_pedido_serial}, Status: ${pedido.status}`);
-                
                 const isPendente = pedido.status === PEDIDO_STATUS.PENDENTE;
                 const isConcluido = pedido.status === PEDIDO_STATUS.CONCLUIDO;
                 const isEmRevisaoComAudio = pedido.status === PEDIDO_STATUS.EM_REVISAO && pedido.audio_final_url;
@@ -711,7 +759,6 @@ function MeusAudiosPage() {
                       </p>
                     </TableCell>
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center font-medium">
-                      {/* Renderizar o tipo_audio. Poderia ser um Badge se quisesse estilizar. */}
                       {pedido.tipo_audio ? (
                         <span className={cn(
                           pedido.tipo_audio.toUpperCase() === 'PROD' ? "text-sky-600 dark:text-sky-400" : "text-amber-600 dark:text-amber-400"
@@ -728,11 +775,11 @@ function MeusAudiosPage() {
                           pedido.status === PEDIDO_STATUS.CONCLUIDO ? 'default' :
                           pedido.status === PEDIDO_STATUS.PENDENTE ? 'secondary' :
                           pedido.status === PEDIDO_STATUS.CANCELADO ? 'destructive' :
-                          pedido.status === PEDIDO_STATUS.EM_PRODUCAO ? 'outline' : // Usar 'outline' como base para cor customizada
+                          pedido.status === PEDIDO_STATUS.EM_PRODUCAO ? 'outline' :
                           pedido.status === PEDIDO_STATUS.EM_ANALISE ? 'outline' :
                           pedido.status === PEDIDO_STATUS.GRAVANDO ? 'outline' :
                           pedido.status === PEDIDO_STATUS.EM_REVISAO ? 'outline' :
-                          pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE ? 'outline' : // Adicionado para AGUARDANDO_CLIENTE
+                          pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE ? 'outline' :
                           'outline'
                         }
                         className={cn(
@@ -743,8 +790,8 @@ function MeusAudiosPage() {
                           pedido.status === PEDIDO_STATUS.EM_ANALISE && "border-blue-500 bg-blue-100 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300",
                           pedido.status === PEDIDO_STATUS.GRAVANDO && "border-purple-500 bg-purple-100 text-purple-700 dark:border-purple-400 dark:bg-purple-900/30 dark:text-purple-300",
                           pedido.status === PEDIDO_STATUS.EM_REVISAO && "border-pink-500 bg-pink-100 text-pink-700 dark:border-pink-400 dark:bg-pink-900/30 dark:text-pink-300",
-                          pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && "border-amber-500 bg-amber-100 text-amber-700 dark:border-amber-400 dark:bg-amber-900/30 dark:text-amber-300", // Estilo para Info Solicitada
-                          pedido.status === PEDIDO_STATUS.CANCELADO && "bg-red-600 hover:bg-red-700" // destructive já tem cor
+                          pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && "border-amber-500 bg-amber-100 text-amber-700 dark:border-amber-400 dark:bg-amber-900/30 dark:text-amber-300",
+                          pedido.status === PEDIDO_STATUS.CANCELADO && "bg-red-600 hover:bg-red-700"
                         )}
                       >
                         {pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE 
@@ -759,7 +806,6 @@ function MeusAudiosPage() {
                     </TableCell>
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center">
                       <div className="flex items-center justify-center gap-1 sm:gap-2">
-                        {/* Ações para Pedidos PENDENTES */}
                         {isPendente && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -786,7 +832,6 @@ function MeusAudiosPage() {
                           </DropdownMenu>
                         )}
 
-                        {/* Ações para Pedidos AGUARDANDO_CLIENTE */}
                         {pedido && pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && (
                            <DropdownMenu>
                            <DropdownMenuTrigger asChild>
@@ -809,7 +854,6 @@ function MeusAudiosPage() {
                          </DropdownMenu>
                         )}
 
-                        {/* Ações para Pedidos CONCLUÍDOS */}
                         {isConcluido && (
                           <>
                             <Button
@@ -842,7 +886,6 @@ function MeusAudiosPage() {
                           </>
                         )}
 
-                        {/* Ações para EM_REVISAO com áudio final (original) */}
                         {isEmRevisaoComAudio && (
                           <>
                             <Button 
@@ -868,7 +911,6 @@ function MeusAudiosPage() {
                           </>
                         )}
                         
-                        {/* Botão "Ver Detalhes" para outros status (GRAVANDO, etc.) */}
                         {podeVerDetalhesGeral && (
                            <Button
                             variant="outline" 
@@ -891,7 +933,6 @@ function MeusAudiosPage() {
         </div>
       )}
 
-      {/* Modal para Solicitar Revisão */}
       <Dialog open={isRevisaoModalOpen} onOpenChange={setIsRevisaoModalOpen}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
@@ -930,40 +971,35 @@ function MeusAudiosPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal para Detalhes do Pedido e Downloads (NOVO) */}
       <DetalhesPedidoDownloadDialog
         isOpen={isDetalhesDownloadModalOpen}
         onOpenChange={setIsDetalhesDownloadModalOpen}
         pedido={pedidoParaDetalhesDownload}
       />
 
-      {/* Modal para Histórico de Revisões (LEGADO - pode ser removido se o novo for suficiente) */}
       {isHistoricoRevisoesModalOpen && (
         <HistoricoRevisoesDialog 
           isOpen={isHistoricoRevisoesModalOpen}
           onOpenChange={setIsHistoricoRevisoesModalOpen}
-          pedido={pedidoParaHistoricoRevisoes} // Note que este usa pedidoParaHistoricoRevisoes
+          pedido={pedidoParaHistoricoRevisoes}
         />
       )}
 
-      {/* Modal para Responder Informação Solicitada */}
       <ResponderInfoModal
         isOpen={isResponderInfoModalOpen}
         onOpenChange={(isOpen) => {
           setIsResponderInfoModalOpen(isOpen);
-          if (!isOpen) resetEnvioResposta(); // Resetar o estado da action ao fechar o modal
+          if (!isOpen) resetEnvioResposta();
         }}
         pedido={pedidoParaResponderInfo}
         solicitacao={solicitacaoParaResponderInfo}
         textoResposta={textoRespostaCliente}
         onTextoRespostaChange={setTextoRespostaCliente}
         onSubmit={handleEnviarRespostaCliente}
-        // Usar status do useAction para isSubmitting
         isSubmitting={statusEnvioResposta === 'executing'}
         isLoadingDetails={loadingAdminRequestDetails}
       />
 
-      {/* Modal para Confirmar Exclusão de Pedido */}
       <Dialog open={isConfirmarExclusaoModalOpen} onOpenChange={setIsConfirmarExclusaoModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

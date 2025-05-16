@@ -63,6 +63,8 @@ export interface Pedido {
   locutores: { nome: string } | null;
   titulo?: string | null;
   tipo_audio?: string | null;
+  estilo_locucao?: string | null;
+  orientacoes?: string | null;
   solicitacoes_revisao_count?: number;
 }
 
