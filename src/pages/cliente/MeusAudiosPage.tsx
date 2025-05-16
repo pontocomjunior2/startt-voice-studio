@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { supabase } from '../../lib/supabaseClient'; // Ajustar caminho se necessário
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, Edit3, History, Eye, MoreVertical, Trash2 } from 'lucide-react'; // Ícones necessários, Edit3 ou History para revisão, Adicionado Trash2
+import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, Edit3, History, Eye, MoreVertical, Trash2, MessageSquare } from 'lucide-react'; // Ícones necessários, Edit3 ou History para revisão, Adicionado Trash2 e MessageSquare
 import { useNavigate, Link } from 'react-router-dom'; // Link para o botão de novo pedido
 import { solicitarRevisaoAction, excluirPedidoAction } from '@/actions/pedido-actions'; // Importar a action
 import {
@@ -31,7 +31,8 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Send } from "lucide-react"
-import { PEDIDO_STATUS } from '@/types/pedido.type'; // Importar valor normalmente
+import { PEDIDO_STATUS } from '@/types/pedido.type'; // Manter PEDIDO_STATUS aqui
+import { REVISAO_STATUS_ADMIN } from '@/types/revisao.type'; // Garantir que esta importação esteja correta
 import type { Pedido, TipoStatusPedido } from '@/types/pedido.type'; // Importar tipos com type
 
 // Importações para o histórico de revisões
@@ -40,6 +41,11 @@ import type { SolicitacaoRevisaoParaCliente, VersaoAudioRevisadoCliente } from '
 
 // Importar o novo Dialog
 import { DetalhesPedidoDownloadDialog } from '@/components/cliente/detalhes-pedido-download-dialog'; // Ajuste o caminho se necessário
+import { ResponderInfoModal } from '@/components/cliente/responder-info-modal'; // <<< ADICIONAR IMPORT
+import { clienteResponderInfoAction } from '@/actions/cliente-actions'; // <<< IMPORTAR A NOVA ACTION
+import { useAction } from 'next-safe-action/hooks'; // <<< Corrigir import para useAction e remover ActionError
+import type { clienteResponderInfoSchema } from '@/actions/cliente-actions'; // Para tipar o resultado
+import { z } from 'zod'; // Para inferir o tipo do schema
 
 // Componente para o Dialog de Histórico de Revisões
 interface HistoricoRevisoesDialogProps {
@@ -222,6 +228,54 @@ function MeusAudiosPage() {
   const [pedidoParaExcluir, setPedidoParaExcluir] = useState<Pedido | null>(null);
   const [submittingExclusao, setSubmittingExclusao] = useState(false);
 
+  // ESTADOS PARA RESPONDER INFO SOLICITADA PELO ADMIN
+  const [isResponderInfoModalOpen, setIsResponderInfoModalOpen] = useState(false);
+  const [pedidoParaResponderInfo, setPedidoParaResponderInfo] = useState<Pedido | null>(null);
+  const [solicitacaoParaResponderInfo, setSolicitacaoParaResponderInfo] = useState<{ id: string; adminFeedback: string; } | null>(null);
+  const [textoRespostaCliente, setTextoRespostaCliente] = useState("");
+  const [submittingRespostaCliente, setSubmittingRespostaCliente] = useState(false);
+  const [loadingAdminRequestDetails, setLoadingAdminRequestDetails] = useState(false);
+
+  const { 
+    execute: executarEnviarResposta, 
+    status: statusEnvioResposta, 
+    result: resultadoEnvioResposta, 
+    reset: resetEnvioResposta 
+  } = useAction(clienteResponderInfoAction, {
+    onExecute: () => {
+      setSubmittingRespostaCliente(true);
+      console.log("[MeusAudiosPage] clienteResponderInfoAction: onExecute - Iniciando envio...");
+    },
+    onSuccess: (data: Awaited<ReturnType<typeof clienteResponderInfoAction>>) => {
+      console.log("[MeusAudiosPage] clienteResponderInfoAction: onSuccess - Dados recebidos:", JSON.stringify(data, null, 2));
+      if (data?.data?.success) { 
+        toast.success("Resposta Enviada", { description: data.data.success });
+        setIsResponderInfoModalOpen(false); 
+      } else if (data?.data?.failure) {
+        toast.error("Falha ao Enviar", { description: data.data.failure });
+      } else {
+        console.warn("[MeusAudiosPage] clienteResponderInfoAction: onSuccess - Estrutura de dados inesperada:", data);
+        toast.error("Erro Inesperado", { description: "A resposta do servidor não teve o formato esperado." });
+      }
+      setSubmittingRespostaCliente(false);
+    },
+    onError: (error: any) => {
+      console.error("[MeusAudiosPage] clienteResponderInfoAction: onError - Erro recebido:", JSON.stringify(error, null, 2));
+      let errorMsg = "Ocorreu um erro desconhecido ao enviar sua resposta.";
+      if (error.serverError) {
+        errorMsg = error.serverError;
+      } else if (error.validationErrors) {
+        const ve = error.validationErrors;
+        if (ve.respostaCliente && Array.isArray(ve.respostaCliente)) errorMsg = ve.respostaCliente.join(', ');
+        else if (ve.solicitacaoId && Array.isArray(ve.solicitacaoId)) errorMsg = ve.solicitacaoId.join(', ');
+        else if (ve.pedidoId && Array.isArray(ve.pedidoId)) errorMsg = ve.pedidoId.join(', ');
+        else errorMsg = "Erro de validação nos dados enviados.";
+      }
+      toast.error("Erro ao Enviar", { description: errorMsg });
+      setSubmittingRespostaCliente(false);
+    },
+  });
+
   // Função para buscar todos os pedidos do cliente
   const fetchAllPedidos = async () => {
     if (!profile?.id) {
@@ -383,6 +437,69 @@ function MeusAudiosPage() {
   const handleOpenConfirmarExclusaoModal = (pedido: Pedido) => {
     setPedidoParaExcluir(pedido);
     setIsConfirmarExclusaoModalOpen(true);
+  };
+
+  const handleOpenResponderInfoModal = async (pedido: Pedido) => {
+    setPedidoParaResponderInfo(pedido);
+    setTextoRespostaCliente(""); 
+    setSolicitacaoParaResponderInfo(null);
+    setIsResponderInfoModalOpen(true);
+    setLoadingAdminRequestDetails(true);
+  
+    try {
+      const { data: solicitacao, error } = await supabase
+        .from('solicitacoes_revisao')
+        .select('id, admin_feedback') 
+        .eq('pedido_id', pedido.id)
+        .eq('status_revisao', REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE) 
+        .order('data_solicitacao', { ascending: false })
+        .limit(1)
+        .single();
+
+      // ADICIONAR LOG DETALHADO DO OBJETO SOLICITACAO
+      console.log("MeusAudiosPage: handleOpenResponderInfoModal - Objeto solicitacao retornado pela query:", JSON.stringify(solicitacao, null, 2));
+      console.log("MeusAudiosPage: handleOpenResponderInfoModal - Erro da query:", JSON.stringify(error, null, 2));
+  
+      if (error && error.code !== 'PGRST116') { 
+        console.error("Erro ao buscar detalhes da solicitação do admin:", error);
+        toast.error("Erro ao carregar informações", { description: "Não foi possível carregar os detalhes da solicitação do administrador." });
+        setIsResponderInfoModalOpen(false); 
+        return;
+      }
+      
+      if (!solicitacao || !solicitacao.admin_feedback) {
+         console.warn("Nenhuma solicitação de informação ativa ou detalhes (admin_feedback) não encontrados para o pedido:", pedido.id_pedido_serial, "Valor de solicitacao.admin_feedback:", solicitacao?.admin_feedback);
+         toast.info("Nenhuma pendência", { description: "Não há informações pendentes do administrador para este pedido no momento." });
+         setLoadingAdminRequestDetails(false);
+         setIsResponderInfoModalOpen(false);
+         return;
+      }
+      
+      setSolicitacaoParaResponderInfo({
+        id: solicitacao.id, 
+        adminFeedback: solicitacao.admin_feedback, 
+      });
+  
+    } catch (e) {
+      console.error("Exceção ao buscar detalhes da solicitação do admin:", e);
+      toast.error("Erro Crítico", { description: "Ocorreu um erro inesperado ao carregar os dados." });
+      setIsResponderInfoModalOpen(false);
+    } finally {
+      setLoadingAdminRequestDetails(false);
+    }
+  };
+
+  const handleEnviarRespostaCliente = async () => {
+    if (!solicitacaoParaResponderInfo || !textoRespostaCliente.trim() || !pedidoParaResponderInfo) {
+      toast.error("Dados incompletos", { description: "Não foi possível identificar a solicitação ou a resposta está vazia." });
+      return;
+    }
+    
+    executarEnviarResposta({
+      solicitacaoId: solicitacaoParaResponderInfo.id,
+      respostaCliente: textoRespostaCliente.trim(),
+      pedidoId: pedidoParaResponderInfo.id,
+    });
   };
 
   const handleConfirmarExclusao = async () => {
@@ -615,6 +732,7 @@ function MeusAudiosPage() {
                           pedido.status === PEDIDO_STATUS.EM_ANALISE ? 'outline' :
                           pedido.status === PEDIDO_STATUS.GRAVANDO ? 'outline' :
                           pedido.status === PEDIDO_STATUS.EM_REVISAO ? 'outline' :
+                          pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE ? 'outline' : // Adicionado para AGUARDANDO_CLIENTE
                           'outline'
                         }
                         className={cn(
@@ -625,10 +743,15 @@ function MeusAudiosPage() {
                           pedido.status === PEDIDO_STATUS.EM_ANALISE && "border-blue-500 bg-blue-100 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300",
                           pedido.status === PEDIDO_STATUS.GRAVANDO && "border-purple-500 bg-purple-100 text-purple-700 dark:border-purple-400 dark:bg-purple-900/30 dark:text-purple-300",
                           pedido.status === PEDIDO_STATUS.EM_REVISAO && "border-pink-500 bg-pink-100 text-pink-700 dark:border-pink-400 dark:bg-pink-900/30 dark:text-pink-300",
+                          pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && "border-amber-500 bg-amber-100 text-amber-700 dark:border-amber-400 dark:bg-amber-900/30 dark:text-amber-300", // Estilo para Info Solicitada
                           pedido.status === PEDIDO_STATUS.CANCELADO && "bg-red-600 hover:bg-red-700" // destructive já tem cor
                         )}
                       >
-                        {pedido.status.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                        {pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE 
+                          ? "Info Solicitada" 
+                          : pedido.status === PEDIDO_STATUS.EM_PRODUCAO
+                            ? "Em Produção"
+                            : pedido.status ? pedido.status.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : "Status Desconhecido"}
                       </Badge>
                     </TableCell>
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center font-medium text-foreground">
@@ -661,6 +784,29 @@ function MeusAudiosPage() {
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
+                        )}
+
+                        {/* Ações para Pedidos AGUARDANDO_CLIENTE */}
+                        {pedido && pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && (
+                           <DropdownMenu>
+                           <DropdownMenuTrigger asChild>
+                             <Button variant="outline" size="icon" className="h-9 w-9 shrink-0">
+                               <MoreVertical className="h-4 w-4" />
+                               <span className="sr-only">Mais ações</span>
+                             </Button>
+                           </DropdownMenuTrigger>
+                           <DropdownMenuContent align="end">
+                             <DropdownMenuItem onClick={() => handleOpenResponderInfoModal(pedido)}>
+                               <MessageSquare className="mr-2 h-4 w-4" />
+                               Responder Informação
+                             </DropdownMenuItem>
+                             <DropdownMenuSeparator />
+                             <DropdownMenuItem onClick={() => handleOpenHistoricoRevisoesModal(pedido)}>
+                               <Eye className="mr-2 h-4 w-4" />
+                               Ver Detalhes do Pedido
+                             </DropdownMenuItem>
+                           </DropdownMenuContent>
+                         </DropdownMenu>
                         )}
 
                         {/* Ações para Pedidos CONCLUÍDOS */}
@@ -799,6 +945,23 @@ function MeusAudiosPage() {
           pedido={pedidoParaHistoricoRevisoes} // Note que este usa pedidoParaHistoricoRevisoes
         />
       )}
+
+      {/* Modal para Responder Informação Solicitada */}
+      <ResponderInfoModal
+        isOpen={isResponderInfoModalOpen}
+        onOpenChange={(isOpen) => {
+          setIsResponderInfoModalOpen(isOpen);
+          if (!isOpen) resetEnvioResposta(); // Resetar o estado da action ao fechar o modal
+        }}
+        pedido={pedidoParaResponderInfo}
+        solicitacao={solicitacaoParaResponderInfo}
+        textoResposta={textoRespostaCliente}
+        onTextoRespostaChange={setTextoRespostaCliente}
+        onSubmit={handleEnviarRespostaCliente}
+        // Usar status do useAction para isSubmitting
+        isSubmitting={statusEnvioResposta === 'executing'}
+        isLoadingDetails={loadingAdminRequestDetails}
+      />
 
       {/* Modal para Confirmar Exclusão de Pedido */}
       <Dialog open={isConfirmarExclusaoModalOpen} onOpenChange={setIsConfirmarExclusaoModalOpen}>

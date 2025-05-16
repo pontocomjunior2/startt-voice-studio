@@ -46,7 +46,8 @@ export const processarRevisaoAdminSchema = z.object({
       REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN,
       REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO,
       REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE,
-      REVISAO_STATUS_ADMIN.NEGADA
+      REVISAO_STATUS_ADMIN.NEGADA,
+      REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU
     ],
     {
       required_error: "O novo status da revisão é obrigatório.",
@@ -200,6 +201,7 @@ export const processarRevisaoAdminAction = actionClientAdmin
         .update({
           status_revisao: REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE,
           admin_feedback: adminFeedback,
+          admin_info_request_details: adminFeedback,
         })
         .eq('id', solicitacaoId);
       

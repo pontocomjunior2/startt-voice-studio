@@ -214,8 +214,8 @@ app.post('/api/revisoes/processar-upload/:clientUsername', (req, res) => {
                     solicitacao_id: solicitacaoId,
                     audio_url: relativeFilePathForDb,
                     comentarios_admin: adminFeedback || null,
+                    enviado_em: new Date().toISOString(),
                     numero_versao: proximoNumeroVersao,
-                    data_envio: new Date().toISOString(),
                 });
                 if (insertError) {
                     console.error('[API /processar-upload REVISAO] Erro ao inserir em versoes_audio_revisao:', insertError);

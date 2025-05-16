@@ -6,13 +6,15 @@ export interface RevisaoStatusAdmin {
   REVISADO_FINALIZADO: 'revisado_finalizado';
   INFO_SOLICITADA_AO_CLIENTE: 'info_solicitada_ao_cliente';
   NEGADA: 'negada';
+  CLIENTE_RESPONDEU: 'cliente_respondeu';
 }
 
 export const REVISAO_STATUS_ADMIN = {
-  SOLICITADA: 'solicitada',
+  SOLICITADA: 'solicitada_cliente',
   EM_ANDAMENTO_ADMIN: 'em_andamento_admin',
-  REVISADO_FINALIZADO: 'revisado_finalizado',
   INFO_SOLICITADA_AO_CLIENTE: 'info_solicitada_ao_cliente',
+  CLIENTE_RESPONDEU: 'cliente_respondeu',
+  REVISADO_FINALIZADO: 'revisado_finalizado',
   NEGADA: 'negada',
 } as const;
 
