@@ -14,6 +14,8 @@ const fetchRevisoesParaCliente = async (pedidoId: string): Promise<SolicitacaoRe
       descricao,
       data_solicitacao,
       admin_feedback,
+      cliente_info_response_details,
+      data_resposta_cliente,
       data_conclusao_revisao,
       status_revisao,
       versoes_audio_revisao (
@@ -25,7 +27,6 @@ const fetchRevisoesParaCliente = async (pedidoId: string): Promise<SolicitacaoRe
       )
     `)
     .eq('pedido_id', pedidoId)
-    .in('status_revisao', [REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN, REVISAO_STATUS_ADMIN.NEGADA])
     .order('data_solicitacao', { ascending: false })
     .order('numero_versao', { foreignTable: 'versoes_audio_revisao', ascending: true });
 
@@ -50,9 +51,11 @@ const fetchRevisoesParaCliente = async (pedidoId: string): Promise<SolicitacaoRe
     
     return {
       id: sol.id,
-      descricaoCliente: sol.descricao, // Mapeado do alias 'descricao'
+      descricaoCliente: sol.descricao,
       dataSolicitacao: sol.data_solicitacao,
       adminFeedback: sol.admin_feedback,
+      cliente_info_response_details: sol.cliente_info_response_details,
+      data_resposta_cliente: sol.data_resposta_cliente,
       dataConclusaoRevisao: sol.data_conclusao_revisao,
       statusRevisao: sol.status_revisao as SolicitacaoRevisaoParaCliente['statusRevisao'],
       versoesAudio: versoesAudioMapeadas,

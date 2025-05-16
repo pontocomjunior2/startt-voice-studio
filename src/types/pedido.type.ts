@@ -86,6 +86,8 @@ export interface SolicitacaoRevisaoDetalhada {
   data_solicitacao: string;
   status_revisao: string; // Usar TipoRevisaoStatusAdmin se possível, ou string genérica
   admin_feedback?: string | null; // Feedback geral do admin para esta solicitação
+  cliente_resposta_info?: string | null;
+  data_resposta_cliente?: string | null;
   data_conclusao_revisao?: string | null;
   versoes_audio_revisao: VersaoAudioRevisadoDetalhada[];
 }

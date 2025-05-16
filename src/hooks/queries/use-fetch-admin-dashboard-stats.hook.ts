@@ -7,6 +7,7 @@ export interface AdminDashboardStats {
   activeclients: number; // Supabase RPCs tendem a retornar lowercase
   totalclientcredits: number;
   pendingorders: number;
+  revisoes_pendentes_count: number;
   // Adicionar mais estatísticas se necessário, conforme o retorno da RPC
 }
 
@@ -15,6 +16,7 @@ const defaultStats: AdminDashboardStats = {
   activeclients: 0,
   totalclientcredits: 0,
   pendingorders: 0,
+  revisoes_pendentes_count: 0,
 };
 
 const fetchAdminDashboardStats = async (): Promise<AdminDashboardStats> => {
@@ -47,6 +49,7 @@ const fetchAdminDashboardStats = async (): Promise<AdminDashboardStats> => {
       activeclients: result.activeclients ?? 0,
       totalclientcredits: result.totalclientcredits ?? 0,
       pendingorders: result.pendingorders ?? 0,
+      revisoes_pendentes_count: result.revisoes_pendentes_count ?? 0,
       // Mapeie outros campos se houver
     } : 
     defaultStats;

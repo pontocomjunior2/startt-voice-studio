@@ -46,6 +46,7 @@ import { clienteResponderInfoAction } from '@/actions/cliente-actions'; // <<< I
 import { useAction } from 'next-safe-action/hooks'; // <<< Corrigir import para useAction e remover ActionError
 import type { clienteResponderInfoSchema } from '@/actions/cliente-actions'; // Para tipar o resultado
 import { z } from 'zod'; // Para inferir o tipo do schema
+import { useQueryClient } from '@tanstack/react-query'; // <<< GARANTIR ESTE IMPORT NO TOPO
 
 // Componente para o Dialog de Histórico de Revisões
 interface HistoricoRevisoesDialogProps {
@@ -59,10 +60,75 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
     data: historicoRevisoes, 
     isLoading: isLoadingHistorico, 
     error: errorHistorico,
-    refetch: refetchHistorico // Para um possível botão de atualizar dentro do modal
+    refetch: refetchHistorico
   } = useFetchRevisoesParaCliente(pedido?.id);
 
+  // Estados e handlers para o ResponderInfoModal
+  const [isResponderInfoModalOpen, setIsResponderInfoModalOpen] = useState(false);
+  const [solicitacaoParaResponder, setSolicitacaoParaResponder] = useState<SolicitacaoRevisaoParaCliente | null>(null);
+  const [textoRespostaCliente, setTextoRespostaCliente] = useState("");
+
+  const queryClient = useQueryClient(); // Para invalidar query de pedidos
+  const { user, profile } = useAuth(); // Para invalidar query de pedidos (se profile.id for parte da queryKey)
+
+  const { 
+    execute: executarEnviarResposta, 
+    status: statusEnvioResposta, 
+    reset: resetEnvioResposta 
+  } = useAction(clienteResponderInfoAction, {
+    onExecute: () => {
+      toast.loading("Enviando resposta...");
+    },
+    onSuccess: (data) => {
+      toast.dismiss();
+      if (data?.data?.success) { 
+        toast.success("Resposta Enviada", { description: data.data.success });
+        setIsResponderInfoModalOpen(false); 
+        refetchHistorico(); 
+        queryClient.invalidateQueries({ queryKey: ['pedidos', profile?.id] }); // Invalidar lista de pedidos principal
+      } else if (data?.data?.failure) {
+        toast.error("Falha ao Enviar", { description: data.data.failure });
+      } else {
+        toast.error("Erro Inesperado", { description: "A resposta do servidor não teve o formato esperado." });
+      }
+    },
+    onError: (error: any) => {
+      toast.dismiss();
+      let errorMsg = "Ocorreu um erro desconhecido ao enviar sua resposta.";
+      if (error.serverError) {
+        errorMsg = error.serverError;
+      } else if (error.validationErrors) {
+        const ve = error.validationErrors;
+        if (ve.respostaCliente && Array.isArray(ve.respostaCliente)) errorMsg = ve.respostaCliente.join(', ');
+        else errorMsg = "Erro de validação nos dados enviados.";
+      }
+      toast.error("Erro ao Enviar", { description: errorMsg });
+    },
+  });
+
   if (!pedido) return null;
+
+  const solicitacaoPendenteInfo = historicoRevisoes?.find(
+    (sol) => sol.statusRevisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE
+  );
+
+  const handleOpenResponderModal = (solicitacao: SolicitacaoRevisaoParaCliente) => {
+    setSolicitacaoParaResponder(solicitacao);
+    setTextoRespostaCliente("");
+    setIsResponderInfoModalOpen(true);
+  };
+
+  const handleEnviarRespostaCliente = () => {
+    if (!solicitacaoParaResponder || !textoRespostaCliente.trim() || !pedido) {
+      toast.error("Dados incompletos", { description: "Não foi possível identificar a solicitação, a resposta está vazia ou o pedido não foi encontrado." });
+      return;
+    }
+    executarEnviarResposta({
+      solicitacaoId: solicitacaoParaResponder.id,
+      respostaCliente: textoRespostaCliente.trim(),
+      pedidoId: pedido.id, 
+    });
+  };
 
   const formatarDataHora = (dataString: string | undefined | null) => {
     if (!dataString) return 'Data não disponível';
@@ -90,6 +156,33 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
         </DialogHeader>
         
         <div className="flex-grow overflow-y-auto pr-2 space-y-6 py-4">
+          {/* Destaque para Solicitação de Informação Pendente */}
+          {solicitacaoPendenteInfo && (
+            <Card className="mb-6 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-lg text-yellow-700 dark:text-yellow-400 flex items-center">
+                  <AlertTriangle className="h-5 w-5 mr-2 shrink-0" />
+                  Aguardando sua Resposta
+                </CardTitle>
+                <CardDescription className="text-yellow-600 dark:text-yellow-500">
+                  O administrador solicitou informações adicionais para prosseguir com seu pedido.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground mb-1">Mensagem do Administrador:</p>
+                  <div className="p-3 bg-background rounded-md text-sm whitespace-pre-wrap border min-h-[60px]">
+                    {solicitacaoPendenteInfo.adminFeedback || "Nenhuma mensagem específica fornecida."}
+                  </div>
+                </div>
+                <Button onClick={() => handleOpenResponderModal(solicitacaoPendenteInfo)} className="w-full sm:w-auto bg-yellow-500 hover:bg-yellow-600 text-white dark:text-black">
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Responder à Solicitação
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Nova Seção: Detalhes do Pedido */}
           <Card className="mb-6">
             <CardHeader>
@@ -176,84 +269,142 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
           )}
 
           {historicoRevisoes && historicoRevisoes.length > 0 && (
-            <ul className="space-y-6">
-              {historicoRevisoes.map((solicitacao) => (
-                <li key={solicitacao.id} className="border border-border p-4 rounded-lg shadow-sm bg-card">
-                  <h4 className="text-lg font-semibold text-foreground mb-1">
-                    Solicitação de Revisão (#{solicitacao.id.substring(0, 8)})
-                  </h4>
-                  <p className="text-sm text-muted-foreground mb-1">
-                    Solicitado em: {formatarDataHora(solicitacao.dataSolicitacao)}
-                  </p>
-                  {solicitacao.dataConclusaoRevisao && (
-                     <p className="text-sm text-muted-foreground mb-2">
-                      Concluída em: {formatarDataHora(solicitacao.dataConclusaoRevisao)}
-                    </p>
-                  )}
-                  
-                  <div className="mt-2 mb-3 p-3 bg-muted/50 rounded-md">
-                    <p className="text-sm font-medium text-foreground mb-1">Sua solicitação:</p>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                      {solicitacao.descricaoCliente || <span className="italic">Não especificado</span>}
-                    </p>
-                  </div>
-
-                  {solicitacao.adminFeedback && (
-                    <div className="mt-2 mb-3 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-md">
-                      <p className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">Feedback do Administrador (para esta solicitação):</p>
-                      <p className="text-sm text-blue-600 dark:text-blue-400 whitespace-pre-wrap">
-                        {solicitacao.adminFeedback}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl">Histórico de Solicitações de Revisão</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {historicoRevisoes.map((revisao, index) => (
+                  <div key={revisao.id} className={`p-4 rounded-lg shadow-sm bg-card border border-border ${index < historicoRevisoes.length - 1 ? 'mb-6 border-b' : ''}`}>
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="font-semibold text-md">
+                        Solicitação de Revisão (#{revisao.id.substring(0, 8)})
+                      </h4>
+                      <Badge 
+                        variant={
+                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO ? "default" : // Verde via className
+                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE ? "default" : // Amarelo via className
+                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU ? "default" : // Azul via className
+                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.NEGADA ? "destructive" :
+                          "secondary"
+                        }
+                        className={cn(
+                          "text-xs",
+                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO && "bg-green-500 hover:bg-green-600 text-white",
+                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE && "bg-yellow-500 hover:bg-yellow-600 text-black",
+                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU && "bg-blue-500 hover:bg-blue-600 text-white"
+                        )}
+                      >
+                        {revisao.statusRevisao.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-1">Solicitado em: {formatarDataHora(revisao.dataSolicitacao)}</p>
+                    {revisao.dataConclusaoRevisao && (
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Concluída em: {formatarDataHora(revisao.dataConclusaoRevisao)}
                       </p>
-                    </div>
-                  )}
-                  
-                  {solicitacao.versoesAudio && solicitacao.versoesAudio.length > 0 && (
-                    <div className="mt-3">
-                      <h5 className="text-md font-semibold text-foreground mb-2">Áudios Revisados Entregues:</h5>
-                      <ul className="space-y-3">
-                        {solicitacao.versoesAudio.map((versao) => (
-                          <li key={versao.id} className="border-t border-border pt-3">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                              <div>
-                                <p className="text-sm font-medium text-foreground">Versão {versao.numeroVersao}</p>
-                                <p className="text-xs text-muted-foreground">Enviada em: {formatarDataHora(versao.enviadoEm)}</p>
-                              </div>
-                              <Button 
-                                asChild 
-                                size="sm" 
-                                className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 sm:mt-0"
-                              >
-                                <a 
-                                  href={versao.audioUrl} 
-                                  download 
-                                  // O nome do arquivo poderia ser mais elaborado se tivéssemos mais infos
-                                  // title={`Baixar Versão ${versao.numeroVersao} do pedido ${pedido.id_pedido_serial}`}
+                    )}
+                    
+                    {revisao.descricaoCliente && (
+                      <div className="mt-3">
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Sua solicitação (descrição):</p>
+                        <div className="p-3 bg-muted/50 rounded-md text-sm whitespace-pre-wrap border">
+                          {revisao.descricaoCliente}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Feedback do Admin OU Resposta do Cliente sobre o Feedback do Admin */}
+                    {revisao.adminFeedback && (revisao.statusRevisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE || revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU) && (
+                      <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700 shadow-sm">
+                        <p className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-1">
+                          {revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU ? "Contexto (Pergunta original do Administrador):" : "Feedback do Administrador (para esta solicitação):" }
+                        </p>
+                        <p className="text-sm text-blue-600 dark:text-blue-400 whitespace-pre-wrap">
+                          {revisao.adminFeedback}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU && revisao.cliente_info_response_details && (
+                      <div className="mt-3 p-4 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-700 shadow-sm">
+                        <p className="text-sm font-semibold text-green-700 dark:text-green-300 mb-1">
+                          Sua Resposta (enviada em: {formatarDataHora(revisao.data_resposta_cliente)})
+                        </p>
+                        <p className="text-sm text-green-600 dark:text-green-400 whitespace-pre-wrap">
+                          {revisao.cliente_info_response_details}
+                        </p>
+                      </div>
+                    )}
+
+                    {revisao.versoesAudio && revisao.versoesAudio.length > 0 && (
+                      <div className="mt-4">
+                        <h5 className="text-md font-semibold text-foreground mb-2">Áudios Revisados Entregues:</h5>
+                        <ul className="space-y-3">
+                          {revisao.versoesAudio.map((versao) => (
+                            <li key={versao.id} className="border-t border-border pt-3">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                <div>
+                                  <p className="text-sm font-medium text-foreground">Versão {versao.numeroVersao}</p>
+                                  <p className="text-xs text-muted-foreground">Enviada em: {formatarDataHora(versao.enviadoEm)}</p>
+                                </div>
+                                <Button 
+                                  asChild 
+                                  size="sm" 
+                                  className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 sm:mt-0"
                                 >
-                                  <DownloadCloud className="mr-2 h-4 w-4" />
-                                  Baixar Versão {versao.numeroVersao}
-                                </a>
-                              </Button>
-                            </div>
-                            {versao.comentariosAdmin && (
-                              <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/30 rounded-md">
-                                <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-0.5">Comentários do Admin (para esta versão):</p>
-                                <p className="text-xs text-green-600 dark:text-green-400 whitespace-pre-wrap">
-                                  {versao.comentariosAdmin}
-                                </p>
+                                  <a 
+                                    href={versao.audioUrl} 
+                                    download 
+                                    // O nome do arquivo poderia ser mais elaborado se tivéssemos mais infos
+                                    // title={`Baixar Versão ${versao.numeroVersao} do pedido ${pedido.id_pedido_serial}`}
+                                  >
+                                    <DownloadCloud className="mr-2 h-4 w-4" />
+                                    Baixar Versão {versao.numeroVersao}
+                                  </a>
+                                </Button>
                               </div>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
+                              {versao.comentariosAdmin && (
+                                <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/30 rounded-md">
+                                  <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-0.5">Comentários do Admin (para esta versão):</p>
+                                  <p className="text-xs text-green-600 dark:text-green-400 whitespace-pre-wrap">
+                                    {versao.comentariosAdmin}
+                                  </p>
+                                </div>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
           )}
         </div>
         
         <DialogFooter className="mt-auto pt-4 border-t border-border">
+          {/* Modal para Responder Informação Solicitada (reutilizado) */}
+          {solicitacaoParaResponder && pedido && (
+            <ResponderInfoModal
+              isOpen={isResponderInfoModalOpen}
+              onOpenChange={(isOpen) => {
+                setIsResponderInfoModalOpen(isOpen);
+                if (!isOpen) resetEnvioResposta(); 
+              }}
+              pedido={pedido} 
+              solicitacao={{
+                id: solicitacaoParaResponder.id,
+                adminFeedback: solicitacaoParaResponder.adminFeedback || ''
+              }}
+              textoResposta={textoRespostaCliente}
+              onTextoRespostaChange={setTextoRespostaCliente}
+              onSubmit={handleEnviarRespostaCliente} 
+              isSubmitting={statusEnvioResposta === 'executing'}
+              isLoadingDetails={false} 
+            />
+          )}
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Fechar</Button>
         </DialogFooter>
       </DialogContent>
@@ -264,6 +415,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
 function MeusAudiosPage() {
   const { user, profile, refreshNotifications } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loadingPedidos, setLoadingPedidos] = useState(true);
@@ -289,55 +441,50 @@ function MeusAudiosPage() {
   const [pedidoParaExcluir, setPedidoParaExcluir] = useState<Pedido | null>(null);
   const [submittingExclusao, setSubmittingExclusao] = useState(false);
 
-  // ESTADOS PARA RESPONDER INFO SOLICITADA PELO ADMIN
-  const [isResponderInfoModalOpen, setIsResponderInfoModalOpen] = useState(false);
-  const [pedidoParaResponderInfo, setPedidoParaResponderInfo] = useState<Pedido | null>(null);
-  const [solicitacaoParaResponderInfo, setSolicitacaoParaResponderInfo] = useState<{ id: string; adminFeedback: string; } | null>(null);
-  const [textoRespostaCliente, setTextoRespostaCliente] = useState("");
-  const [submittingRespostaCliente, setSubmittingRespostaCliente] = useState(false);
-  const [loadingAdminRequestDetails, setLoadingAdminRequestDetails] = useState(false);
+  // Definir handleConfirmarExclusao AQUI, logo após os states e antes de fetchAllPedidos
+  const handleConfirmarExclusao = async () => {
+    if (!pedidoParaExcluir) return;
 
-  const { 
-    execute: executarEnviarResposta, 
-    status: statusEnvioResposta, 
-    result: resultadoEnvioResposta, 
-    reset: resetEnvioResposta 
-  } = useAction(clienteResponderInfoAction, {
-    onExecute: () => {
-      setSubmittingRespostaCliente(true);
-      console.log("[MeusAudiosPage] clienteResponderInfoAction: onExecute - Iniciando envio...");
-    },
-    onSuccess: (data: Awaited<ReturnType<typeof clienteResponderInfoAction>>) => {
-      console.log("[MeusAudiosPage] clienteResponderInfoAction: onSuccess - Dados recebidos:", JSON.stringify(data, null, 2));
-      if (data?.data?.success) { 
-        toast.success("Resposta Enviada", { description: data.data.success });
-        setIsResponderInfoModalOpen(false); 
-      } else if (data?.data?.failure) {
-        toast.error("Falha ao Enviar", { description: data.data.failure });
+    setSubmittingExclusao(true);
+    try {
+      const resultado = await excluirPedidoAction({ pedidoId: pedidoParaExcluir.id });
+
+      if (!resultado) {
+        console.error('Resultado inesperado (undefined) da action de exclusão.');
+        toast.error("Erro Desconhecido", { description: "Falha ao comunicar com o servidor." });
+        setSubmittingExclusao(false);
+        return;
+      }
+      if (resultado.data && resultado.data.success === true && typeof resultado.data.pedidoId === 'string') {
+        toast.success("Pedido Excluído", { description: "Seu pedido foi excluído com sucesso." });
+        const pedidoExcluidoId = resultado.data.pedidoId;
+        setPedidos(prevPedidos => prevPedidos.filter(p => p.id !== pedidoExcluidoId));
+        setIsConfirmarExclusaoModalOpen(false);
+        setPedidoParaExcluir(null);
       } else {
-        console.warn("[MeusAudiosPage] clienteResponderInfoAction: onSuccess - Estrutura de dados inesperada:", data);
-        toast.error("Erro Inesperado", { description: "A resposta do servidor não teve o formato esperado." });
+        if (resultado.validationErrors) {
+            let errorMsg = "Erro de validação.";
+            const ve = resultado.validationErrors;
+            if (ve.pedidoId && Array.isArray(ve.pedidoId) && ve.pedidoId.length > 0) { errorMsg = ve.pedidoId.join(', '); }
+            else if (ve._errors && Array.isArray(ve._errors) && ve._errors.length > 0) { errorMsg = ve._errors.join(', '); }
+            toast.error("Erro de Validação", { description: errorMsg });
+        } else if (resultado.serverError) {
+            toast.error("Erro no Servidor", { description: resultado.serverError });
+        } else if (resultado.data?.failure) {
+            toast.error("Falha na Exclusão", { description: resultado.data.failure });
+        } else {
+            console.error('Estrutura de resultado inesperada da action de exclusão:', resultado);
+            toast.error("Erro Desconhecido", { description: "Ocorreu um erro ao processar sua solicitação de exclusão." });
+        }
       }
-      setSubmittingRespostaCliente(false);
-    },
-    onError: (error: any) => {
-      console.error("[MeusAudiosPage] clienteResponderInfoAction: onError - Erro recebido:", JSON.stringify(error, null, 2));
-      let errorMsg = "Ocorreu um erro desconhecido ao enviar sua resposta.";
-      if (error.serverError) {
-        errorMsg = error.serverError;
-      } else if (error.validationErrors) {
-        const ve = error.validationErrors;
-        if (ve.respostaCliente && Array.isArray(ve.respostaCliente)) errorMsg = ve.respostaCliente.join(', ');
-        else if (ve.solicitacaoId && Array.isArray(ve.solicitacaoId)) errorMsg = ve.solicitacaoId.join(', ');
-        else if (ve.pedidoId && Array.isArray(ve.pedidoId)) errorMsg = ve.pedidoId.join(', ');
-        else errorMsg = "Erro de validação nos dados enviados.";
-      }
-      toast.error("Erro ao Enviar", { description: errorMsg });
-      setSubmittingRespostaCliente(false);
-    },
-  });
+    } catch (error) {
+      console.error('Erro ao excluir pedido (catch geral):', error);
+      toast.error("Erro na Exclusão", { description: "Ocorreu um erro inesperado ao tentar excluir o pedido." });
+    } finally {
+      setSubmittingExclusao(false);
+    }
+  };
 
-  // Função para buscar todos os pedidos do cliente
   const fetchAllPedidos = async () => {
     if (!profile?.id) {
       setErrorLoadingPedidos("Perfil do usuário não encontrado para buscar pedidos.");
@@ -364,7 +511,7 @@ function MeusAudiosPage() {
           estilo_locucao,
           orientacoes,
           locutores ( nome ),
-          solicitacoes_revisao ( count )
+          solicitacoes_revisao ( id, status_revisao )
         `)
         .eq('user_id', profile.id)
         .order('created_at', { ascending: false });
@@ -379,7 +526,11 @@ function MeusAudiosPage() {
         return {
           ...item,
           locutores: Array.isArray(item.locutores) ? item.locutores[0] : item.locutores,
-          solicitacoes_revisao_count: (item.solicitacoes_revisao && item.solicitacoes_revisao.length > 0) ? item.solicitacoes_revisao[0].count : 0,
+          solicitacoes_revisao_count: (item.solicitacoes_revisao?.filter((r: any) => 
+            r.status_revisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO || 
+            r.status_revisao === REVISAO_STATUS_ADMIN.NEGADA
+          ).length) || 0,
+          tem_info_solicitada_admin: item.solicitacoes_revisao?.some((r: any) => r.status_revisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE) || false,
           estilo_locucao: item.estilo_locucao,
           orientacoes: item.orientacoes,
         };
@@ -495,110 +646,6 @@ function MeusAudiosPage() {
   const handleOpenConfirmarExclusaoModal = (pedido: Pedido) => {
     setPedidoParaExcluir(pedido);
     setIsConfirmarExclusaoModalOpen(true);
-  };
-
-  const handleOpenResponderInfoModal = async (pedido: Pedido) => {
-    setPedidoParaResponderInfo(pedido);
-    setTextoRespostaCliente(""); 
-    setSolicitacaoParaResponderInfo(null);
-    setIsResponderInfoModalOpen(true);
-    setLoadingAdminRequestDetails(true);
-  
-    try {
-      const { data: solicitacao, error } = await supabase
-        .from('solicitacoes_revisao')
-        .select('id, admin_feedback') 
-        .eq('pedido_id', pedido.id)
-        .eq('status_revisao', REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE) 
-        .order('data_solicitacao', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error && error.code !== 'PGRST116') { 
-        console.error("Erro ao buscar detalhes da solicitação do admin:", error);
-        toast.error("Erro ao carregar informações", { description: "Não foi possível carregar os detalhes da solicitação do administrador." });
-        setIsResponderInfoModalOpen(false); 
-        return;
-      }
-      
-      if (!solicitacao || !solicitacao.admin_feedback) {
-         console.warn("Nenhuma solicitação de informação ativa ou detalhes (admin_feedback) não encontrados para o pedido:", pedido.id_pedido_serial, "Valor de solicitacao.admin_feedback:", solicitacao?.admin_feedback);
-         toast.info("Nenhuma pendência", { description: "Não há informações pendentes do administrador para este pedido no momento." });
-         setLoadingAdminRequestDetails(false);
-         setIsResponderInfoModalOpen(false);
-         return;
-      }
-      
-      setSolicitacaoParaResponderInfo({
-        id: solicitacao.id, 
-        adminFeedback: solicitacao.admin_feedback, 
-      });
-  
-    } catch (e) {
-      console.error("Exceção ao buscar detalhes da solicitação do admin:", e);
-      toast.error("Erro Crítico", { description: "Ocorreu um erro inesperado ao carregar os dados." });
-      setIsResponderInfoModalOpen(false);
-    } finally {
-      setLoadingAdminRequestDetails(false);
-    }
-  };
-
-  const handleEnviarRespostaCliente = async () => {
-    if (!solicitacaoParaResponderInfo || !textoRespostaCliente.trim() || !pedidoParaResponderInfo) {
-      toast.error("Dados incompletos", { description: "Não foi possível identificar a solicitação ou a resposta está vazia." });
-      return;
-    }
-    
-    executarEnviarResposta({
-      solicitacaoId: solicitacaoParaResponderInfo.id,
-      respostaCliente: textoRespostaCliente.trim(),
-      pedidoId: pedidoParaResponderInfo.id,
-    });
-  };
-
-  const handleConfirmarExclusao = async () => {
-    if (!pedidoParaExcluir) return;
-
-    setSubmittingExclusao(true);
-    try {
-      const resultado = await excluirPedidoAction({ pedidoId: pedidoParaExcluir.id });
-
-      if (!resultado) {
-        console.error('Resultado inesperado (undefined) da action de exclusão.');
-        toast.error("Erro Desconhecido", { description: "Falha ao comunicar com o servidor." });
-        setSubmittingExclusao(false);
-        return;
-      }
-
-      if (resultado.validationErrors) {
-        let errorMsg = "Erro de validação.";
-        const ve = resultado.validationErrors;
-        if (ve.pedidoId && Array.isArray(ve.pedidoId) && ve.pedidoId.length > 0) {
-          errorMsg = ve.pedidoId.join(', ');
-        } else if (ve._errors && Array.isArray(ve._errors) && ve._errors.length > 0) {
-          errorMsg = ve._errors.join(', ');
-        }
-        toast.error("Erro de Validação", { description: errorMsg });
-      } else if (resultado.serverError) {
-        toast.error("Erro no Servidor", { description: resultado.serverError });
-      } else if (resultado.data && typeof resultado.data.failure === 'string') {
-        toast.error("Falha na Exclusão", { description: resultado.data.failure });
-      } else if (resultado.data && resultado.data.success === true && typeof resultado.data.pedidoId === 'string') {
-        toast.success("Pedido Excluído", { description: "Seu pedido foi excluído com sucesso." });
-        const pedidoExcluidoId = resultado.data.pedidoId;
-        setPedidos(prevPedidos => prevPedidos.filter(p => p.id !== pedidoExcluidoId));
-        setIsConfirmarExclusaoModalOpen(false);
-        setPedidoParaExcluir(null);
-      } else {
-        console.error('Estrutura de resultado inesperada da action de exclusão:', resultado);
-        toast.error("Erro Desconhecido", { description: "Ocorreu um erro ao processar sua solicitação de exclusão." });
-      }
-    } catch (error) {
-      console.error('Erro ao excluir pedido (catch geral):', error);
-      toast.error("Erro na Exclusão", { description: "Ocorreu um erro inesperado ao tentar excluir o pedido." });
-    } finally {
-      setSubmittingExclusao(false);
-    }
   };
 
   const handleSolicitarRevisao = async () => {
@@ -841,14 +888,9 @@ function MeusAudiosPage() {
                              </Button>
                            </DropdownMenuTrigger>
                            <DropdownMenuContent align="end">
-                             <DropdownMenuItem onClick={() => handleOpenResponderInfoModal(pedido)}>
-                               <MessageSquare className="mr-2 h-4 w-4" />
-                               Responder Informação
-                             </DropdownMenuItem>
-                             <DropdownMenuSeparator />
                              <DropdownMenuItem onClick={() => handleOpenHistoricoRevisoesModal(pedido)}>
-                               <Eye className="mr-2 h-4 w-4" />
-                               Ver Detalhes do Pedido
+                               <MessageSquare className="mr-2 h-4 w-4" />
+                               Ver Solicitação do Admin
                              </DropdownMenuItem>
                            </DropdownMenuContent>
                          </DropdownMenu>
@@ -984,21 +1026,6 @@ function MeusAudiosPage() {
           pedido={pedidoParaHistoricoRevisoes}
         />
       )}
-
-      <ResponderInfoModal
-        isOpen={isResponderInfoModalOpen}
-        onOpenChange={(isOpen) => {
-          setIsResponderInfoModalOpen(isOpen);
-          if (!isOpen) resetEnvioResposta();
-        }}
-        pedido={pedidoParaResponderInfo}
-        solicitacao={solicitacaoParaResponderInfo}
-        textoResposta={textoRespostaCliente}
-        onTextoRespostaChange={setTextoRespostaCliente}
-        onSubmit={handleEnviarRespostaCliente}
-        isSubmitting={statusEnvioResposta === 'executing'}
-        isLoadingDetails={loadingAdminRequestDetails}
-      />
 
       <Dialog open={isConfirmarExclusaoModalOpen} onOpenChange={setIsConfirmarExclusaoModalOpen}>
         <DialogContent className="sm:max-w-md">

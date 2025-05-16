@@ -45,8 +45,7 @@ export const clienteResponderInfoAction = actionClient
     const updatesSolicitacao = {
       cliente_info_response_details: respostaCliente,
       status_revisao: REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU,
-      data_cliente_respondeu_info: new Date().toISOString(),
-      data_ultima_atualizacao: new Date().toISOString(),
+      data_resposta_cliente: new Date().toISOString(),
     };
 
     const { error: updateSolError } = await supabase

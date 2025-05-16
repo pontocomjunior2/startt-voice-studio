@@ -53,6 +53,8 @@ export interface SolicitacaoRevisaoParaCliente {
   descricaoCliente: string; // Descrição feita pelo cliente
   dataSolicitacao: string;
   adminFeedback?: string | null; // Feedback geral do admin para esta solicitação (da tabela solicitacoes_revisao)
+  cliente_info_response_details?: string | null;
+  data_resposta_cliente?: string | null;
   dataConclusaoRevisao?: string | null;
   statusRevisao: TipoRevisaoStatusAdmin; // Para referência, caso necessário
   versoesAudio: VersaoAudioRevisadoCliente[];
