@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,11 +20,29 @@ interface Pedido {
   created_at: string;
   texto_roteiro: string;
   creditos_debitados: number;
-  status: 'pendente' | 'gravando' | 'concluido' | 'cancelado';
+  status: 'pendente' | 'gravando' | 'concluido' | 'cancelado' | 'em_revisao' | 'aguardando_cliente' | 'rejeitado';
   audio_final_url: string | null;
   downloaded_at: string | null;
   cliente_notificado_em: string | null;
   locutores: { nome: string } | null;
+  titulo?: string;
+}
+
+// Tipo específico para os últimos pedidos exibidos no dashboard
+interface UltimoPedidoItem {
+  id: string;
+  titulo?: string | null;
+  status: 'pendente' | 'gravando' | 'concluido' | 'cancelado' | 'em_revisao' | 'aguardando_cliente' | 'rejeitado';
+  created_at: string;
+  locutores: { nome: string } | null;
+}
+
+// Definir um tipo para Locutor (para exibição de favoritos)
+interface LocutorExibicao {
+  id: string;
+  nome: string;
+  avatar_url?: string | null;
+  descricao?: string | null;
 }
 
 function DashboardPage() {
@@ -41,6 +59,11 @@ function DashboardPage() {
   const [pedidosPendentes, setPedidosPendentes] = useState(0);
   const [pedidosConcluidos, setPedidosConcluidos] = useState(0);
   const [loadingStats, setLoadingStats] = useState(true);
+
+  // Novos estados para seções adicionais
+  const [ultimosPedidos, setUltimosPedidos] = useState<UltimoPedidoItem[]>([]);
+  const [locutoresFavoritosExibicao, setLocutoresFavoritosExibicao] = useState<LocutorExibicao[]>([]);
+  const [loadingSecoesDashboard, setLoadingSecoesDashboard] = useState(true);
 
   const fetchClientDashboardStats = async () => {
     if (!profile?.id) return;
@@ -133,12 +156,71 @@ function DashboardPage() {
     }
   };
 
+  // Função refatorada para buscar dados das novas seções
+  const fetchDadosAdicionaisDashboard = useCallback(async () => {
+    if (!profile?.id) return;
+
+    setLoadingSecoesDashboard(true);
+    try {
+      // 1. Buscar Últimos Pedidos (ex: 3 mais recentes)
+      const { data: pedidosDataRaw, error: pedidosError } = await supabase
+        .from('pedidos')
+        .select(`
+          id,
+          titulo,
+          status,
+          created_at,
+          locutores ( nome )
+        `)
+        .eq('user_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (pedidosError) throw pedidosError;
+      
+      const mappedUltimosPedidos: UltimoPedidoItem[] = (pedidosDataRaw || []).map((pedido: any) => ({
+        ...pedido,
+        locutores: Array.isArray(pedido.locutores) && pedido.locutores.length > 0 ? pedido.locutores[0] : null,
+      }));
+      setUltimosPedidos(mappedUltimosPedidos);
+
+      // 2. Buscar Locutores Favoritos e seus detalhes
+      const { data: favoritosIdsData, error: favoritosIdsError } = await supabase
+        .from('locutores_favoritos')
+        .select('locutor_id')
+        .eq('user_id', profile.id);
+
+      if (favoritosIdsError) throw favoritosIdsError;
+
+      if (favoritosIdsData && favoritosIdsData.length > 0) {
+        const ids = favoritosIdsData.map(f => f.locutor_id);
+        const { data: locutoresData, error: locutoresError } = await supabase
+          .from('locutores')
+          .select('id, nome, avatar_url, descricao')
+          .in('id', ids)
+          .limit(3); 
+
+        if (locutoresError) throw locutoresError;
+        setLocutoresFavoritosExibicao(locutoresData || []);
+      } else {
+        setLocutoresFavoritosExibicao([]);
+      }
+
+    } catch (error: any) {
+      console.error("Erro ao buscar dados adicionais para o dashboard:", error);
+      toast.error("Erro ao Carregar Seções", { description: error.message || "Não foi possível carregar todas as informações do painel." });
+    } finally {
+      setLoadingSecoesDashboard(false);
+    }
+  }, [profile?.id, supabase]); // Dependências do useCallback
+
   useEffect(() => {
     if (profile?.id) {
       fetchPedidos();
       fetchClientDashboardStats();
+      fetchDadosAdicionaisDashboard(); // Chamar a função refatorada
     }
-  }, [profile?.id]);
+  }, [profile?.id, fetchDadosAdicionaisDashboard]); // Adicionar fetchDadosAdicionaisDashboard às dependências
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -210,14 +292,15 @@ function DashboardPage() {
             variant="outline" 
             size="icon" 
             onClick={async () => {
-              await refreshProfile?.(); // Atualiza o perfil primeiro
-              fetchPedidos(); 
+              await refreshProfile?.();
+              fetchPedidos();
               fetchClientDashboardStats();
+              fetchDadosAdicionaisDashboard(); // Chamar a função refatorada
             }}
-            disabled={loadingPedidos || loadingStats || isFetchingProfile}
+            disabled={loadingPedidos || loadingStats || isFetchingProfile || loadingSecoesDashboard}
             aria-label="Atualizar painel"
           >
-            <RefreshCw className={cn("h-4 w-4", (loadingPedidos || loadingStats || isFetchingProfile) && "animate-spin")} />
+            <RefreshCw className={cn("h-4 w-4", (loadingPedidos || loadingStats || isFetchingProfile || loadingSecoesDashboard) && "animate-spin")} />
           </Button>
           <Button onClick={() => navigate('/gravar-locucao')} className="bg-primary hover:bg-primary/90 text-primary-foreground">
             <PlusCircle className="mr-2 h-4 w-4" /> Nova Locução
@@ -273,6 +356,111 @@ function DashboardPage() {
         </div>
       </section>
       
+      <Separator className="my-8" />
+
+      {/* Novas Seções: Últimos Pedidos e Locutores Favoritos */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2"> {/* Coluna maior para Últimos Pedidos */}
+          <section id="ultimos-pedidos">
+            <h3 className="text-xl font-semibold mb-4 text-foreground">Últimos Pedidos</h3>
+            {loadingSecoesDashboard ? (
+              <div className="space-y-3">
+                <Skeleton className="h-20 w-full rounded-lg" />
+                <Skeleton className="h-20 w-full rounded-lg" />
+                <Skeleton className="h-20 w-full rounded-lg" />
+              </div>
+            ) : ultimosPedidos.length > 0 ? (
+              <div className="space-y-3">
+                {ultimosPedidos.map((pedido) => (
+                  <Card key={pedido.id} className="p-4 hover:shadow-lg transition-shadow rounded-lg">
+                    <Link to={`/meus-audios#pedido-${pedido.id}`} className="block">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-semibold text-primary truncate max-w-xs sm:max-w-sm md:max-w-md">
+                            {pedido.titulo || `Pedido de ${new Date(pedido.created_at).toLocaleDateString('pt-BR')}`}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Locutor: {pedido.locutores?.nome || 'N/A'}
+                          </p>
+                        </div>
+                        <Badge variant={
+                          pedido.status === 'concluido' ? 'default' :
+                          pedido.status === 'em_revisao' || pedido.status === 'aguardando_cliente' ? 'outline' :
+                          pedido.status === 'cancelado' || pedido.status === 'rejeitado' ? 'destructive' :
+                          'secondary' // para pendente, gravando, etc.
+                        }
+                        className="whitespace-nowrap"
+                        >
+                          {pedido.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </Badge>
+                      </div>
+                    </Link>
+                  </Card>
+                ))}
+                {pedidos.length > 3 && ( // Mostrar apenas se houver mais pedidos do que os últimos 3 exibidos
+                  <div className="text-center mt-4">
+                    <Button variant="link" asChild className="text-primary hover:underline">
+                      <Link to="/meus-audios">Ver todos os meus pedidos</Link>
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Card className="p-6 flex flex-col items-center justify-center text-center rounded-lg">
+                 <ListMusic className="h-12 w-12 text-muted-foreground mb-3" />
+                <p className="text-muted-foreground mb-2">Você ainda não realizou nenhum pedido.</p>
+                <Button onClick={() => navigate('/gravar-locucao')} size="sm">Criar Nova Locução</Button>
+              </Card>
+            )}
+          </section>
+        </div>
+
+        <div className="lg:col-span-1"> {/* Coluna menor para Locutores Favoritos */}
+          <section id="locutores-favoritos">
+            <h3 className="text-xl font-semibold mb-4 text-foreground">Meus Locutores Favoritos</h3>
+            {loadingSecoesDashboard ? (
+              <div className="space-y-3">
+                <Skeleton className="h-20 w-full rounded-lg" />
+                <Skeleton className="h-20 w-full rounded-lg" />
+                <Skeleton className="h-20 w-full rounded-lg" />
+              </div>
+            ) : locutoresFavoritosExibicao.length > 0 ? (
+              <div className="space-y-3">
+                {locutoresFavoritosExibicao.map((locutor) => (
+                  <Card key={locutor.id} className="p-3 hover:shadow-lg transition-shadow rounded-lg">
+                    <Link to={`/gravar-locucao?locutor_id=${locutor.id}`} className="flex items-center space-x-3 group">
+                      <Avatar className="h-12 w-12 border">
+                        <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome} />
+                        <AvatarFallback>{locutor.nome?.charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold text-foreground group-hover:text-primary transition-colors">{locutor.nome}</p>
+                        <p className="text-xs text-muted-foreground truncate max-w-xs">
+                          {locutor.descricao || "Locutor Profissional"}
+                        </p>
+                      </div>
+                    </Link>
+                  </Card>
+                ))}
+                 <div className="text-center mt-4">
+                    <Button variant="link" asChild className="text-primary hover:underline">
+                        <Link to="/gravar-locucao">Explorar todos os locutores</Link>
+                    </Button>
+                </div>
+              </div>
+            ) : (
+              <Card className="p-6 flex flex-col items-center justify-center text-center rounded-lg">
+                <User className="h-12 w-12 text-muted-foreground mb-3" />
+                <p className="text-muted-foreground mb-2">Você ainda não favoritou locutores.</p>
+                <Button variant="outline" size="sm" asChild>
+                  <Link to="/gravar-locucao">Explorar agora</Link>
+                </Button>
+              </Card>
+            )}
+          </section>
+        </div>
+      </div>
+
       <Separator className="my-8" />
 
       <section id="meu-perfil-resumo" className="mb-12">
