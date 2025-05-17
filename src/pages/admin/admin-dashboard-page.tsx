@@ -109,6 +109,14 @@ import { Trash2 } from 'lucide-react'; // Loader2 já importado
 // Tipo para status de revisão que podem ser acionados pelo admin
 type ActionableRevisaoStatusAdmin = Exclude<TipoRevisaoStatusAdmin, typeof REVISAO_STATUS_ADMIN.SOLICITADA>;
 
+// Opções de status que o admin pode definir ao processar uma revisão
+const ADMIN_REVISAO_ACTION_OPTIONS: { value: ActionableRevisaoStatusAdmin; label: string }[] = [
+  { value: REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN, label: "Marcar como: Em Andamento (pelo Admin)" },
+  { value: REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE, label: "Ação: Solicitar Mais Informações ao Cliente" },
+  { value: REVISAO_STATUS_ADMIN.NEGADA, label: "Ação: Negar Solicitação de Revisão" },
+  { value: REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO, label: "Ação: Enviar Áudio Revisado e Finalizar" },
+];
+
 function AdminDashboardPage() {
   const queryClient = useQueryClient();
 
@@ -253,6 +261,11 @@ function AdminDashboardPage() {
     onSettled: () => {
       resetProcessarRevisaoAction();
       // setIsSubmittingRevisaoAdmin(false); // Estado local do modal removido
+      // Limpar campos do formulário de revisão após a ação, INDEPENDENTE do resultado.
+      // Isso evita que, ao reabrir, dados antigos de uma tentativa falha persistam.
+      // No entanto, o fechamento do modal (que já limpa via onOpenChange) é preferível se a ação for bem-sucedida.
+      // Se a ação falhar e o modal permanecer aberto, o admin pode querer ajustar e tentar novamente.
+      // A lógica atual de reset no onOpenChange do Dialog já cuida disso quando o modal é fechado.
     }
   });
 
@@ -770,6 +783,20 @@ function AdminDashboardPage() {
     selectedPedido.status !== PEDIDO_STATUS.CANCELADO &&
     ((currentPedidoStatus !== selectedPedido.status) || !!selectedFile);
   console.log('[AdminDashboardPage Render] Condição para mostrar botão Salvar:', showSalvarButtonCondition);
+
+  // Handler para mudança de arquivo de revisão
+  const handleRevisaoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setRevisaoAudioFile(event.target.files[0]);
+      // Se um arquivo for selecionado e o status não for "Revisado e Finalizado", 
+      // automaticamente muda para "Revisado e Finalizado" para facilitar.
+      if (currentRevisaoModalStatus !== REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO) {
+        setCurrentRevisaoModalStatus(REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO);
+      }
+    } else {
+      setRevisaoAudioFile(null);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -1383,10 +1410,12 @@ function AdminDashboardPage() {
                             <div className="p-3 bg-muted/50 rounded-md border text-sm space-y-3">
                               <p><strong>Data da Solicitação Original:</strong> {format(new Date(activeRevisao.data_solicitacao), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
                               <p><strong>Status Atual da Interação:</strong> <Badge variant="outline" className={cn(
-                                activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.SOLICITADA && "border-orange-500 text-orange-500",
-                                activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE && "border-yellow-500 text-yellow-600 dark:text-yellow-400",
-                                activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU && "border-green-500 text-green-600 dark:text-green-400",
-                                activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN && "border-blue-500 text-blue-500"
+                                activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.SOLICITADA && "border-orange-500 text-orange-500 bg-orange-50 dark:bg-orange-900/30",
+                                activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE && "border-yellow-500 text-yellow-600 bg-yellow-50 dark:text-yellow-400 dark:bg-yellow-900/30",
+                                activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU && "border-green-500 text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/30",
+                                activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN && "border-blue-500 text-blue-500 bg-blue-50 dark:bg-blue-900/30",
+                                activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.NEGADA && "border-red-500 text-red-500 bg-red-50 dark:bg-red-900/30",
+                                activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO && "border-teal-500 text-teal-500 bg-teal-50 dark:bg-teal-900/30"
                                 // Adicionar outros status conforme necessário
                                )}>
                                 {activeRevisao.status_revisao.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
@@ -1426,6 +1455,99 @@ function AdminDashboardPage() {
                               )}
                             </div>
                           </div>
+
+                          {/* Formulário de Ação do Admin para a Revisão */}
+                          {activeRevisao && 
+                           activeRevisao.status_revisao !== REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO &&
+                           activeRevisao.status_revisao !== REVISAO_STATUS_ADMIN.NEGADA && (
+                            <div className="mt-6 pt-6 border-t">
+                              <h4 className="text-md font-semibold text-foreground mb-3">Processar Solicitação de Revisão</h4>
+                              <div className="space-y-4">
+                                <div>
+                                  <Label htmlFor="admin-revisao-acao" className="text-sm font-medium">
+                                    Ação para esta revisão:
+                                  </Label>
+                                  <Select
+                                    value={currentRevisaoModalStatus}
+                                    onValueChange={(value) => setCurrentRevisaoModalStatus(value as TipoRevisaoStatusAdmin)}
+                                    disabled={processarRevisaoStatus === 'executing'}
+                                  >
+                                    <SelectTrigger id="admin-revisao-acao" className="w-full mt-1">
+                                      <SelectValue placeholder="Selecione uma ação..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {ADMIN_REVISAO_ACTION_OPTIONS.map(option => (
+                                        <SelectItem 
+                                          key={option.value} 
+                                          value={option.value}
+                                          // Desabilitar opções que não fazem sentido com base no status atual da revisão
+                                          // Por exemplo, não permitir "Solicitar Info" se o cliente já respondeu à info.
+                                          // Ou não permitir "Marcar como em andamento" se já está "Cliente Respondeu".
+                                          disabled={
+                                            (activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU && option.value === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE) ||
+                                            (activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN && option.value === REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN && !currentRevisaoAdminFeedback && !revisaoAudioFile) // Não se já está e nada mudou
+                                          }
+                                        >
+                                          {option.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                {(currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE || 
+                                  currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.NEGADA ||
+                                  currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO || // Feedback opcional para áudio finalizado
+                                  currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN // Feedback opcional para "em andamento"
+                                  ) && (
+                                  <div>
+                                    <Label htmlFor="admin-revisao-feedback" className="text-sm font-medium">
+                                      Feedback / Justificativa {
+                                        (currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE || currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.NEGADA) 
+                                        ? <span className="text-destructive">*</span> 
+                                        : '(Opcional)'
+                                      }
+                                    </Label>
+                                    <Textarea
+                                      id="admin-revisao-feedback"
+                                      placeholder={
+                                        currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE ? "Descreva as informações que o cliente precisa fornecer..." :
+                                        currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.NEGADA ? "Explique o motivo da negação da revisão..." :
+                                        "Adicione comentários sobre a revisão ou o novo áudio..."
+                                      }
+                                      value={currentRevisaoAdminFeedback}
+                                      onChange={(e) => setCurrentRevisaoAdminFeedback(e.target.value)}
+                                      rows={4}
+                                      className="mt-1"
+                                      disabled={processarRevisaoStatus === 'executing'} // Corrigido processarReivadoStatus
+                                    />
+                                     {(currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE || currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.NEGADA) && (
+                                      <p className="text-xs text-muted-foreground mt-1">Este campo é obrigatório para a ação selecionada.</p>
+                                    )}
+                                  </div>
+                                )}
+
+                                {currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO && (
+                                  <div>
+                                    <Label htmlFor="admin-revisao-audiofile" className="text-sm font-medium">
+                                      Novo Áudio Revisado <span className="text-destructive">*</span>
+                                    </Label>
+                                    <Input
+                                      id="admin-revisao-audiofile"
+                                      type="file"
+                                      accept=".mp3,.wav,.ogg,.aac"
+                                      onChange={handleRevisaoFileChange}
+                                      className="w-full mt-1 h-10 px-3 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                                      disabled={processarRevisaoStatus === 'executing'}
+                                    />
+                                    {revisaoAudioFile && <p className="text-xs text-muted-foreground mt-1">Arquivo selecionado: {revisaoAudioFile.name}</p>}
+                                    {!revisaoAudioFile && <p className="text-xs text-muted-foreground mt-1">Um novo arquivo de áudio é obrigatório para finalizar a revisão.</p>}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
                         </div> // Fecha o <div className="space-y-6"> de activeRevisao
                       )} {/* Fecha o {activeRevisao && ( */} 
                     </CardContent>
@@ -1451,19 +1573,24 @@ function AdminDashboardPage() {
               )}
               
               {/* Aba Gerenciar Revisão - Botão de Processar Revisão */}
-              {modalActiveTab === 'gerenciarRevisao' && activeRevisao && activeRevisao.status_revisao !== REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO && activeRevisao.status_revisao !== REVISAO_STATUS_ADMIN.NEGADA && (
+              {modalActiveTab === 'gerenciarRevisao' && 
+               activeRevisao && 
+               activeRevisao.status_revisao !== REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO && 
+               activeRevisao.status_revisao !== REVISAO_STATUS_ADMIN.NEGADA && 
+               currentRevisaoModalStatus && // Garante que uma ação foi selecionada no formulário
+               // A remoção da checagem explícita de !== SOLICITADA para currentRevisaoModalStatus está correta,
+               // pois SOLICITADA não é uma opção em ADMIN_REVISAO_ACTION_OPTIONS.
+              (
                 <Button
                   onClick={() => {
                     if (!currentRevisaoModalStatus) { 
                       toast.error("Ação de revisão não selecionada.");
                       return;
                     }
-                    // Adicionada verificação para garantir que SOLICITADA não seja enviado para a action
-                    if (currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.SOLICITADA) {
-                      toast.error("Status 'Solicitada' não é uma ação válida para o administrador processar diretamente. Selecione outra ação.");
-                      return;
-                    }
-                    if (!activeRevisao?.id) { 
+                    // A verificação explícita contra SOLICITADA foi removida acima, pois não é uma opção selecionável.
+                    // A verificação !currentRevisaoModalStatus já cobre o caso de não seleção.
+
+                    if (!activeRevisao?.id) { // Corrigido activeReivado para activeRevisao
                       toast.error("ID da solicitação não encontrado.");
                       return;
                     }
@@ -1483,7 +1610,14 @@ function AdminDashboardPage() {
                       novoStatusRevisao: currentRevisaoModalStatus as ActionableRevisaoStatusAdmin, 
                     });
                   }}
-                  disabled={processarRevisaoStatus === 'executing' || !currentRevisaoModalStatus}
+                  disabled={
+                    processarRevisaoStatus === 'executing' || 
+                    !currentRevisaoModalStatus || // Corrigido currentReivadoModalStatus para currentRevisaoModalStatus
+                    // Desabilitar se feedback/justificativa obrigatória não preenchida
+                    ((currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.NEGADA || currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE) && !currentRevisaoAdminFeedback.trim()) ||
+                    // Desabilitar se áudio obrigatório não selecionado
+                    (currentRevisaoModalStatus === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO && !revisaoAudioFile)
+                  }
                 >
                   {processarRevisaoStatus === 'executing' ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <MessageSquare className="h-4 w-4 mr-2" />}
                   Processar Revisão
