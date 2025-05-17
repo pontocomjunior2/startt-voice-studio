@@ -178,10 +178,18 @@ function DashboardPage() {
 
       if (pedidosError) throw pedidosError;
       
-      const mappedUltimosPedidos: UltimoPedidoItem[] = (pedidosDataRaw || []).map((pedido: any) => ({
-        ...pedido,
-        locutores: Array.isArray(pedido.locutores) && pedido.locutores.length > 0 ? pedido.locutores[0] : null,
-      }));
+      const mappedUltimosPedidos: UltimoPedidoItem[] = (pedidosDataRaw || []).map((pedido: any) => {
+        console.log('[DashboardPage] Último Pedido Raw - ID:', pedido.id, 'Título:', pedido.titulo, 'Locutores Raw:', pedido.locutores);
+        const locutorProcessado = Array.isArray(pedido.locutores) && pedido.locutores.length > 0 
+                                    ? pedido.locutores[0] 
+                                    : (pedido.locutores && typeof pedido.locutores === 'object' && pedido.locutores !== null && 'nome' in pedido.locutores ? pedido.locutores : null);
+        
+        console.log('[DashboardPage] Último Pedido Mapeado - ID:', pedido.id, 'Título:', pedido.titulo, 'Locutor Processado:', locutorProcessado);
+        return {
+          ...pedido,
+          locutores: locutorProcessado,
+        };
+      });
       setUltimosPedidos(mappedUltimosPedidos);
 
       // 2. Buscar Locutores Favoritos e seus detalhes
