@@ -428,7 +428,7 @@ function DashboardPage() {
               <div className="space-y-3">
                 {locutoresFavoritosExibicao.map((locutor) => (
                   <Card key={locutor.id} className="p-3 hover:shadow-lg transition-shadow rounded-lg">
-                    <Link to={`/gravar-locucao?locutor_id=${locutor.id}`} className="flex items-center space-x-3 group">
+                    <Link to={`/gravar-locucao?locutorId=${locutor.id}`} className="flex items-center space-x-3 group">
                       <Avatar className="h-12 w-12 border">
                         <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome} />
                         <AvatarFallback>{locutor.nome?.charAt(0).toUpperCase()}</AvatarFallback>

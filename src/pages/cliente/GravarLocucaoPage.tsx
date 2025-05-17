@@ -107,6 +107,12 @@ function GravarLocucaoPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  // Lógica de pré-seleção e edição
+  const editingPedidoIdParam = searchParams.get('pedidoId');
+  const locutorIdParam = searchParams.get('locutorId');
+  console.log('[GravarLocucaoPage] locutorIdParam da URL:', locutorIdParam);
+  console.log('[GravarLocucaoPage] editingPedidoIdParam da URL:', editingPedidoIdParam);
+
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [locutores, setLocutores] = useState<Locutor[]>([]);
   const [loadingLocutores, setLoadingLocutores] = useState(true);
@@ -123,9 +129,11 @@ function GravarLocucaoPage() {
   const LOCUTORES_PER_PAGE = 4;
 
   // Estados para modo de edição
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editingPedidoId, setEditingPedidoId] = useState<string | null>(null);
+  const [isEditMode, setIsEditMode] = useState(!!editingPedidoIdParam);
+  const [editingPedidoId, setEditingPedidoId] = useState<string | null>(editingPedidoIdParam);
   const [loadingPedidoParaEdicao, setLoadingPedidoParaEdicao] = useState(false);
+  const [preSelectedLocutorId, setPreSelectedLocutorId] = useState<string | null>(null);
+  console.log('[GravarLocucaoPage] Estado preSelectedLocutorId inicial:', preSelectedLocutorId);
 
   // Estados para Favoritos
   const [idsLocutoresFavoritos, setIdsLocutoresFavoritos] = useState<string[]>([]);
@@ -158,22 +166,53 @@ function GravarLocucaoPage() {
 
   const { control, handleSubmit, setValue, reset, formState: { isSubmitting, isValid: isFormValid, errors }, watch, trigger, getValues, setError: setFormError } = formHook;
 
-  // Log para depurar erros do formulário
-  useEffect(() => {
-    if (Object.keys(errors).length > 0) {
-      console.log('[GravarLocucaoPage] Form errors:', errors);
+  // Definição das funções com useCallback ANTES dos useEffects que dependem delas
+  const fetchLocutores = useCallback(async () => {
+    if (!user) {
+      setLocutores([]);
+      setLoadingLocutores(false);
+      setIdsLocutoresFavoritos([]);
+      return;
     }
-  }, [errors]);
+    setLoadingLocutores(true);
+    setErrorLocutores(null);
+    try {
+      const { data: locutoresData, error: locutoresError } = await supabase
+        .from('locutores')
+        .select('*')
+        .eq('ativo', true)
+        .order('nome');
+      
+      if (locutoresError) throw locutoresError;
+      setLocutores(locutoresData || []);
 
-  const watchedTipoAudio = watch("tipoAudio");
-  const watchedLocutorId = watch("locutorId");
-  const watchedEstiloLocucao = watch("estiloLocucao");
-  const watchedScriptText = watch("scriptText");
+      if (user.id) {
+        const { data: favoritosData, error: favoritosError } = await supabase
+          .from('locutores_favoritos')
+          .select('locutor_id')
+          .eq('user_id', user.id);
 
-  const fetchPedidoParaEdicao = async (pedidoId: string) => {
+        if (favoritosError) {
+          console.error("Erro ao buscar locutores favoritos:", favoritosError);
+        } else {
+          setIdsLocutoresFavoritos(favoritosData?.map(f => f.locutor_id) || []);
+        }
+      }
+
+    } catch (error) {
+      console.error('Erro ao buscar locutores e/ou favoritos:', error);
+      setErrorLocutores('Não foi possível carregar os locutores. Tente novamente mais tarde.');
+      setLocutores([]);
+      setIdsLocutoresFavoritos([]);
+    } finally {
+      setLoadingLocutores(false);
+    }
+  }, [user, supabase]);
+
+  const fetchPedidoParaEdicao = useCallback(async (pedidoId: string) => {
     if (!user) {
       toast.error("Autenticação necessária", { description: "Faça login para editar seu pedido." });
-      navigate("/login"); // Ou para a página de origem
+      navigate("/login");
       return;
     }
     setLoadingPedidoParaEdicao(true);
@@ -193,13 +232,13 @@ function GravarLocucaoPage() {
           locutores (id, nome, avatar_url, ativo, amostra_audio_url)
         `)
         .eq('id', pedidoId)
-        .eq('user_id', user.id) // Garante que o usuário só pode editar seus próprios pedidos
+        .eq('user_id', user.id)
         .single();
 
       if (error || !pedidoData) {
         console.error("Erro ao buscar pedido para edição:", error);
         toast.error("Erro ao Carregar Pedido", { description: "Não foi possível carregar os dados do pedido para edição. Verifique se o pedido existe e você tem permissão." });
-        navigate("/cliente/meus-audios"); // Volta para a lista de áudios
+        navigate("/cliente/meus-audios");
         return;
       }
 
@@ -209,7 +248,6 @@ function GravarLocucaoPage() {
         return;
       }
 
-      // Mapear os dados do pedido para o formulário
       let estiloLocucaoForm = pedidoData.estilo_locucao || '';
       let outroEstiloEspecificacaoForm = '';
       if (estiloLocucaoForm.startsWith('Outro: ')) {
@@ -217,7 +255,7 @@ function GravarLocucaoPage() {
         estiloLocucaoForm = 'outro';
       }
 
-      formHook.reset({
+      reset({
         tipoAudio: pedidoData.tipo_audio as 'off' | 'produzido' | undefined,
         locutorId: pedidoData.locutor_id || '',
         tituloPedido: pedidoData.titulo || '',
@@ -227,18 +265,13 @@ function GravarLocucaoPage() {
         orientacoes: pedidoData.orientacoes || '',
       });
 
-      // Definir o locutor selecionado se houver dados do locutor
       if (pedidoData.locutores) {
-        // O select do Supabase retorna locutores como um objeto se for single, ou array se for multiple.
-        // Como estamos buscando um pedido específico que tem UMA relação com locutor, esperamos um objeto.
-        const locutorDoPedido = pedidoData.locutores as unknown as Locutor; // Casting necessário devido à forma como Supabase retorna relações
+        const locutorDoPedido = pedidoData.locutores as unknown as Locutor;
         if (locutorDoPedido && locutorDoPedido.id === pedidoData.locutor_id) {
           setSelectedLocutor(locutorDoPedido);
         }
       }
       
-      // Poderíamos avançar para uma etapa específica se desejado, ex: setCurrentStep(3);
-      // Por enquanto, o usuário começará na etapa 1 com os dados preenchidos.
       toast.info("Modo de Edição", { description: `Editando pedido #${pedidoData.id.substring(0,8)}...` });
 
     } catch (err) {
@@ -247,69 +280,110 @@ function GravarLocucaoPage() {
     } finally {
       setLoadingPedidoParaEdicao(false);
     }
-  };
+  }, [user, supabase, navigate, reset, setSelectedLocutor, toast]);
 
-  // Efeito para carregar dados do pedido em modo de edição
+  // useEffect para lidar com a pré-seleção de locutor via URL
   useEffect(() => {
-    const pedidoIdFromUrl = searchParams.get('pedidoId');
-    if (pedidoIdFromUrl) {
-      setIsEditMode(true);
-      setEditingPedidoId(pedidoIdFromUrl);
-      fetchPedidoParaEdicao(pedidoIdFromUrl);
+    console.log('[GravarLocucaoPage] useEffect [editingPedidoIdParam, locutorIdParam] - Modo Edição Param:', editingPedidoIdParam, 'Locutor Param:', locutorIdParam);
+    if (!editingPedidoIdParam && locutorIdParam) {
+      console.log('[GravarLocucaoPage] Definindo preSelectedLocutorId para:', locutorIdParam);
+      setPreSelectedLocutorId(locutorIdParam);
+    } else if (editingPedidoIdParam) {
+      console.log('[GravarLocucaoPage] Modo edição, limpando preSelectedLocutorId se houver.');
+      setPreSelectedLocutorId(null); 
+    } else {
+      console.log('[GravarLocucaoPage] Sem modo edição e sem locutorIdParam, limpando preSelectedLocutorId.');
+      setPreSelectedLocutorId(null);
     }
-  }, [searchParams, user]); // Adicionado user como dependência, pois fetchPedidoParaEdicao usa user.id
+  }, [editingPedidoIdParam, locutorIdParam]);
 
-  // Calcular locutores para a página atual
-  const indexOfLastLocutor = currentPageLocutores * LOCUTORES_PER_PAGE;
-  const indexOfFirstLocutor = indexOfLastLocutor - LOCUTORES_PER_PAGE;
-  const currentLocutoresToDisplay = locutores.slice(indexOfFirstLocutor, indexOfLastLocutor);
-  const totalLocutoresPages = Math.ceil(locutores.length / LOCUTORES_PER_PAGE);
-
-  const fetchLocutores = useCallback(async () => {
-    if (!user) {
-      setLocutores([]);
-      setLoadingLocutores(false);
-      setIdsLocutoresFavoritos([]);
-      return;
+  // Log para depurar erros do formulário
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      console.log('[GravarLocucaoPage] Form errors:', errors);
     }
-    setLoadingLocutores(true);
-    setErrorLocutores(null);
-    try {
-      // Busca locutores
-      const { data: locutoresData, error: locutoresError } = await supabase
-        .from('locutores')
-        .select('*')
-        .eq('ativo', true)
-        .order('nome');
+  }, [errors]);
+
+  const watchedTipoAudio = watch("tipoAudio");
+  const watchedLocutorId = watch("locutorId");
+  const watchedEstiloLocucao = watch("estiloLocucao");
+  const watchedScriptText = watch("scriptText");
+
+  // Efeito para carregar dados para edição OU aplicar pré-seleção
+  useEffect(() => {
+    console.log('[GravarLocucaoPage] useEffect principal - isEditMode State:', isEditMode, 'preSelectedLocutorId State:', preSelectedLocutorId, 'Locutores Carregados:', locutores.length, 'Etapa Atual:', currentStep);
+    if (isEditMode && editingPedidoId) {
+      console.log('[GravarLocucaoPage] Modo Edição ATIVO, buscando pedido:', editingPedidoId);
+      if (!loadingPedidoParaEdicao && (!getValues("tituloPedido") || searchParams.get('pedidoId') !== editingPedidoId)) {
+         fetchPedidoParaEdicao(editingPedidoId);
+      }
+    } else if (preSelectedLocutorId && !isEditMode) {
+      console.log('[GravarLocucaoPage] Modo Novo Pedido com preSelectedLocutorId:', preSelectedLocutorId);
       
-      if (locutoresError) throw locutoresError;
-      setLocutores(locutoresData || []);
-
-      // Busca favoritos do usuário
-      if (user.id) { // user.id é mais direto aqui do que profile?.id se user já foi verificado
-        const { data: favoritosData, error: favoritosError } = await supabase
-          .from('locutores_favoritos')
-          .select('locutor_id')
-          .eq('user_id', user.id);
-
-        if (favoritosError) {
-          console.error("Erro ao buscar locutores favoritos:", favoritosError);
-          // Não vamos setar erro global de locutores por causa disso, apenas logar
-        } else {
-          setIdsLocutoresFavoritos(favoritosData?.map(f => f.locutor_id) || []);
+      const currentFormValues = getValues();
+      if (currentFormValues.locutorId !== preSelectedLocutorId || currentFormValues.tituloPedido || currentFormValues.scriptText) {
+        reset({
+          ...currentFormValues,
+          locutorId: preSelectedLocutorId, 
+          tituloPedido: '',
+          estiloLocucao: '',
+          outroEstiloEspecificacao: '',
+          scriptText: '',
+          orientacoes: '',
+        });
+        console.log('[GravarLocucaoPage] Formulário resetado/atualizado com preSelectedLocutorId:', preSelectedLocutorId);
+      } else {
+        if (currentFormValues.locutorId !== preSelectedLocutorId) {
+            setValue('locutorId', preSelectedLocutorId, { shouldValidate: false, shouldDirty: true });
+            console.log('[GravarLocucaoPage] LocutorId setado no formulário via setValue para pré-seleção.');
         }
       }
 
-    } catch (error) {
-      console.error('Erro ao buscar locutores e/ou favoritos:', error);
-      setErrorLocutores('Não foi possível carregar os locutores. Tente novamente mais tarde.');
-      setLocutores([]);
-      setIdsLocutoresFavoritos([]);
-    } finally {
-      setLoadingLocutores(false);
+      if (locutores.length > 0) {
+        const locutor = locutores.find(l => l.id === preSelectedLocutorId);
+        if (locutor) {
+          if (selectedLocutor?.id !== locutor.id) {
+            setSelectedLocutor(locutor);
+            console.log('[GravarLocucaoPage] Locutor pré-selecionado definido no estado selectedLocutor:', locutor.nome);
+            if (currentStep === 1 && getValues("tipoAudio")) {
+                // setCurrentStep(2); 
+                // console.log('[GravarLocucaoPage] Tipo de áudio já existe, poderia avançar para etapa 2.');
+            }
+          }
+        } else {
+          console.warn('[GravarLocucaoPage] ATENÇÃO: Locutor com ID pré-selecionado (', preSelectedLocutorId, ') NÃO encontrado na lista de locutores carregada. A pré-seleção pode não ser visível.');
+          if(selectedLocutor?.id === preSelectedLocutorId) setSelectedLocutor(null); 
+        }
+      } else {
+        console.log('[GravarLocucaoPage] Lista de locutores ainda vazia ou não contém o ID. Aguardando carregamento/atualização para definir selectedLocutor.');
+      }
+    } else if (!isEditMode && !preSelectedLocutorId) {
+      console.log('[GravarLocucaoPage] Modo Novo Pedido SEM pré-seleção.');
+      const currentFormValues = getValues();
+      if (currentFormValues.locutorId || currentFormValues.tituloPedido || currentFormValues.scriptText || selectedLocutor) {
+        console.log('[GravarLocucaoPage] Resetando formulário para valores iniciais (novo pedido sem pré-seleção).');
+        reset({ 
+          tipoAudio: undefined,
+          locutorId: '',
+          tituloPedido: '',
+          estiloLocucao: '',
+          outroEstiloEspecificacao: '',
+          scriptText: '',
+          orientacoes: '',
+        });
+        setSelectedLocutor(null);
+      }
     }
-  }, [user]); // user já inclui profile?.id implicitamente através do AuthContext
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, editingPedidoId, preSelectedLocutorId, locutores, currentStep, searchParams, loadingPedidoParaEdicao, fetchPedidoParaEdicao, getValues, setValue, reset, setSelectedLocutor]);
 
+  // Calcular locutores para a página atual - RESTAURADO AQUI
+  const indexOfLastLocutor = currentPageLocutores * LOCUTORES_PER_PAGE;
+  const indexOfFirstLocutor = indexOfLastLocutor - LOCUTORES_PER_PAGE;
+  // currentLocutoresToDisplay é calculado depois, com base nos locutores filtrados.
+  const totalLocutoresPages = Math.ceil(locutores.length / LOCUTORES_PER_PAGE); // Baseado no total de locutores, não filtrados ainda.
+
+  // Este useEffect deve vir DEPOIS da definição de fetchLocutores
   useEffect(() => {
     fetchLocutores();
   }, [fetchLocutores]);
@@ -348,12 +422,12 @@ function GravarLocucaoPage() {
   };
 
   const toggleFavorito = async (locutorId: string, isFavoritoAtual: boolean) => {
-    if (!user?.id) { // Usar user.id que já vem do useAuth()
+    if (!user?.id) {
       toast.error("Erro de Autenticação", { description: "Você precisa estar logado para favoritar." });
       return;
     }
 
-    if (isFavoritoAtual) { // Desfavoritar
+    if (isFavoritoAtual) {
       const { error } = await supabase
         .from('locutores_favoritos')
         .delete()
@@ -365,7 +439,7 @@ function GravarLocucaoPage() {
         setIdsLocutoresFavoritos(prev => prev.filter(id => id !== locutorId));
         toast.success("Locutor Desfavoritado", { description: "Locutor removido dos seus favoritos." });
       }
-    } else { // Favoritar
+    } else {
       const { error } = await supabase
         .from('locutores_favoritos')
         .insert({ user_id: user.id, locutor_id: locutorId });
@@ -387,6 +461,11 @@ function GravarLocucaoPage() {
   };
 
   const onSubmitForm = async (values: z.infer<typeof multiStepGravarLocucaoFormSchema>) => {
+    console.log('[GravarLocucaoPage] onSubmitForm - Valores recebidos:', values);
+    console.log('[GravarLocucaoPage] onSubmitForm - Locutor selecionado (estado):', selectedLocutor);
+    console.log('[GravarLocucaoPage] onSubmitForm - Locutor ID do formulário (getValues):', getValues('locutorId'));
+    console.log('[GravarLocucaoPage] onSubmitForm - Profile:', profile);
+    console.log('[GravarLocucaoPage] onSubmitForm - User:', user);
     if (!user || !profile) {
       toast.error("Erro de Autenticação", { description: "Usuário não autenticado. Faça login novamente." });
       return;

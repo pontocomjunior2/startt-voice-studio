@@ -4,13 +4,16 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { usePedidoParaEdicao } from '@/hooks/use-pedido-para-edicao.hook';
+import { atualizarPedidoSchema as pedidoSchema } from '@/actions/pedido-actions';
 
 export default function GravarLocucaoPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editingPedidoIdParam = searchParams.get('pedidoId');
+  const locutorIdParam = searchParams.get('locutorId');
 
   const [isEditMode, setIsEditMode] = useState(!!editingPedidoIdParam);
+  const [preSelectedLocutorId, setPreSelectedLocutorId] = useState<string | null>(null);
 
   const {
     pedido: pedidoParaEdicao,
@@ -19,17 +22,30 @@ export default function GravarLocucaoPage() {
     isAllowedToEdit,
   } = usePedidoParaEdicao(editingPedidoIdParam);
 
-  const formHook = useForm<any>({
+  const formHook = useForm<PedidoFormData>({
     resolver: zodResolver(pedidoSchema),
     defaultValues: {
-      nomeProjeto: '',
-      textoLocucao: '',
+      titulo: '',
+      textoRoteiro: '',
+      locutorId: '',
+      tipoAudio: 'off',
+      estiloLocucao: '',
+      orientacoes: '',
+      idioma: '',
+      velocidadeLeitura: '',
+      emocaoVoz: '',
+      pedidoId: '',
     },
   });
 
   useEffect(() => {
     setIsEditMode(!!editingPedidoIdParam);
-  }, [editingPedidoIdParam]);
+    if (!editingPedidoIdParam && locutorIdParam) {
+      setPreSelectedLocutorId(locutorIdParam);
+    } else {
+      setPreSelectedLocutorId(null);
+    }
+  }, [editingPedidoIdParam, locutorIdParam]);
 
   useEffect(() => {
     if (isEditMode) {
@@ -38,23 +54,52 @@ export default function GravarLocucaoPage() {
           toast.error(erroCarregamentoPedido || "Não é possível editar este pedido. Verifique as permissões ou o status do pedido.");
           router.push('/inicio/meus-audios');
         } else if (pedidoParaEdicao) {
-          const formData = {
-            nomeProjeto: pedidoParaEdicao.nome_projeto,
-            textoLocucao: pedidoParaEdicao.texto_original,
-            locutorId: pedidoParaEdicao.locutor_id,
-            tipoServico: pedidoParaEdicao.tipo_servico,
-            idioma: pedidoParaEdicao.idioma_locucao,
-            estiloLocucao: pedidoParaEdicao.estilo_locucao,
-            velocidadeLeitura: pedidoParaEdicao.velocidade_leitura,
-            emocaoVoz: pedidoParaEdicao.emocao_voz,
-            instrucoesAdicionais: pedidoParaEdicao.observacoes_cliente || '',
+          const formData: PedidoFormData = {
+            pedidoId: (pedidoParaEdicao as any).id_pedido || '',
+            titulo: (pedidoParaEdicao as any).titulo || '',
+            textoRoteiro: (pedidoParaEdicao as any).texto_roteiro || '',
+            locutorId: (pedidoParaEdicao as any).id_locutor || '',
+            tipoAudio: ((pedidoParaEdicao as any).tipo_audio === 'off' || (pedidoParaEdicao as any).tipo_audio === 'produzido') ? (pedidoParaEdicao as any).tipo_audio : 'off',
+            idioma: (pedidoParaEdicao as any).idioma_locucao || '',
+            estiloLocucao: (pedidoParaEdicao as any).estilo_locucao || '',
+            velocidadeLeitura: (pedidoParaEdicao as any).velocidade_leitura || '',
+            emocaoVoz: (pedidoParaEdicao as any).emocao_voz || '',
+            orientacoes: (pedidoParaEdicao as any).observacoes_cliente || '',
           };
           formHook.reset(formData);
           toast.success("Dados do pedido carregados para edição.");
         }
       }
+    } else if (preSelectedLocutorId) {
+      const newFormData = {
+        titulo: '',
+        textoRoteiro: '',
+        locutorId: preSelectedLocutorId,
+        tipoAudio: 'off' as 'off' | 'produzido',
+        estiloLocucao: '',
+        orientacoes: '',
+        idioma: '',
+        velocidadeLeitura: '',
+        emocaoVoz: '',
+        pedidoId: '',
+      };
+      formHook.reset(newFormData);
     } else {
+      const initialFormData = {
+        titulo: '',
+        textoRoteiro: '',
+        locutorId: '',
+        tipoAudio: 'off' as 'off' | 'produzido',
+        estiloLocucao: '',
+        orientacoes: '',
+        idioma: '',
+        velocidadeLeitura: '',
+        emocaoVoz: '',
+        pedidoId: '',
+      };
+      formHook.reset(initialFormData);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isEditMode,
     loadingPedidoParaEdicao,
@@ -63,9 +108,10 @@ export default function GravarLocucaoPage() {
     isAllowedToEdit,
     formHook,
     router,
+    preSelectedLocutorId,
   ]);
 
-  const onSubmitForm = async (data: any) => {
+  const onSubmitForm = async (data: PedidoFormData) => {
     if (isEditMode && !pedidoParaEdicao) {
       toast.error("Erro: Tentando atualizar um pedido que não foi carregado.");
       return;
@@ -74,8 +120,7 @@ export default function GravarLocucaoPage() {
       toast.error("Erro: Você não tem permissão para atualizar este pedido.");
       return;
     }
-
-    console.log("Dados do formulário:", data);
+    // Lógica de submissão do formulário aqui
   };
 
   if (isEditMode && loadingPedidoParaEdicao) {
@@ -90,6 +135,20 @@ export default function GravarLocucaoPage() {
     <div className="container mx-auto p-4">
       <h1>{isEditMode ? 'Editar Pedido de Locução' : 'Novo Pedido de Locução'}</h1>
       <p>Modo: {isEditMode ? `Editando pedido ID: ${editingPedidoIdParam}` : "Criando novo pedido"}</p>
+      {/* Aqui vai o restante do seu formulário e JSX */}
     </div>
   );
+}
+
+interface PedidoFormData {
+  titulo?: string;
+  textoRoteiro: string;
+  locutorId: string;
+  tipoAudio: 'off' | 'produzido';
+  idioma?: string;
+  estiloLocucao: string;
+  velocidadeLeitura?: string;
+  emocaoVoz?: string;
+  orientacoes?: string;
+  pedidoId: string;
 } 
