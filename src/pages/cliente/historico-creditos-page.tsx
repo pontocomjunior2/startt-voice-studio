@@ -5,20 +5,23 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { PlusCircle, MinusCircle, Clock, Circle, AlertTriangle } from 'lucide-react';
+import { PlusCircle, MinusCircle, Clock, Circle, AlertTriangle, Undo2, UserCog } from 'lucide-react';
 
 interface EventoTimeline {
-  tipo: 'ADICAO_CREDITO' | 'USO_CREDITO' | 'EXPIRACAO_CREDITO';
+  tipo: 'ADICAO_CREDITO' | 'USO_CREDITO' | 'EXPIRACAO_CREDITO' | 'ESTORNO_CREDITO' | 'AJUSTE_MANUAL';
   data: string;
   descricao: string;
   detalhes: string;
   saldoApos?: number;
+  admin?: boolean;
 }
 
 const getIcon = (tipo: EventoTimeline['tipo']) => {
   if (tipo === 'ADICAO_CREDITO') return <PlusCircle className="h-5 w-5 text-green-500" />;
   if (tipo === 'USO_CREDITO') return <MinusCircle className="h-5 w-5 text-red-500" />;
   if (tipo === 'EXPIRACAO_CREDITO') return <Clock className="h-5 w-5 text-yellow-600" />;
+  if (tipo === 'ESTORNO_CREDITO') return <Undo2 className="h-5 w-5 text-blue-600" />;
+  if (tipo === 'AJUSTE_MANUAL') return <UserCog className="h-5 w-5 text-purple-600" />;
   return <Circle className="h-5 w-5 text-muted-foreground" />;
 };
 
@@ -40,10 +43,8 @@ const HistoricoCreditosPage: React.FC = () => {
           .from('lotes_creditos')
           .select('id, quantidade_adicionada, quantidade_usada, data_adicao, data_validade, observacao_admin')
           .eq('user_id', userId)
-          .order('data_adicao', { ascending: true }); // ASC para FIFO
+          .order('data_adicao', { ascending: true });
         if (lotesError) throw lotesError;
-
-        // Map de lotes para simulação
         const lotes = (lotesData || []).map((lote: any) => ({
           id: lote.id,
           quantidade_adicionada: lote.quantidade_adicionada,
@@ -53,34 +54,54 @@ const HistoricoCreditosPage: React.FC = () => {
           observacao_admin: lote.observacao_admin,
         }));
 
-        // 1. Eventos de adição de créditos
+        // 1a. Eventos de adição/ajuste manual
         lotes.forEach((lote) => {
-          eventos.push({
-            tipo: 'ADICAO_CREDITO',
-            data: lote.data_adicao,
-            descricao: `${lote.quantidade_adicionada} créditos adicionados.`,
-            detalhes: lote.data_validade
-              ? `Validade: ${new Date(lote.data_validade).toLocaleDateString('pt-BR')}`
-              : 'Sem prazo de validade.' + (lote.observacao_admin ? ` Motivo: ${lote.observacao_admin}` : ''),
-          });
+          const isAjusteManual = lote.observacao_admin && /ajuste|erro|estorno|manual|correção|admin|subtra/i.test(lote.observacao_admin);
+          const isNegativo = lote.quantidade_adicionada < 0;
+          if (isAjusteManual || isNegativo) {
+            eventos.push({
+              tipo: 'AJUSTE_MANUAL',
+              data: lote.data_adicao,
+              descricao: `${lote.quantidade_adicionada > 0 ? '+' : ''}${lote.quantidade_adicionada} crédito${Math.abs(lote.quantidade_adicionada) === 1 ? '' : 's'} ${lote.quantidade_adicionada > 0 ? 'adicionados' : 'subtraídos'} pelo ADMIN`,
+              detalhes: lote.observacao_admin || 'Ajuste manual',
+              admin: true,
+            });
+          } else {
+            eventos.push({
+              tipo: 'ADICAO_CREDITO',
+              data: lote.data_adicao,
+              descricao: `+${lote.quantidade_adicionada} crédito${lote.quantidade_adicionada === 1 ? '' : 's'} adicionados`,
+              detalhes: lote.data_validade
+                ? `Validade: ${new Date(lote.data_validade).toLocaleDateString('pt-BR')}`
+                : 'Sem prazo de validade.' + (lote.observacao_admin ? ` Motivo: ${lote.observacao_admin}` : ''),
+            });
+          }
         });
 
-        // 2. Buscar Pedidos (Uso de Créditos)
+        // 2. Buscar Pedidos (Uso de Créditos e Estorno)
         const { data: pedidosData, error: pedidosError } = await supabase
           .from('pedidos')
-          .select('id, id_pedido_serial, titulo, created_at, creditos_debitados, status')
+          .select('id, id_pedido_serial, titulo, created_at, creditos_debitados, status, creditos_estornados')
           .eq('user_id', userId)
-          .neq('status', 'cancelado')
-          .neq('status', 'rejeitado')
-          .order('created_at', { ascending: true }); // ASC para simulação
+          .order('created_at', { ascending: true });
         if (pedidosError) throw pedidosError;
         (pedidosData || []).forEach((pedido: any) => {
-          if (pedido.creditos_debitados > 0) {
+          // Uso de créditos
+          if (pedido.creditos_debitados > 0 && !['cancelado', 'rejeitado'].includes(pedido.status)) {
             eventos.push({
               tipo: 'USO_CREDITO',
               data: pedido.created_at,
-              descricao: `Pedido #${pedido.id_pedido_serial || (pedido.id?.substring(0,8))} (${pedido.titulo || 'Sem título'})`,
-              detalhes: `- ${pedido.creditos_debitados} créditos`,
+              descricao: `- ${pedido.creditos_debitados} crédito${pedido.creditos_debitados === 1 ? '' : 's'} usados no pedido #${pedido.id_pedido_serial || (pedido.id?.substring(0,8))}`,
+              detalhes: `Pedido: ${pedido.titulo || 'Sem título'}`,
+            });
+          }
+          // Estorno de créditos por cancelamento/rejeição
+          if ((pedido.status === 'cancelado' || pedido.status === 'rejeitado') && pedido.creditos_estornados > 0) {
+            eventos.push({
+              tipo: 'ESTORNO_CREDITO',
+              data: pedido.created_at,
+              descricao: `+${pedido.creditos_estornados} crédito${pedido.creditos_estornados === 1 ? '' : 's'} estornados (pedido cancelado/rejeitado)`,
+              detalhes: `Pedido #${pedido.id_pedido_serial || (pedido.id?.substring(0,8))} (${pedido.titulo || 'Sem título'})`,
             });
           }
         });
@@ -94,7 +115,7 @@ const HistoricoCreditosPage: React.FC = () => {
               eventos.push({
                 tipo: 'EXPIRACAO_CREDITO',
                 data: lote.data_validade,
-                descricao: `${creditosNaoUsadosDoLote} créditos expiraram.`,
+                descricao: `- ${creditosNaoUsadosDoLote} crédito${creditosNaoUsadosDoLote === 1 ? '' : 's'} expiraram`,
                 detalhes: `Do lote adicionado em ${new Date(lote.data_adicao).toLocaleDateString('pt-BR')}.`,
               });
             }
@@ -102,29 +123,32 @@ const HistoricoCreditosPage: React.FC = () => {
         });
 
         // 4. Calcular saldo após cada evento
-        // Ordenar eventos por data ASC para simulação
         eventos.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
         let saldo = 0;
         eventos.forEach((evento) => {
           if (evento.tipo === 'ADICAO_CREDITO') {
-            // Encontrar o lote correspondente
-            const lote = lotes.find(l => l.data_adicao === evento.data);
-            saldo += lote ? lote.quantidade_adicionada : 0;
+            const match = evento.descricao.match(/\+(\d+)/);
+            const valor = match ? parseInt(match[1], 10) : 0;
+            saldo += valor;
           } else if (evento.tipo === 'USO_CREDITO') {
-            // Extrair valor do texto
-            const match = evento.detalhes.match(/-\s*(\d+)/);
+            const match = evento.descricao.match(/-\s*(\d+)/);
             const valor = match ? parseInt(match[1], 10) : 0;
             saldo -= valor;
           } else if (evento.tipo === 'EXPIRACAO_CREDITO') {
-            // Extrair valor do texto
-            const match = evento.descricao.match(/(\d+)/);
+            const match = evento.descricao.match(/-\s*(\d+)/);
             const valor = match ? parseInt(match[1], 10) : 0;
             saldo -= valor;
+          } else if (evento.tipo === 'ESTORNO_CREDITO') {
+            const match = evento.descricao.match(/\+(\d+)/);
+            const valor = match ? parseInt(match[1], 10) : 0;
+            saldo += valor;
+          } else if (evento.tipo === 'AJUSTE_MANUAL') {
+            const match = evento.descricao.match(/([+-]?\d+)/);
+            const valor = match ? parseInt(match[1], 10) : 0;
+            saldo += valor;
           }
           evento.saldoApos = saldo;
         });
-
-        // Exibir do mais recente para o mais antigo
         eventos.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
         setEventosTimeline(eventos);
       } catch (error: any) {
@@ -167,23 +191,36 @@ const HistoricoCreditosPage: React.FC = () => {
         <div className="relative border-l border-gray-200 dark:border-gray-700 pl-6">
           <ol className="space-y-8">
             {eventosTimeline.map((evento, idx) => {
-              // Destacar eventos de ajuste manual: lote negativo OU observacao_admin indicando ajuste/erro/estorno
-              const isAjusteManual = evento.tipo === 'ADICAO_CREDITO' && (
-                evento.descricao.includes('-') ||
-                /ajuste|erro|estorno|manual|correção/i.test(evento.detalhes)
-              );
+              const isAjusteManual = evento.tipo === 'AJUSTE_MANUAL' || evento.admin;
               return (
                 <li key={`${evento.tipo}-${evento.data}-${idx}`} className="mb-6 ml-2 relative">
-                  <span className={`absolute -left-6 flex h-8 w-8 items-center justify-center rounded-full ring-8 ring-background ${isAjusteManual ? 'bg-yellow-200 dark:bg-yellow-700' : 'bg-background'}`}> 
+                  <span className={`absolute -left-6 flex h-8 w-8 items-center justify-center rounded-full ring-8 ring-background
+                    ${evento.tipo === 'ADICAO_CREDITO' ? 'bg-green-100 dark:bg-green-900' :
+                      evento.tipo === 'USO_CREDITO' ? 'bg-red-100 dark:bg-red-900' :
+                      evento.tipo === 'EXPIRACAO_CREDITO' ? 'bg-yellow-100 dark:bg-yellow-900' :
+                      evento.tipo === 'ESTORNO_CREDITO' ? 'bg-blue-100 dark:bg-blue-900' :
+                      isAjusteManual ? 'bg-purple-100 dark:bg-purple-900' :
+                      'bg-background'}`}> 
                     {getIcon(evento.tipo)}
                   </span>
-                  <Card className={`p-4 border shadow-sm ${isAjusteManual ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/30' : ''}`}>
+                  <Card className={`p-4 border shadow-sm
+                    ${evento.tipo === 'ADICAO_CREDITO' ? 'border-green-400' :
+                      evento.tipo === 'USO_CREDITO' ? 'border-red-400' :
+                      evento.tipo === 'EXPIRACAO_CREDITO' ? 'border-yellow-400' :
+                      evento.tipo === 'ESTORNO_CREDITO' ? 'border-blue-400' :
+                      isAjusteManual ? 'border-purple-400' :
+                      ''}
+                    ${isAjusteManual ? 'bg-purple-50 dark:bg-purple-900/30' : ''}
+                  `}>
                     <div className="mb-1 flex items-center justify-between">
                       <time className="text-sm font-normal leading-none text-muted-foreground">
                         {new Date(evento.data).toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </time>
                       {isAjusteManual && (
-                        <span className="ml-2 px-2 py-0.5 rounded bg-yellow-200 text-yellow-900 text-xs font-bold dark:bg-yellow-700 dark:text-yellow-100">Ajuste Manual</span>
+                        <span className="ml-2 px-2 py-0.5 rounded bg-purple-200 text-purple-900 text-xs font-bold dark:bg-purple-700 dark:text-purple-100">ADMIN</span>
+                      )}
+                      {evento.tipo === 'ESTORNO_CREDITO' && (
+                        <span className="ml-2 px-2 py-0.5 rounded bg-blue-200 text-blue-900 text-xs font-bold dark:bg-blue-700 dark:text-blue-100">Estorno</span>
                       )}
                     </div>
                     <h3 className="text-lg font-semibold text-foreground">{evento.descricao}</h3>

@@ -225,13 +225,14 @@ function AdminUsuariosPage() {
     }
     setIsDebiting(true);
     try {
-      const { data, error } = await supabase.rpc('debitar_creditos_admin', {
+      // Chama a nova RPC admin_subtrair_creditos
+      const { error } = await supabase.rpc('admin_subtrair_creditos', {
         p_user_id: selectedUserForDebit.id,
-        p_quantidade: parseInt(debitAmount, 10),
-        p_motivo: debitReason.trim()
+        p_quantidade: parseInt(debitAmount, 10), // valor positivo
+        p_observacao: debitReason.trim()
       });
-      if (error || data?.status === 'erro') {
-        toast.error("Erro ao subtrair créditos", { description: data?.mensagem || (error ? error.message : 'Erro desconhecido') });
+      if (error) {
+        toast.error("Erro ao subtrair créditos", { description: error.message });
         return;
       }
       toast.success("Créditos subtraídos com sucesso!");
