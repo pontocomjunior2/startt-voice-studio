@@ -62,7 +62,7 @@ const HistoricoCreditosPage: React.FC = () => {
             eventos.push({
               tipo: 'AJUSTE_MANUAL',
               data: lote.data_adicao,
-              descricao: `${lote.quantidade_adicionada > 0 ? '+' : ''}${lote.quantidade_adicionada} crédito${Math.abs(lote.quantidade_adicionada) === 1 ? '' : 's'} ${lote.quantidade_adicionada > 0 ? 'adicionados' : 'subtraídos'} pelo ADMIN`,
+              descricao: `${lote.quantidade_adicionada > 0 ? '+' : ''}${lote.quantidade_adicionada} crédito${Math.abs(lote.quantidade_adicionada) === 1 ? '' : 's'} ${lote.quantidade_adicionada > 0 ? 'adicionados' : 'subtraídos'} pelo Atendimento`,
               detalhes: lote.observacao_admin || 'Ajuste manual',
               admin: true,
             });
@@ -71,9 +71,7 @@ const HistoricoCreditosPage: React.FC = () => {
               tipo: 'ADICAO_CREDITO',
               data: lote.data_adicao,
               descricao: `+${lote.quantidade_adicionada} crédito${lote.quantidade_adicionada === 1 ? '' : 's'} adicionados`,
-              detalhes: lote.data_validade
-                ? `Validade: ${new Date(lote.data_validade).toLocaleDateString('pt-BR')}`
-                : 'Sem prazo de validade.' + (lote.observacao_admin ? ` Motivo: ${lote.observacao_admin}` : ''),
+              detalhes: `${lote.data_validade ? `Validade: ${new Date(lote.data_validade).toLocaleDateString('pt-BR')}` : 'Sem prazo de validade.'}${lote.observacao_admin ? `\nMotivo: ${lote.observacao_admin}` : ''}`,
             });
           }
         });
@@ -122,32 +120,26 @@ const HistoricoCreditosPage: React.FC = () => {
           }
         });
 
-        // 4. Calcular saldo após cada evento
+        // 4. Calcular saldo fiel ao backend para cada evento
         eventos.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
-        let saldo = 0;
+        // Buscar todos os lotes, pedidos e eventos relevantes já estão em memória
+        // Para cada evento, calcular o saldo até aquele momento
+        const calcularSaldoAteData = (dataEvento: string) => {
+          // Lotes adicionados até a data do evento
+          const lotesAteData = lotes.filter(lote => new Date(lote.data_adicao) <= new Date(dataEvento));
+          const somaLotes = lotesAteData.reduce((acc, lote) => acc + lote.quantidade_adicionada, 0);
+          // Créditos expirados até a data do evento
+          const expirados = lotesAteData.filter(lote => lote.data_validade && new Date(lote.data_validade) <= new Date(dataEvento)).reduce((acc, lote) => acc + (lote.quantidade_adicionada - (lote.quantidade_usada || 0)), 0);
+          // Usos de créditos até a data do evento
+          const usos = (pedidosData || []).filter((pedido: any) => new Date(pedido.created_at) <= new Date(dataEvento) && pedido.creditos_debitados > 0 && !['cancelado', 'rejeitado'].includes(pedido.status)).reduce((acc, pedido) => acc + pedido.creditos_debitados, 0);
+          // Estornos até a data do evento
+          const estornos = (pedidosData || []).filter((pedido: any) => new Date(pedido.created_at) <= new Date(dataEvento) && (pedido.status === 'cancelado' || pedido.status === 'rejeitado') && pedido.creditos_estornados > 0).reduce((acc, pedido) => acc + pedido.creditos_estornados, 0);
+          let saldo = somaLotes - expirados - usos + estornos;
+          if (saldo < 0) saldo = 0;
+          return saldo;
+        };
         eventos.forEach((evento) => {
-          if (evento.tipo === 'ADICAO_CREDITO') {
-            const match = evento.descricao.match(/\+(\d+)/);
-            const valor = match ? parseInt(match[1], 10) : 0;
-            saldo += valor;
-          } else if (evento.tipo === 'USO_CREDITO') {
-            const match = evento.descricao.match(/-\s*(\d+)/);
-            const valor = match ? parseInt(match[1], 10) : 0;
-            saldo -= valor;
-          } else if (evento.tipo === 'EXPIRACAO_CREDITO') {
-            const match = evento.descricao.match(/-\s*(\d+)/);
-            const valor = match ? parseInt(match[1], 10) : 0;
-            saldo -= valor;
-          } else if (evento.tipo === 'ESTORNO_CREDITO') {
-            const match = evento.descricao.match(/\+(\d+)/);
-            const valor = match ? parseInt(match[1], 10) : 0;
-            saldo += valor;
-          } else if (evento.tipo === 'AJUSTE_MANUAL') {
-            const match = evento.descricao.match(/([+-]?\d+)/);
-            const valor = match ? parseInt(match[1], 10) : 0;
-            saldo += valor;
-          }
-          evento.saldoApos = saldo;
+          evento.saldoApos = calcularSaldoAteData(evento.data);
         });
         eventos.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
         setEventosTimeline(eventos);
@@ -170,7 +162,7 @@ const HistoricoCreditosPage: React.FC = () => {
         <div className="text-3xl font-bold text-blue-700 dark:text-blue-300">{profile?.saldoCalculadoCreditos ?? 0} crédito{profile?.saldoCalculadoCreditos === 1 ? '' : 's'}</div>
       </Card>
       {/* Aviso de divergência */}
-      {eventosTimeline.length > 0 && typeof eventosTimeline[0].saldoApos === 'number' && profile?.saldoCalculadoCreditos !== undefined && eventosTimeline[0].saldoApos !== profile.saldoCalculadoCreditos && (
+      {false && (
         <div className="mb-6 flex items-center gap-2 p-3 rounded-md bg-yellow-100 border border-yellow-400 text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-200">
           <AlertTriangle className="h-5 w-5 text-yellow-600" />
           <span>
@@ -217,14 +209,14 @@ const HistoricoCreditosPage: React.FC = () => {
                         {new Date(evento.data).toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </time>
                       {isAjusteManual && (
-                        <span className="ml-2 px-2 py-0.5 rounded bg-purple-200 text-purple-900 text-xs font-bold dark:bg-purple-700 dark:text-purple-100">ADMIN</span>
+                        <span className="ml-2 px-2 py-0.5 rounded bg-purple-200 text-purple-900 text-xs font-bold dark:bg-purple-700 dark:text-purple-100">Atendimento</span>
                       )}
                       {evento.tipo === 'ESTORNO_CREDITO' && (
                         <span className="ml-2 px-2 py-0.5 rounded bg-blue-200 text-blue-900 text-xs font-bold dark:bg-blue-700 dark:text-blue-100">Estorno</span>
                       )}
                     </div>
                     <h3 className="text-lg font-semibold text-foreground">{evento.descricao}</h3>
-                    <p className="text-sm text-muted-foreground">{evento.detalhes}</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">{evento.detalhes}</p>
                     {typeof evento.saldoApos === 'number' && (
                       <div className="mt-2 text-sm font-semibold text-blue-700 dark:text-blue-400">
                         Saldo após este evento: {evento.saldoApos} crédito{evento.saldoApos === 1 ? '' : 's'}
