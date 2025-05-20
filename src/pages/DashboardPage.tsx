@@ -80,7 +80,7 @@ function DashboardPage() {
         .from('pedidos')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', profile.id)
-        .in('status', ['pendente', 'gravando']);
+        .in('status', ['pendente', 'gravando', 'em_producao', 'em_analise']);
       if (pendentesError) { console.error(pendentesError); throw pendentesError; }
       setPedidosPendentes(pendentesCount ?? 0);
 
