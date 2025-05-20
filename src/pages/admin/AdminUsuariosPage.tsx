@@ -30,35 +30,43 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 // import { Link } from 'react-router-dom'; // Não usado
-import { Loader2 } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon } from 'lucide-react';
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { cn } from '@/lib/utils';
+
+// Imports para DatePicker
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale'; // Para formatação em pt-BR
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox"; // Adicionado Checkbox
+import { Textarea } from "@/components/ui/textarea"; // Adicionado Textarea
 
 // Hooks customizados do React Query
 import { useFetchAdminUsers } from '../../hooks/queries/use-fetch-admin-users.hook';
 import type { UserProfile } from '../../hooks/queries/use-fetch-admin-users.hook';
-import { useUpdateUserCredits } from '../../hooks/mutations/use-update-user-credits.hook';
 import { useUpdateUserRole } from '../../hooks/mutations/use-update-user-role.hook';
 
-// A interface UserProfile agora é importada do hook use-fetch-admin-users.hook.ts
-// interface UserProfile {
-//   id: string;
-//   updated_at?: string;
-//   full_name?: string | null;
-//   username?: string | null; 
-//   credits?: number | null;
-//   role?: string | null;
-//   created_at?: string; 
-// }
+// Importar useAuth e supabaseClient
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabaseClient'; // Usar o cliente supabase global
+import { useQueryClient } from '@tanstack/react-query'; // Adicionar se não estiver lá
 
 function AdminUsuariosPage() {
-  // const [users, setUsers] = useState<UserProfile[]>([]); // Gerenciado pelo React Query
-  // const [loadingUsers, setLoadingUsers] = useState(true); // Gerenciado pelo React Query
+  const { profile: adminProfile } = useAuth(); // Para admin_id_que_adicionou
+  const queryClient = useQueryClient(); // Para invalidar queries
 
   const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
   const [selectedUserForCredit, setSelectedUserForCredit] = useState<UserProfile | null>(null);
-  const [newCreditAmount, setNewCreditAmount] = useState<string>('');
-  // const [isUpdatingCredits, setIsUpdatingCredits] = useState(false); // Gerenciado pelo React Query mutation
+  // const [newCreditAmount, setNewCreditAmount] = useState<string>(''); // REMOVIDO - Substituído por estados do lote
+
+  // Novos estados para o modal de adicionar lote de créditos
+  const [quantidadeLote, setQuantidadeLote] = useState<string>('');
+  const [dataValidadeLote, setDataValidadeLote] = useState<Date | undefined>(undefined);
+  const [semPrazoValidade, setSemPrazoValidade] = useState(false);
+  const [observacaoLote, setObservacaoLote] = useState('');
+  const [isAddingCredits, setIsAddingCredits] = useState(false); // Novo estado de loading para lotes
 
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [selectedUserForRoleChange, setSelectedUserForRoleChange] = useState<UserProfile | null>(null);
@@ -67,44 +75,107 @@ function AdminUsuariosPage() {
 
   const [userFilter, setUserFilter] = useState('');
 
-  // Usando o hook para buscar usuários
-  const { data: users = [], isLoading: isLoadingUsers, isError: isFetchUsersError, error: fetchUsersError } = useFetchAdminUsers();
-
-  // Usando os hooks para mutações
-  const { mutate: updateUserCredits, isPending: isUpdatingCredits } = useUpdateUserCredits();
+  const { data: initialUsers = [], isLoading: isLoadingInitialUsers, isError: isFetchUsersError, error: fetchUsersError, refetch: refetchAdminUsers } = useFetchAdminUsers();
+  
+  // const { mutate: updateUserCredits, isPending: isUpdatingCreditsHook } = useUpdateUserCredits(); // REMOVIDO - O isPending será do isAddingCredits local
   const { mutate: updateUserRole, isPending: isUpdatingRole } = useUpdateUserRole();
 
+  const [usersWithCalculatedCredit, setUsersWithCalculatedCredit] = useState<UserProfile[]>([]);
+  const [isCalculatingBalances, setIsCalculatingBalances] = useState(false);
 
-  // useEffect(() => {
-  //   fetchAllUsers(); // Não é mais necessário, React Query cuida disso
-  // }, []);
+  useEffect(() => {
+    const fetchBalancesForUsers = async () => {
+      if (initialUsers && initialUsers.length > 0) {
+        setIsCalculatingBalances(true);
+        try {
+          const usersWithBalances = await Promise.all(initialUsers.map(async (user) => {
+            const { data: saldoData, error: saldoError } = await supabase.rpc('get_saldo_creditos_validos', {
+              p_user_id: user.id
+            });
+            if (saldoError) {
+              console.error(`AdminUsuariosPage: Erro ao buscar saldo para usuário ${user.id}:`, saldoError);
+              return { ...user, saldoCalculadoCreditos: user.credits || 0 }; // Fallback para credits se RPC falhar
+            }
+            return { ...user, saldoCalculadoCreditos: saldoData ?? 0 };
+          }));
+          setUsersWithCalculatedCredit(usersWithBalances);
+        } catch (error) {
+          console.error("AdminUsuariosPage: Erro ao processar saldos de usuários:", error);
+          // Em caso de erro geral, usar fallback para todos
+          setUsersWithCalculatedCredit(initialUsers.map(u => ({...u, saldoCalculadoCreditos: u.credits || 0 })));
+        } finally {
+          setIsCalculatingBalances(false);
+        }
+      }
+    };
+
+    fetchBalancesForUsers();
+  }, [initialUsers]);
 
   const openCreditModal = (user: UserProfile) => {
     setSelectedUserForCredit(user);
-    setNewCreditAmount(user.credits?.toString() || '0');
+    // Limpar campos do formulário de lote ao abrir o modal
+    setQuantidadeLote('');
+    setDataValidadeLote(undefined);
+    setSemPrazoValidade(false);
+    setObservacaoLote('');
     setIsCreditModalOpen(true);
   };
 
-  const handleUpdateUserCredits = () => {
-    if (!selectedUserForCredit || newCreditAmount === '') return;
-
-    const newCredits = parseInt(newCreditAmount, 10);
-    if (isNaN(newCredits) || newCredits < 0) {
-      toast.error("Valor Inválido", { description: "Por favor, insira um número de créditos válido (maior ou igual a zero)." });
+  const handleAddCreditBatch = async () => {
+    if (!selectedUserForCredit || !quantidadeLote || parseInt(quantidadeLote, 10) <= 0) {
+      toast.error("Erro de Validação", { description: "A quantidade de créditos a adicionar deve ser um número positivo." });
+      return;
+    }
+    if (!semPrazoValidade && !dataValidadeLote) {
+      toast.error("Erro de Validação", { description: "Defina uma data de validade ou marque 'Sem prazo de validade'." });
       return;
     }
 
-    updateUserCredits({ 
-      userId: selectedUserForCredit.id, 
-      newCredits,
-      userNameOrFullName: selectedUserForCredit.full_name || selectedUserForCredit.username
-    }, {
-      onSuccess: () => {
-        setIsCreditModalOpen(false);
-        // A invalidação de queries já é feita dentro do hook useUpdateUserCredits
-      },
-      // onError já é tratado no hook
-    });
+    setIsAddingCredits(true);
+    try {
+      const dadosLote: any = {
+        user_id: selectedUserForCredit.id,
+        quantidade_adicionada: parseInt(quantidadeLote, 10),
+        quantidade_usada: 0, // Novo lote começa com 0 usados
+        // data_adicao é DEFAULT no DB
+        data_validade: semPrazoValidade || !dataValidadeLote ? null : dataValidadeLote.toISOString(),
+        admin_id_que_adicionou: adminProfile?.id, 
+        observacao_admin: observacaoLote.trim() || null
+        // criado_em é DEFAULT no DB
+      };
+
+      const { error } = await supabase
+        .from('lotes_creditos')
+        .insert([dadosLote]); // Supabase v2 espera um array para insert
+
+      if (error) {
+        console.error("Erro Supabase ao adicionar lote de créditos:", error);
+        throw error;
+      }
+
+      toast.success("Sucesso", { description: "Lote de créditos adicionado ao cliente." });
+      
+      // Invalidar a query de usuários para que a lista e os saldos sejam recalculados
+      await queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
+      // O useEffect que depende de initialUsers irá então refazer o cálculo dos saldos.
+      // Ou chamar refetchAdminUsers() que, por sua vez, acionaria o useEffect.
+      // A invalidação é geralmente mais robusta.
+      
+      setIsCreditModalOpen(false); 
+      // Limpar campos do formulário já é feito ao reabrir o modal em openCreditModal
+    } catch (err: any) {
+      console.error("Erro ao adicionar lote de créditos:", err);
+      const errorMessage = err.message || "Não foi possível adicionar o lote de créditos.";
+      // Verificar se é um erro do PostgREST para mais detalhes
+      if (err.details || err.hint) {
+        toast.error("Erro ao Adicionar Lote", { description: `${errorMessage} Detalhes: ${err.details || 'N/A'}. Dica: ${err.hint || 'N/A'}` });
+      } else {
+        toast.error("Erro ao Adicionar Lote", { description: errorMessage });
+      }
+    } finally {
+      setIsAddingCredits(false);
+    }
   };
 
   const openRoleModal = (user: UserProfile) => {
@@ -129,7 +200,7 @@ function AdminUsuariosPage() {
     });
   };
 
-  const filteredUsers = users.filter(user => 
+  const filteredUsers = usersWithCalculatedCredit.filter(user => 
     (user.full_name?.toLowerCase().includes(userFilter.toLowerCase())) ||
     (user.username?.toLowerCase().includes(userFilter.toLowerCase()))
   );
@@ -158,10 +229,10 @@ function AdminUsuariosPage() {
         />
       </div>
 
-      {isLoadingUsers ? (
+      {isLoadingInitialUsers || isCalculatingBalances ? (
         <div className="flex items-center justify-center py-10">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="ml-2">Carregando usuários...</p>
+          <p className="ml-2">{isLoadingInitialUsers ? 'Carregando usuários...' : 'Calculando saldos...'}</p>
         </div>
       ) : (
         <div className="overflow-x-auto relative border border-border rounded-md">
@@ -182,7 +253,7 @@ function AdminUsuariosPage() {
                 <TableRow key={user.id} className="hover:bg-muted/50 odd:bg-muted/20">
                   <TableCell className="font-medium px-4 py-3 whitespace-nowrap">{user.full_name || user.username || 'N/A'}</TableCell>
                   <TableCell className="px-4 py-3 whitespace-nowrap">{user.username || 'N/A'}</TableCell>
-                  <TableCell className="px-4 py-3 whitespace-nowrap">{user.credits ?? 0}</TableCell>
+                  <TableCell className="px-4 py-3 whitespace-nowrap">{user.saldoCalculadoCreditos ?? 0}</TableCell>
                   <TableCell className="px-4 py-3 whitespace-nowrap">
                     <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
                       {user.role || 'N/A'}
@@ -194,15 +265,15 @@ function AdminUsuariosPage() {
                         variant="outline" 
                         size="sm"
                         onClick={() => openCreditModal(user)}
-                        disabled={isUpdatingCredits || isUpdatingRole}
+                        disabled={isAddingCredits || isUpdatingRole}
                     >
-                      Ajustar Créditos
+                      Adicionar Créditos
                     </Button>
                     <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={() => openRoleModal(user)}
-                        disabled={isUpdatingCredits || isUpdatingRole}
+                        disabled={isAddingCredits || isUpdatingRole}
                     >
                       Alterar Role
                     </Button>
@@ -218,39 +289,112 @@ function AdminUsuariosPage() {
         setIsCreditModalOpen(isOpen);
         if (!isOpen) {
           setSelectedUserForCredit(null);
-          setNewCreditAmount('');
+          // Limpar estados do formulário de lote de crédito ao fechar
+          setQuantidadeLote('');
+          setDataValidadeLote(undefined);
+          setSemPrazoValidade(false);
+          setObservacaoLote('');
         }
       }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Ajustar Créditos de {selectedUserForCredit?.full_name || selectedUserForCredit?.username}</DialogTitle>
+            <DialogTitle>Adicionar Lote de Créditos para {selectedUserForCredit?.full_name || selectedUserForCredit?.username}</DialogTitle>
             <DialogDescription>
-              Créditos atuais: {selectedUserForCredit?.credits ?? 0}. Defina o novo saldo total de créditos.
+              Saldo atual (calculado dos lotes): {selectedUserForCredit?.saldoCalculadoCreditos ?? 0}. <br />
+              Preencha os detalhes do novo lote de créditos a ser adicionado.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-6 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="credits-amount" className="text-right col-span-1">
-                Novo Saldo
+              <Label htmlFor="quantidade-lote" className="text-right col-span-1">
+                Quantidade*
               </Label>
               <Input 
-                id="credits-amount" 
+                id="quantidade-lote" 
                 type="number"
-                value={newCreditAmount}
-                onChange={(e) => setNewCreditAmount(e.target.value)}
+                value={quantidadeLote}
+                onChange={(e) => setQuantidadeLote(e.target.value)}
                 className="col-span-3" 
                 placeholder="Ex: 100"
-                disabled={isUpdatingCredits}
+                min="1"
+                disabled={isAddingCredits}
               />
             </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="data-validade-lote" className="text-right col-span-1">
+                Validade*
+              </Label>
+              <div className="col-span-3">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !dataValidadeLote && "text-muted-foreground",
+                        semPrazoValidade && "bg-muted text-muted-foreground cursor-not-allowed"
+                      )}
+                      disabled={semPrazoValidade || isAddingCredits}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dataValidadeLote && !semPrazoValidade ? format(dataValidadeLote, 'PPP', { locale: ptBR }) : <span>Escolha uma data</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  {!semPrazoValidade && (
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={dataValidadeLote}
+                        onSelect={setDataValidadeLote}
+                        initialFocus
+                        disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } // Não permitir datas passadas
+                      />
+                    </PopoverContent>
+                  )}
+                </Popover>
+                <div className="flex items-center space-x-2 mt-2">
+                  <Checkbox 
+                    id="sem-prazo-validade"
+                    checked={semPrazoValidade}
+                    onCheckedChange={(checked) => {
+                      setSemPrazoValidade(Boolean(checked));
+                      if (Boolean(checked)) {
+                        setDataValidadeLote(undefined);
+                      }
+                    }}
+                    disabled={isAddingCredits}
+                  />
+                  <Label htmlFor="sem-prazo-validade" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    Sem prazo de validade
+                  </Label>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="observacao-lote" className="text-right col-span-1 self-start pt-2">
+                Observação
+              </Label>
+              <Textarea 
+                id="observacao-lote"
+                value={observacaoLote}
+                onChange={(e) => setObservacaoLote(e.target.value)}
+                className="col-span-3" 
+                placeholder="Ex: Créditos de cortesia para campanha X... (opcional)"
+                rows={3}
+                disabled={isAddingCredits}
+              />
+            </div>
+
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={isUpdatingCredits}>Cancelar</Button>
+              <Button type="button" variant="outline" disabled={isAddingCredits}>Cancelar</Button>
             </DialogClose>
-            <Button type="button" onClick={handleUpdateUserCredits} disabled={isUpdatingCredits}>
-              {isUpdatingCredits && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} 
-              Salvar Alterações
+            <Button type="button" onClick={handleAddCreditBatch} disabled={isAddingCredits}>
+              {isAddingCredits ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Adicionar Lote de Créditos
             </Button>
           </DialogFooter>
         </DialogContent>

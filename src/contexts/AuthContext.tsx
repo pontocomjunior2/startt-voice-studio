@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { Session, User, AuthChangeEvent, SignUpWithPasswordCredentials } from '@supabase/supabase-js';
 import { AuthError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
+import { toast } from 'react-hot-toast';
 
 // Definir a interface para o perfil, espelhando a tabela do Supabase
 export interface Profile {
@@ -12,8 +13,9 @@ export interface Profile {
   full_name: string | null;
   avatar_url: string | null;
   role: 'cliente' | 'admin' | null; // Ajuste os tipos de role conforme necessário
-  credits: number | null;
+  credits: number | null; // Esta coluna será mantida, mas o saldo exibido virá de saldoCalculadoCreditos
   package_id: string | null; // ou number, dependendo da sua definição
+  saldoCalculadoCreditos?: number; // Novo campo para o saldo calculado
 }
 
 interface AuthContextProps {
@@ -140,16 +142,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setProfile(null); // Limpar perfil se a busca falhar ou der timeout
         await fetchUnreadNotifications(undefined); // Limpar contagem de notificações
       } else {
-        const { data, error: fetchError, status } = result;
+        const { data: userData, error: fetchError, status } = result;
 
         if (fetchError && status !== 406) {
           console.error('AuthContext: fetchProfile - Erro da query Supabase:', fetchError);
           setError(new AuthError(`Erro ao buscar perfil: ${fetchError.message}`));
           setProfile(null);
           await fetchUnreadNotifications(undefined); // Limpar contagem
-        } else if (data) {
-          console.log('AuthContext: fetchProfile - Perfil encontrado:', data as Profile);
-          setProfile(data as Profile);
+        } else if (userData) {
+          console.log('AuthContext: fetchProfile - Perfil encontrado:', userData as Profile);
+          // Mantém o perfil básico por enquanto
+          let updatedProfileData: Profile = { ...userData } as Profile;
+
+          // Agora, buscar o saldo de créditos válidos
+          console.log('AuthContext: Chamando RPC get_saldo_creditos_validos para userId:', userId);
+          const { data: saldoData, error: saldoError } = await supabase.rpc('get_saldo_creditos_validos', {
+            p_user_id: userId
+          });
+
+          if (saldoError) {
+            console.error("AuthContext: Erro ao buscar saldo de créditos válidos via RPC:", saldoError);
+            updatedProfileData.saldoCalculadoCreditos = userData.credits || 0; 
+            toast.error(`Erro ao buscar saldo de créditos: ${saldoError.message}`);
+          } else {
+            console.log("AuthContext: Saldo de créditos válidos calculado via RPC:", saldoData);
+            updatedProfileData.saldoCalculadoCreditos = saldoData ?? 0;
+          }
+          
+          setProfile(updatedProfileData);
+          console.log('AuthContext: fetchProfile - Perfil atualizado com saldoCalculadoCreditos:', updatedProfileData);
           await fetchUnreadNotifications(userId); // BUSCAR CONTAGEM APÓS PERFIL
         } else if (status === 406) {
           console.warn('AuthContext: fetchProfile - Perfil não encontrado (status 406), usuário pode precisar criar um.');

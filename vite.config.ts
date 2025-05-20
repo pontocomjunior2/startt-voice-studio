@@ -11,6 +11,12 @@ export default defineConfig({
       'next-safe-action/react': path.resolve(__dirname, 'node_modules/next-safe-action/dist/hooks.mjs'),
     },
   },
+  server: {
+    watch: {
+      usePolling: true,
+      interval: 100,
+    }
+  },
   ssr: {
     noExternal: ['path', 'fs', 'node:path', 'node:fs']
   }

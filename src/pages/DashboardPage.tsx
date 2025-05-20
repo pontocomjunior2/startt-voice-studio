@@ -268,7 +268,7 @@ function DashboardPage() {
   }
 
   const userEmail = user.email;
-  const userCredits = profile?.credits ?? 0;
+  const userSaldoCreditosCalculado = profile?.saldoCalculadoCreditos ?? 0;
 
   const handleDownload = async (pedido: Pedido) => {
     if (!pedido.audio_final_url) {
@@ -324,7 +324,7 @@ function DashboardPage() {
               <Wallet className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">{userCredits.toLocaleString('pt-BR')}</div>
+              <div className="text-2xl font-bold text-foreground">{userSaldoCreditosCalculado.toLocaleString('pt-BR')}</div>
               <p className="text-xs text-muted-foreground">Disponíveis para usar.</p>
             </CardContent>
           </Card>

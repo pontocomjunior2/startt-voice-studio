@@ -11,6 +11,8 @@ export interface UserProfile {
   username?: string | null; // Pode ser email também
   credits?: number | null;
   role?: string | null;
+  created_at?: string;
+  saldoCalculadoCreditos?: number;
   // created_at?: string; // Removido se a coluna não existe no DB
 }
 

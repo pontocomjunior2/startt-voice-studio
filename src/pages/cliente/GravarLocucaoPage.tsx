@@ -63,11 +63,11 @@ const multiStepGravarLocucaoFormSchema = z.object({
 }).superRefine((data, ctx) => {
   // Validações para a Etapa 2 (após tipoAudio ser preenchido)
   // A validação do locutorId será feita no handleNextStep e antes do submit
-  console.log('[Zod superRefine] Data for validation:', JSON.stringify(data)); 
+  // console.log('[Zod superRefine] Data for validation:', JSON.stringify(data)); 
 
   // Validações para a Etapa 3 (após tipoAudio e locutorId serem preenchidos)
   if (data.tipoAudio && data.locutorId) {
-    console.log('[Zod superRefine] Condition for Step 3 met: tipoAudio AND locutorId are present.');
+    // console.log('[Zod superRefine] Condition for Step 3 met: tipoAudio AND locutorId are present.');
     
     if (data.tituloPedido === undefined || data.tituloPedido.trim().length < 3) {
       ctx.addIssue({
@@ -98,7 +98,7 @@ const multiStepGravarLocucaoFormSchema = z.object({
       });
     }
   } else {
-    console.log('[Zod superRefine] Condition for Step 3 NOT met. tipoAudio:', data.tipoAudio, 'locutorId:', data.locutorId);
+    // console.log('[Zod superRefine] Condition for Step 3 NOT met. tipoAudio:', data.tipoAudio, 'locutorId:', data.locutorId);
   }
 });
 
@@ -110,8 +110,8 @@ function GravarLocucaoPage() {
   // Lógica de pré-seleção e edição
   const editingPedidoIdParam = searchParams.get('pedidoId');
   const locutorIdParam = searchParams.get('locutorId');
-  console.log('[GravarLocucaoPage] locutorIdParam da URL:', locutorIdParam);
-  console.log('[GravarLocucaoPage] editingPedidoIdParam da URL:', editingPedidoIdParam);
+  // console.log('[GravarLocucaoPage] locutorIdParam da URL:', locutorIdParam);
+  // console.log('[GravarLocucaoPage] editingPedidoIdParam da URL:', editingPedidoIdParam);
 
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [locutores, setLocutores] = useState<Locutor[]>([]);
@@ -133,7 +133,7 @@ function GravarLocucaoPage() {
   const [editingPedidoId, setEditingPedidoId] = useState<string | null>(editingPedidoIdParam);
   const [loadingPedidoParaEdicao, setLoadingPedidoParaEdicao] = useState(false);
   const [preSelectedLocutorId, setPreSelectedLocutorId] = useState<string | null>(null);
-  console.log('[GravarLocucaoPage] Estado preSelectedLocutorId inicial:', preSelectedLocutorId);
+  // console.log('[GravarLocucaoPage] Estado preSelectedLocutorId inicial:', preSelectedLocutorId);
 
   // Estados para Favoritos
   const [idsLocutoresFavoritos, setIdsLocutoresFavoritos] = useState<string[]>([]);
@@ -193,14 +193,14 @@ function GravarLocucaoPage() {
           .eq('user_id', user.id);
 
         if (favoritosError) {
-          console.error("Erro ao buscar locutores favoritos:", favoritosError);
+          // console.error("Erro ao buscar locutores favoritos:", favoritosError);
         } else {
           setIdsLocutoresFavoritos(favoritosData?.map(f => f.locutor_id) || []);
         }
       }
 
     } catch (error) {
-      console.error('Erro ao buscar locutores e/ou favoritos:', error);
+      // console.error('Erro ao buscar locutores e/ou favoritos:', error);
       setErrorLocutores('Não foi possível carregar os locutores. Tente novamente mais tarde.');
       setLocutores([]);
       setIdsLocutoresFavoritos([]);
@@ -236,7 +236,7 @@ function GravarLocucaoPage() {
         .single();
 
       if (error || !pedidoData) {
-        console.error("Erro ao buscar pedido para edição:", error);
+        // console.error("Erro ao buscar pedido para edição:", error);
         toast.error("Erro ao Carregar Pedido", { description: "Não foi possível carregar os dados do pedido para edição. Verifique se o pedido existe e você tem permissão." });
         navigate("/cliente/meus-audios");
         return;
@@ -275,7 +275,7 @@ function GravarLocucaoPage() {
       toast.info("Modo de Edição", { description: `Editando pedido #${pedidoData.id.substring(0,8)}...` });
 
     } catch (err) {
-      console.error("Erro catastrófico ao buscar pedido para edição:", err);
+      // console.error("Erro catastrófico ao buscar pedido para edição:", err);
       toast.error("Erro Crítico", { description: "Ocorreu um erro inesperado ao tentar carregar os dados do pedido." });
     } finally {
       setLoadingPedidoParaEdicao(false);
@@ -284,15 +284,15 @@ function GravarLocucaoPage() {
 
   // useEffect para lidar com a pré-seleção de locutor via URL
   useEffect(() => {
-    console.log('[GravarLocucaoPage] useEffect [editingPedidoIdParam, locutorIdParam] - Modo Edição Param:', editingPedidoIdParam, 'Locutor Param:', locutorIdParam);
+    // console.log('[GravarLocucaoPage] useEffect [editingPedidoIdParam, locutorIdParam] - Modo Edição Param:', editingPedidoIdParam, 'Locutor Param:', locutorIdParam);
     if (!editingPedidoIdParam && locutorIdParam) {
-      console.log('[GravarLocucaoPage] Definindo preSelectedLocutorId para:', locutorIdParam);
+      // console.log('[GravarLocucaoPage] Definindo preSelectedLocutorId para:', locutorIdParam);
       setPreSelectedLocutorId(locutorIdParam);
     } else if (editingPedidoIdParam) {
-      console.log('[GravarLocucaoPage] Modo edição, limpando preSelectedLocutorId se houver.');
+      // console.log('[GravarLocucaoPage] Modo edição, limpando preSelectedLocutorId se houver.');
       setPreSelectedLocutorId(null); 
     } else {
-      console.log('[GravarLocucaoPage] Sem modo edição e sem locutorIdParam, limpando preSelectedLocutorId.');
+      // console.log('[GravarLocucaoPage] Sem modo edição e sem locutorIdParam, limpando preSelectedLocutorId.');
       setPreSelectedLocutorId(null);
     }
   }, [editingPedidoIdParam, locutorIdParam]);
@@ -300,7 +300,7 @@ function GravarLocucaoPage() {
   // Log para depurar erros do formulário
   useEffect(() => {
     if (Object.keys(errors).length > 0) {
-      console.log('[GravarLocucaoPage] Form errors:', errors);
+      // console.log('[GravarLocucaoPage] Form errors:', errors);
     }
   }, [errors]);
 
@@ -311,14 +311,14 @@ function GravarLocucaoPage() {
 
   // Efeito para carregar dados para edição OU aplicar pré-seleção
   useEffect(() => {
-    console.log('[GravarLocucaoPage] useEffect principal - isEditMode State:', isEditMode, 'preSelectedLocutorId State:', preSelectedLocutorId, 'Locutores Carregados:', locutores.length, 'Etapa Atual:', currentStep);
+    // console.log('[GravarLocucaoPage] useEffect principal - isEditMode State:', isEditMode, 'preSelectedLocutorId State:', preSelectedLocutorId, 'Locutores Carregados:', locutores.length, 'Etapa Atual:', currentStep);
     if (isEditMode && editingPedidoId) {
-      console.log('[GravarLocucaoPage] Modo Edição ATIVO, buscando pedido:', editingPedidoId);
+      // console.log('[GravarLocucaoPage] Modo Edição ATIVO, buscando pedido:', editingPedidoId);
       if (!loadingPedidoParaEdicao && (!getValues("tituloPedido") || searchParams.get('pedidoId') !== editingPedidoId)) {
          fetchPedidoParaEdicao(editingPedidoId);
       }
     } else if (preSelectedLocutorId && !isEditMode) {
-      console.log('[GravarLocucaoPage] Modo Novo Pedido com preSelectedLocutorId:', preSelectedLocutorId);
+      // console.log('[GravarLocucaoPage] Modo Novo Pedido com preSelectedLocutorId:', preSelectedLocutorId);
       
       const currentFormValues = getValues();
       if (currentFormValues.locutorId !== preSelectedLocutorId || currentFormValues.tituloPedido || currentFormValues.scriptText) {
@@ -331,11 +331,11 @@ function GravarLocucaoPage() {
           scriptText: '',
           orientacoes: '',
         });
-        console.log('[GravarLocucaoPage] Formulário resetado/atualizado com preSelectedLocutorId:', preSelectedLocutorId);
+        // console.log('[GravarLocucaoPage] Formulário resetado/atualizado com preSelectedLocutorId:', preSelectedLocutorId);
       } else {
         if (currentFormValues.locutorId !== preSelectedLocutorId) {
             setValue('locutorId', preSelectedLocutorId, { shouldValidate: false, shouldDirty: true });
-            console.log('[GravarLocucaoPage] LocutorId setado no formulário via setValue para pré-seleção.');
+            // console.log('[GravarLocucaoPage] LocutorId setado no formulário via setValue para pré-seleção.');
         }
       }
 
@@ -344,24 +344,26 @@ function GravarLocucaoPage() {
         if (locutor) {
           if (selectedLocutor?.id !== locutor.id) {
             setSelectedLocutor(locutor);
-            console.log('[GravarLocucaoPage] Locutor pré-selecionado definido no estado selectedLocutor:', locutor.nome);
+            // console.log('[GravarLocucaoPage] Locutor pré-selecionado definido no estado selectedLocutor:', locutor.nome);
             if (currentStep === 1 && getValues("tipoAudio")) {
                 // setCurrentStep(2); 
                 // console.log('[GravarLocucaoPage] Tipo de áudio já existe, poderia avançar para etapa 2.');
             }
           }
         } else {
-          console.warn('[GravarLocucaoPage] ATENÇÃO: Locutor com ID pré-selecionado (', preSelectedLocutorId, ') NÃO encontrado na lista de locutores carregada. A pré-seleção pode não ser visível.');
+          // console.warn('[GravarLocucaoPage] ATENÇÃO: Locutor com ID pré-selecionado (', preSelectedLocutorId, ') NÃO encontrado na lista de locutores carregada. A pré-seleção pode não ser visível.');
           if(selectedLocutor?.id === preSelectedLocutorId) setSelectedLocutor(null); 
         }
       } else {
-        console.log('[GravarLocucaoPage] Lista de locutores ainda vazia ou não contém o ID. Aguardando carregamento/atualização para definir selectedLocutor.');
+        // console.log('[GravarLocucaoPage] Lista de locutores ainda vazia ou não contém o ID. Aguardando carregamento/atualização para definir selectedLocutor.');
       }
     } else if (!isEditMode && !preSelectedLocutorId) {
-      console.log('[GravarLocucaoPage] Modo Novo Pedido SEM pré-seleção.');
+      // console.log('[GravarLocucaoPage] Modo Novo Pedido SEM pré-seleção.');
       const currentFormValues = getValues();
-      if (currentFormValues.locutorId || currentFormValues.tituloPedido || currentFormValues.scriptText || selectedLocutor) {
-        console.log('[GravarLocucaoPage] Resetando formulário para valores iniciais (novo pedido sem pré-seleção).');
+
+      // SÓ RESETAR SE ESTIVER NA PRIMEIRA ETAPA E O FORMULÁRIO TIVER ALGO QUE INDIQUE UM ESTADO "SUJO" DE UM PEDIDO ANTERIOR INCOMPLETO
+      if (currentStep === 1 && (currentFormValues.locutorId || currentFormValues.tituloPedido || currentFormValues.scriptText || selectedLocutor)) {
+        // console.log('[GravarLocucaoPage] Resetando formulário na ETAPA 1 para valores iniciais (novo pedido sem pré-seleção).');
         reset({ 
           tipoAudio: undefined,
           locutorId: '',
@@ -372,6 +374,11 @@ function GravarLocucaoPage() {
           orientacoes: '',
         });
         setSelectedLocutor(null);
+      } else if (currentStep > 1) {
+        // console.log('[GravarLocucaoPage] Em Etapa > 1, não resetar formulário aqui. Locutor ID atual:', currentFormValues.locutorId);
+      } else {
+        // Etapa 1, mas formulário já está limpo ou em estado inicial. Não precisa resetar.
+        // console.log('[GravarLocucaoPage] Etapa 1, formulário parece limpo, sem necessidade de reset explícito aqui.');
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -461,11 +468,11 @@ function GravarLocucaoPage() {
   };
 
   const onSubmitForm = async (values: z.infer<typeof multiStepGravarLocucaoFormSchema>) => {
-    console.log('[GravarLocucaoPage] onSubmitForm - Valores recebidos:', values);
-    console.log('[GravarLocucaoPage] onSubmitForm - Locutor selecionado (estado):', selectedLocutor);
-    console.log('[GravarLocucaoPage] onSubmitForm - Locutor ID do formulário (getValues):', getValues('locutorId'));
-    console.log('[GravarLocucaoPage] onSubmitForm - Profile:', profile);
-    console.log('[GravarLocucaoPage] onSubmitForm - User:', user);
+    // console.log('[GravarLocucaoPage] onSubmitForm - Valores recebidos:', values);
+    // console.log('[GravarLocucaoPage] onSubmitForm - Locutor selecionado (estado):', selectedLocutor);
+    // console.log('[GravarLocucaoPage] onSubmitForm - Locutor ID do formulário (getValues):', getValues('locutorId'));
+    // console.log('[GravarLocucaoPage] onSubmitForm - Profile:', profile);
+    // console.log('[GravarLocucaoPage] onSubmitForm - User:', user);
     if (!user || !profile) {
       toast.error("Erro de Autenticação", { description: "Usuário não autenticado. Faça login novamente." });
       return;
@@ -516,7 +523,7 @@ function GravarLocucaoPage() {
 
     if (isEditMode && editingPedidoId) {
       // Lógica para ATUALIZAR pedido
-      console.log("MODO EDIÇÃO - Atualizando pedido:", editingPedidoId, values);
+      // console.log("MODO EDIÇÃO - Atualizando pedido:", editingPedidoId, values);
       
       if (!values.tipoAudio) {
         toast.error("Erro de Validação", {description: "O tipo de áudio é obrigatório."}) ;
@@ -549,7 +556,7 @@ function GravarLocucaoPage() {
 
       // Tratar resultadoUpdate similar à exclusão e outras actions
       if (!resultadoUpdate) { // Checagem para o linter, embora next-safe-action deva sempre retornar um objeto
-        console.error('Resultado inesperado (undefined) da action de atualização.');
+        // console.error('Resultado inesperado (undefined) da action de atualização.');
         toast.error("Erro Desconhecido", { description: "Falha ao comunicar com o servidor para atualização." });
         return; // Ou setIsLoading(false) e return, dependendo do fluxo de loading
       }
@@ -573,75 +580,94 @@ function GravarLocucaoPage() {
         toast.success("Pedido Atualizado", { description: "Seu pedido foi atualizado com sucesso!" });
         navigate('/meus-audios');
       } else {
-        console.error("Estrutura de resultado inesperada da action de atualização:", resultadoUpdate);
+        // console.error("Estrutura de resultado inesperada da action de atualização:", resultadoUpdate);
         toast.error("Erro Desconhecido", { description: "Ocorreu um erro ao processar sua solicitação de atualização." });
       }
     } else {
-      // Lógica para CRIAR novo pedido (existente)
-      let idPedidoSerialGerado: string;
-      try {
-        idPedidoSerialGerado = await gerarIdReferenciaUnico(supabase);
-      } catch (error: any) {
-        toast.error("Erro ao Gerar ID do Pedido", { description: error.message || "Não foi possível gerar um ID único." });
-        return;
-      }
+      // Lógica para CRIAR novo pedido
+      // Não precisamos mais gerar idPedidoSerialGerado aqui se a RPC ou trigger cuidam disso.
 
       try {
-        const pedidoData = {
-          user_id: user.id,
-          locutor_id: locutorParaSubmissao.id, // USAR locutorParaSubmissao.id
-          texto_roteiro: values.scriptText || '',
-          status: PEDIDO_STATUS.PENDENTE, // Usar o enum importado
-          titulo: values.tituloPedido || '',
-          creditos_debitados: estimatedCredits,
-          tipo_audio: values.tipoAudio, // Zod já garante que é 'off' ou 'produzido'
-          estilo_locucao: values.estiloLocucao === 'outro' 
-              ? `Outro: ${values.outroEstiloEspecificacao || ''}` 
-              : values.estiloLocucao || '',
-          orientacoes: values.orientacoes || '',
-          id_pedido_serial: idPedidoSerialGerado,
-        };
-
-        const { error: insertError } = await supabase.from('pedidos').insert(pedidoData);
-        if (insertError) throw insertError;
-
-        const novoSaldo = (profile.credits ?? 0) - estimatedCredits;
-        const { error: creditError } = await supabase
-          .from('profiles')
-          .update({ credits: novoSaldo })
-          .eq('id', user.id);
-
-        if (creditError) {
-          console.warn("Erro ao debitar créditos, mas pedido foi criado. Revertendo? Por enquanto não.", creditError);
-          // Considerar lógica de compensação ou notificação admin
+        // Validação de créditos continua importante antes de chamar a RPC
+        if (!isEditMode && (profile.saldoCalculadoCreditos ?? 0) < estimatedCredits) {
+          toast.error("Créditos Insuficientes", { description: `Você precisa de ${estimatedCredits} créditos, mas seu saldo válido é de ${profile.saldoCalculadoCreditos ?? 0}.` });
+          return;
+        }
+        if (!isEditMode && estimatedCredits === 0 && values.scriptText && values.scriptText.trim().length > 0) {
+          toast.error("Erro no Pedido", { description: "O roteiro parece válido, mas não foram calculados créditos. Verifique o texto." });
+          return;
+        }
+        // Adicionei uma verificação para o tipo de áudio também, que é essencial para a RPC
+        if (!values.tipoAudio) {
+          toast.error("Erro de Validação", { description: "O tipo de áudio é obrigatório." });
+          setCurrentStep(1); // Ou a etapa relevante para tipoAudio
+          return;
         }
 
-        if (refreshProfile) refreshProfile(); // Atualiza o perfil (créditos) no AuthContext
+        const paramsRpc = {
+          p_locutor_id: locutorParaSubmissao.id,
+          p_texto_roteiro: values.scriptText || '',
+          p_creditos_a_debitar: estimatedCredits,
+          p_titulo: values.tituloPedido || '',
+          p_tipo_audio: values.tipoAudio, // Garantido por validação anterior ou schema
+          p_estilo_locucao: values.estiloLocucao === 'outro' 
+              ? `Outro: ${values.outroEstiloEspecificacao || ''}` 
+              : values.estiloLocucao || '',
+          p_orientacoes: values.orientacoes || '',
+          // Se a sua RPC 'criar_pedido' gerar o id_pedido_serial, não precisa passar aqui.
+          // Se ela esperar, você precisaria gerar e passar: p_id_pedido_serial: await gerarIdReferenciaUnico(supabase)
+        };
 
-        const mensagemSucessoAleatoria = obterMensagemSucessoAleatoria();
-        toast.success("Pedido Enviado!", {
-          description: `${mensagemSucessoAleatoria} Pedido #${idPedidoSerialGerado}.`,
-          duration: 7000,
-        });
-        reset(); // Limpa o formulário
-        setCurrentStep(1); // Volta para a primeira etapa
-        setSelectedLocutor(null);
-        setEstimatedCredits(0);
-        navigate('/meus-audios');
+        // console.log("[GravarLocucaoPage] Chamando RPC criar_pedido com params:", paramsRpc);
+        const { data: rpcResultData, error: rpcError } = await supabase.rpc('criar_pedido', paramsRpc);
+
+        if (rpcError) {
+          // console.error("[GravarLocucaoPage] Erro ao chamar RPC criar_pedido:", rpcError);
+          toast.error("Erro ao Criar Pedido", { description: `Não foi possível processar seu pedido. Detalhes: ${rpcError.message}` });
+          return;
+        }
+
+        // console.log("[GravarLocucaoPage] Resultado da RPC criar_pedido:", rpcResultData);
+
+        if (rpcResultData && rpcResultData.status === 'error') {
+          toast.error("Falha ao Criar Pedido", { description: rpcResultData.message || "Ocorreu um erro informado pelo servidor." });
+          return;
+        }
+
+        if (rpcResultData && rpcResultData.status === 'success') {
+          if (refreshProfile) refreshProfile(); // Atualiza o perfil (créditos) no AuthContext
+
+          // A RPC retorna o UUID do novo pedido em 'pedido_id'.
+          const idPedidoCriadoUUID = rpcResultData.pedido_id || 'ID não retornado';
+          
+          const mensagemSucessoAleatoria = obterMensagemSucessoAleatoria();
+          toast.success("Pedido Enviado!", {
+            description: `${mensagemSucessoAleatoria} Seu pedido (ID: ${idPedidoCriadoUUID.substring(0,8)}...) foi criado.`,
+            duration: 7000,
+          });
+          reset(); // Limpa o formulário
+          setCurrentStep(1); // Volta para a primeira etapa
+          setSelectedLocutor(null);
+          setEstimatedCredits(0);
+          navigate('/meus-audios');
+        } else {
+          // console.warn("[GravarLocucaoPage] Resposta inesperada da RPC criar_pedido:", rpcResultData);
+          toast.error("Erro ao Criar Pedido", { description: "Resposta inesperada do servidor após criar o pedido." });
+        }
 
       } catch (error: any) {
-        console.error("Erro ao criar pedido:", error);
-        toast.error("Erro ao Criar Pedido", { description: `Não foi possível criar seu pedido. Detalhes: ${error.message}` });
+        // console.error("Erro ao criar pedido (catch geral):", error);
+        toast.error("Erro Crítico ao Criar Pedido", { description: `Não foi possível criar seu pedido. Detalhes: ${error.message}` });
       }
     }
   };
 
   useEffect(() => {
-    console.log('[GravarLocucaoPage] Popover state changed:', isAdvanceBlockedPopoverOpen, popoverErrorMessage);
+    // console.log('[GravarLocucaoPage] Popover state changed:', isAdvanceBlockedPopoverOpen, popoverErrorMessage);
   }, [isAdvanceBlockedPopoverOpen, popoverErrorMessage]);
 
   const handleNextStep = async () => {
-    console.log('[handleNextStep] Called. Current step:', currentStep);
+    // console.log('[handleNextStep] Called. Current step:', currentStep);
     let isValid = false;
     let errorMessageForPopover: string | null = null;
 
@@ -683,18 +709,18 @@ function GravarLocucaoPage() {
     }
 
     if (isValid) {
-      console.log('[handleNextStep] Step is valid, advancing.');
+      // console.log('[handleNextStep] Step is valid, advancing.');
       setCurrentStep(prev => prev + 1);
       setIsAdvanceBlockedPopoverOpen(false); 
       setPopoverErrorMessage(null);
     } else if (errorMessageForPopover) {
-      console.log('[handleNextStep] Step is invalid. Setting popover error:', errorMessageForPopover);
+      // console.log('[handleNextStep] Step is invalid. Setting popover error:', errorMessageForPopover);
       setPopoverErrorMessage(errorMessageForPopover);
       setIsAdvanceBlockedPopoverOpen(true);
     } else {
       // Se isValid é false, mas não temos uma errorMessageForPopover (ex: erro de Zod não manual)
       // Garantimos que o popover não fique aberto por um estado anterior.
-      console.log('[handleNextStep] Step is invalid (possibly Zod error), no specific popover message. Ensuring popover is closed.');
+      // console.log('[handleNextStep] Step is invalid (possibly Zod error), no specific popover message. Ensuring popover is closed.');
       setIsAdvanceBlockedPopoverOpen(false);
       setPopoverErrorMessage(null);
     }
