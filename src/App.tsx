@@ -16,6 +16,7 @@ import GravarLocucaoPage from './pages/cliente/GravarLocucaoPage';
 import MeusAudiosPage from './pages/cliente/MeusAudiosPage';
 import MeuPerfilPage from './pages/cliente/MeuPerfilPage';
 import PedidoSucessoPage from './pages/cliente/PedidoSucessoPage';
+import HistoricoCreditosPage from './pages/cliente/historico-creditos-page';
 
 function App() {
   // Remover useAuth daqui, pois AuthRedirector cuidará da lógica inicial
@@ -77,6 +78,16 @@ function App() {
           element={
             <ProtectedRoute>
               <PedidoSucessoPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Nova rota para histórico de créditos */}
+        <Route 
+          path="/historico-creditos"
+          element={
+            <ProtectedRoute>
+              <HistoricoCreditosPage />
             </ProtectedRoute>
           }
         />

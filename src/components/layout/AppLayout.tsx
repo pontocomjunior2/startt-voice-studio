@@ -20,7 +20,8 @@ import {
   Twitter,
   Linkedin,
   Youtube,
-  ArrowRight
+  ArrowRight,
+  Clock
 } from 'lucide-react';
 import { ThemeToggle } from '../theme-toggle';
 import { cn } from '@/lib/utils';
@@ -74,6 +75,7 @@ const AppLayout: React.FC = () => {
       { href: '/gravar-locucao', label: 'Gravar Locução', icon: PlusCircle, roles: ['cliente'] },
       { href: '/meus-audios', label: 'Meus Áudios', icon: ListMusic, roles: ['cliente'] },
       { href: '/meu-perfil', label: 'Meu Perfil', icon: UserIcon, roles: ['cliente'] },
+      { href: '/historico-creditos', label: 'Histórico de Créditos', icon: Clock, roles: ['cliente'] },
     ];
   }
 
