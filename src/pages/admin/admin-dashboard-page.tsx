@@ -186,6 +186,36 @@ function AdminDashboardPage() {
   const uploadAudioMutation = useUploadPedidoAudio();
   const updateAudioAndStatusMutation = useUpdatePedidoAudioAndStatus();
 
+  // Estado local para créditos ativos
+  const [totalCreditosAtivos, setTotalCreditosAtivos] = useState<number | null>(null);
+  const [loadingCreditosAtivos, setLoadingCreditosAtivos] = useState(true);
+
+  // Função para buscar créditos ativos via RPC
+  const fetchCreditosAtivos = async () => {
+    setLoadingCreditosAtivos(true);
+    try {
+      const { data, error } = await supabase.rpc('get_total_creditos_ativos');
+      let total = 0;
+      if (Array.isArray(data) && data.length > 0) {
+        total = data[0].get_total_creditos_ativos ?? data[0].total_creditos_ativos ?? data[0].sum ?? 0;
+      } else if (typeof data === 'number') {
+        total = data;
+      } else if (typeof data === 'object' && data !== null) {
+        total = data.get_total_creditos_ativos ?? data.total_creditos_ativos ?? data.sum ?? 0;
+      }
+      setTotalCreditosAtivos(total);
+    } catch (err) {
+      setTotalCreditosAtivos(null);
+    } finally {
+      setLoadingCreditosAtivos(false);
+    }
+  };
+
+  // Buscar créditos ativos ao montar
+  useEffect(() => {
+    fetchCreditosAtivos();
+  }, []);
+
   // MANTER ESTA ACTION E SEU HOOK, SERÁ USADA NO MODAL DO PEDIDO NO FUTURO
   const { 
     execute: executeProcessarRevisao, 
@@ -550,10 +580,12 @@ function AdminDashboardPage() {
     },
     {
       title: "Créditos (Clientes)", 
-      valueKey: "totalclientcredits",
+      valueKey: "totalclientcredits", // NÃO USAR MAIS ESTE VALOR
       icon: CreditCard, 
       subtext: "Soma de créditos dos clientes",
       iconColorClass: "text-status-green",
+      customValue: totalCreditosAtivos,
+      customLoading: loadingCreditosAtivos,
     },
     {
       title: "Pedidos Pendentes",
@@ -721,6 +753,7 @@ function AdminDashboardPage() {
       setIsDeleteAlertOpen(false); 
       setIsViewModalOpen(false);  
       fetchPedidosAdmin();      
+      fetchCreditosAtivos(); // Atualiza créditos após exclusão
       queryClient.invalidateQueries({ queryKey: ['adminDashboardStats'] }); 
 
     } catch (err: any) {
@@ -807,18 +840,9 @@ function AdminDashboardPage() {
             variant="outline" 
             size="sm" 
             onClick={() => {
-              console.log('--- Botão Atualizar Tudo CLICADO ---');
-              console.log('Estados de Fetching ANTES da invalidação/refresh:');
-              console.log('isFetchingStats:', isFetchingStats);
-              console.log('isLoadingPedidos (antes do fetch direto):', loadingPedidos);
-
-              console.log('Invalidando adminDashboardStats...');
               queryClient.invalidateQueries({ queryKey: ['adminDashboardStats'] });
-              
-              console.log('Chamando fetchPedidosAdmin diretamente...');
               fetchPedidosAdmin();
-              
-              console.log('--- Invalidações e Refresh Chamados ---');
+              fetchCreditosAtivos(); // Atualiza créditos ao atualizar tudo
             }}
             disabled={isFetchingStats || loadingPedidos}
           >
@@ -835,9 +859,14 @@ function AdminDashboardPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {(isLoadingStats ? Array.from({ length: statCardsData.length }).map((_, i) => ({ id: i, isLoading: true })) : statCardsData).map((cardInfo: any, index) => {
             let Icon = cardInfo.isLoading ? Loader2 : cardInfo.icon;
-            let value = cardInfo.isLoading ? null 
-                          : cardInfo.valueKey && stats ? stats[cardInfo.valueKey as keyof AdminDashboardStats] 
-                          : cardInfo.value;
+            let value;
+            if (cardInfo.title === "Créditos (Clientes)") {
+              value = cardInfo.customLoading ? null : cardInfo.customValue;
+            } else {
+              value = cardInfo.isLoading ? null 
+                : cardInfo.valueKey && stats ? stats[cardInfo.valueKey as keyof AdminDashboardStats] 
+                : cardInfo.value;
+            }
             let tagText = cardInfo.isLoading ? null : (cardInfo.tagKey && stats ? stats[cardInfo.tagKey as keyof AdminDashboardStats] : cardInfo.tagText);
 
             // Card de Correções Pendentes - lógica ajustada
@@ -852,7 +881,7 @@ function AdminDashboardPage() {
 
             return (
               <Card key={`stat-${index}`} className={`shadow-sm hover:shadow-md transition-shadow rounded-lg`}>
-                {cardInfo.isLoading || (cardInfo.title === "Correções Pendentes" && isLoadingStats) ? ( // Para "Correções Pendentes", usar isLoadingStats global se for um placeholder
+                {cardInfo.isLoading || (cardInfo.title === "Correções Pendentes" && isLoadingStats) || (cardInfo.title === "Créditos (Clientes)" && cardInfo.customLoading) ? (
                   <CardContent className="flex flex-col items-center justify-center p-6">
                     <Skeleton className="h-12 w-12 rounded-full mb-3" /> 
                     <Skeleton className="h-8 w-1/2 mb-2" />      

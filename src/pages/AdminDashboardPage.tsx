@@ -129,15 +129,19 @@ function AdminDashboardPage() {
       if (clientesError) throw clientesError;
       setTotalClientesAtivos(clientesCount || 0);
 
-      // 2. Somar todos os créditos dos clientes
-      const { data: clientesData, error: creditosError } = await supabase
-        .from('profiles')
-        .select('credits')
-        .eq('role', 'cliente');
-
-      if (creditosError) throw creditosError;
-      const totalCreditos = clientesData?.reduce((acc, cliente) => acc + (cliente.credits || 0), 0) || 0;
-      setTotalCreditosEmCirculacao(totalCreditos);
+      // 2. Somar todos os créditos dos clientes (corrigido: soma dos lotes válidos via RPC)
+      const { data, error } = await supabase.rpc('get_total_creditos_ativos');
+      console.log('[DEBUG] Valor retornado pela RPC get_total_creditos_ativos:', data);
+      if (error) throw error;
+      let total = 0;
+      if (Array.isArray(data) && data.length > 0) {
+        total = data[0].get_total_creditos_ativos ?? data[0].total_creditos_ativos ?? data[0].sum ?? 0;
+      } else if (typeof data === 'number') {
+        total = data;
+      } else if (typeof data === 'object' && data !== null) {
+        total = data.get_total_creditos_ativos ?? data.total_creditos_ativos ?? data.sum ?? 0;
+      }
+      setTotalCreditosEmCirculacao(total);
 
       // 3. Contagem de pedidos pendentes é atualizada pelo useEffect abaixo que observa pendingPedidos
 
@@ -300,13 +304,20 @@ function AdminDashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Créditos (Clientes)</CardTitle>
-            {/* Ícone opcional: <CreditCard className="h-4 w-4 text-muted-foreground" /> */}
           </CardHeader>
           <CardContent>
             {loadingStats ? (
               <Skeleton className="h-8 w-1/2" />
             ) : (
-              <div className="text-2xl font-bold">{totalCreditosEmCirculacao}</div>
+              <>
+                <div className="text-2xl font-bold">{totalCreditosEmCirculacao}</div>
+                {process.env.NODE_ENV === 'development' && (
+                  <div style={{ fontSize: 10, color: '#888' }}>
+                    {/* Debug: valor vindo da função RPC */}
+                    <pre>Valor RPC: {JSON.stringify(totalCreditosEmCirculacao)}</pre>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
