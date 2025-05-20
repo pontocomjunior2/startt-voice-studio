@@ -83,6 +83,13 @@ function AdminUsuariosPage() {
   const [usersWithCalculatedCredit, setUsersWithCalculatedCredit] = useState<UserProfile[]>([]);
   const [isCalculatingBalances, setIsCalculatingBalances] = useState(false);
 
+  // [NOVOS ESTADOS PARA SUBTRAÇÃO DE CRÉDITOS]
+  const [isDebitModalOpen, setIsDebitModalOpen] = useState(false);
+  const [selectedUserForDebit, setSelectedUserForDebit] = useState<UserProfile | null>(null);
+  const [debitAmount, setDebitAmount] = useState<string>('');
+  const [debitReason, setDebitReason] = useState('');
+  const [isDebiting, setIsDebiting] = useState(false);
+
   useEffect(() => {
     const fetchBalancesForUsers = async () => {
       if (initialUsers && initialUsers.length > 0) {
@@ -123,11 +130,17 @@ function AdminUsuariosPage() {
   };
 
   const handleAddCreditBatch = async () => {
-    if (!selectedUserForCredit || !quantidadeLote || parseInt(quantidadeLote, 10) <= 0) {
-      toast.error("Erro de Validação", { description: "A quantidade de créditos a adicionar deve ser um número positivo." });
+    if (!selectedUserForCredit || !quantidadeLote || parseInt(quantidadeLote, 10) === 0) {
+      toast.error("Erro de Validação", { description: "A quantidade de créditos deve ser diferente de zero." });
       return;
     }
-    if (!semPrazoValidade && !dataValidadeLote) {
+    // Se for redução, exigir observação
+    if (parseInt(quantidadeLote, 10) < 0 && !observacaoLote.trim()) {
+      toast.error("Erro de Validação", { description: "Ao reduzir créditos, é obrigatório informar o motivo na observação." });
+      return;
+    }
+    // Só valida validade se for adição
+    if (parseInt(quantidadeLote, 10) > 0 && !semPrazoValidade && !dataValidadeLote) {
       toast.error("Erro de Validação", { description: "Defina uma data de validade ou marque 'Sem prazo de validade'." });
       return;
     }
@@ -138,16 +151,16 @@ function AdminUsuariosPage() {
         user_id: selectedUserForCredit.id,
         quantidade_adicionada: parseInt(quantidadeLote, 10),
         quantidade_usada: 0, // Novo lote começa com 0 usados
-        // data_adicao é DEFAULT no DB
-        data_validade: semPrazoValidade || !dataValidadeLote ? null : dataValidadeLote.toISOString(),
+        data_validade: parseInt(quantidadeLote, 10) < 0 ? null : (semPrazoValidade || !dataValidadeLote ? null : dataValidadeLote.toISOString()),
         admin_id_que_adicionou: adminProfile?.id, 
         observacao_admin: observacaoLote.trim() || null
-        // criado_em é DEFAULT no DB
       };
+
+      console.log('Enviando para lotes_creditos:', dadosLote);
 
       const { error } = await supabase
         .from('lotes_creditos')
-        .insert([dadosLote]); // Supabase v2 espera um array para insert
+        .insert([dadosLote]);
 
       if (error) {
         console.error("Erro Supabase ao adicionar lote de créditos:", error);
@@ -155,24 +168,16 @@ function AdminUsuariosPage() {
       }
 
       toast.success("Sucesso", { description: "Lote de créditos adicionado ao cliente." });
-      
-      // Invalidar a query de usuários para que a lista e os saldos sejam recalculados
       await queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
-      // O useEffect que depende de initialUsers irá então refazer o cálculo dos saldos.
-      // Ou chamar refetchAdminUsers() que, por sua vez, acionaria o useEffect.
-      // A invalidação é geralmente mais robusta.
-      
       setIsCreditModalOpen(false); 
-      // Limpar campos do formulário já é feito ao reabrir o modal em openCreditModal
     } catch (err: any) {
       console.error("Erro ao adicionar lote de créditos:", err);
-      const errorMessage = err.message || "Não foi possível adicionar o lote de créditos.";
-      // Verificar se é um erro do PostgREST para mais detalhes
-      if (err.details || err.hint) {
-        toast.error("Erro ao Adicionar Lote", { description: `${errorMessage} Detalhes: ${err.details || 'N/A'}. Dica: ${err.hint || 'N/A'}` });
-      } else {
-        toast.error("Erro ao Adicionar Lote", { description: errorMessage });
-      }
+      toast.error("Erro ao Adicionar Lote", { description: JSON.stringify({
+        message: err.message,
+        details: err.details,
+        hint: err.hint,
+        code: err.code
+      }, null, 2) });
     } finally {
       setIsAddingCredits(false);
     }
@@ -198,6 +203,45 @@ function AdminUsuariosPage() {
       },
       // onError já é tratado no hook
     });
+  };
+
+  // [FUNÇÃO PARA ABRIR MODAL DE SUBTRAÇÃO]
+  const openDebitModal = (user: UserProfile) => {
+    setSelectedUserForDebit(user);
+    setDebitAmount('');
+    setDebitReason('');
+    setIsDebitModalOpen(true);
+  };
+
+  // [FUNÇÃO PARA SUBTRAIR CRÉDITOS]
+  const handleDebitCredits = async () => {
+    if (!selectedUserForDebit || !debitAmount || parseInt(debitAmount, 10) <= 0) {
+      toast.error("Erro de Validação", { description: "A quantidade a subtrair deve ser maior que zero." });
+      return;
+    }
+    if (!debitReason.trim()) {
+      toast.error("Erro de Validação", { description: "Informe o motivo da subtração." });
+      return;
+    }
+    setIsDebiting(true);
+    try {
+      const { data, error } = await supabase.rpc('debitar_creditos_admin', {
+        p_user_id: selectedUserForDebit.id,
+        p_quantidade: parseInt(debitAmount, 10),
+        p_motivo: debitReason.trim()
+      });
+      if (error || data?.status === 'erro') {
+        toast.error("Erro ao subtrair créditos", { description: data?.mensagem || (error ? error.message : 'Erro desconhecido') });
+        return;
+      }
+      toast.success("Créditos subtraídos com sucesso!");
+      await queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
+      setIsDebitModalOpen(false);
+    } catch (err: any) {
+      toast.error("Erro ao subtrair créditos", { description: err.message });
+    } finally {
+      setIsDebiting(false);
+    }
   };
 
   const filteredUsers = usersWithCalculatedCredit.filter(user => 
@@ -277,6 +321,14 @@ function AdminUsuariosPage() {
                     >
                       Alterar Role
                     </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => openDebitModal(user)}
+                      disabled={isAddingCredits || isDebiting || isUpdatingRole}
+                    >
+                      Subtrair Créditos
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -315,62 +367,68 @@ function AdminUsuariosPage() {
                 value={quantidadeLote}
                 onChange={(e) => setQuantidadeLote(e.target.value)}
                 className="col-span-3" 
-                placeholder="Ex: 100"
-                min="1"
+                placeholder="Ex: 100 ou -50"
                 disabled={isAddingCredits}
               />
+              {parseInt(quantidadeLote, 10) < 0 && (
+                <div className="col-span-4 text-sm text-red-600 mt-2">
+                  Atenção: você está reduzindo a cota de créditos do cliente. O valor será subtraído do saldo disponível. Informe o motivo na observação.
+                </div>
+              )}
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="data-validade-lote" className="text-right col-span-1">
-                Validade*
-              </Label>
-              <div className="col-span-3">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !dataValidadeLote && "text-muted-foreground",
-                        semPrazoValidade && "bg-muted text-muted-foreground cursor-not-allowed"
-                      )}
-                      disabled={semPrazoValidade || isAddingCredits}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dataValidadeLote && !semPrazoValidade ? format(dataValidadeLote, 'PPP', { locale: ptBR }) : <span>Escolha uma data</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  {!semPrazoValidade && (
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={dataValidadeLote}
-                        onSelect={setDataValidadeLote}
-                        initialFocus
-                        disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } // Não permitir datas passadas
-                      />
-                    </PopoverContent>
-                  )}
-                </Popover>
-                <div className="flex items-center space-x-2 mt-2">
-                  <Checkbox 
-                    id="sem-prazo-validade"
-                    checked={semPrazoValidade}
-                    onCheckedChange={(checked) => {
-                      setSemPrazoValidade(Boolean(checked));
-                      if (Boolean(checked)) {
-                        setDataValidadeLote(undefined);
-                      }
-                    }}
-                    disabled={isAddingCredits}
-                  />
-                  <Label htmlFor="sem-prazo-validade" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    Sem prazo de validade
-                  </Label>
+            {parseInt(quantidadeLote, 10) > 0 && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="data-validade-lote" className="text-right col-span-1">
+                  Validade*
+                </Label>
+                <div className="col-span-3">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !dataValidadeLote && "text-muted-foreground",
+                          semPrazoValidade && "bg-muted text-muted-foreground cursor-not-allowed"
+                        )}
+                        disabled={semPrazoValidade || isAddingCredits}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dataValidadeLote && !semPrazoValidade ? format(dataValidadeLote, 'PPP', { locale: ptBR }) : <span>Escolha uma data</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    {!semPrazoValidade && (
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={dataValidadeLote}
+                          onSelect={setDataValidadeLote}
+                          initialFocus
+                          disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) }
+                        />
+                      </PopoverContent>
+                    )}
+                  </Popover>
+                  <div className="flex items-center space-x-2 mt-2">
+                    <Checkbox 
+                      id="sem-prazo-validade"
+                      checked={semPrazoValidade}
+                      onCheckedChange={(checked) => {
+                        setSemPrazoValidade(Boolean(checked));
+                        if (Boolean(checked)) {
+                          setDataValidadeLote(undefined);
+                        }
+                      }}
+                      disabled={isAddingCredits}
+                    />
+                    <Label htmlFor="sem-prazo-validade" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Sem prazo de validade
+                    </Label>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="observacao-lote" className="text-right col-span-1 self-start pt-2">
@@ -381,7 +439,7 @@ function AdminUsuariosPage() {
                 value={observacaoLote}
                 onChange={(e) => setObservacaoLote(e.target.value)}
                 className="col-span-3" 
-                placeholder="Ex: Créditos de cortesia para campanha X... (opcional)"
+                placeholder="Ex: Créditos de cortesia para campanha X... (obrigatório para redução)"
                 rows={3}
                 disabled={isAddingCredits}
               />
@@ -394,7 +452,7 @@ function AdminUsuariosPage() {
             </DialogClose>
             <Button type="button" onClick={handleAddCreditBatch} disabled={isAddingCredits}>
               {isAddingCredits ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Adicionar Lote de Créditos
+              Adicionar/Reduzir Lote de Créditos
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -435,6 +493,63 @@ function AdminUsuariosPage() {
             <Button type="button" onClick={handleUpdateUserRole} disabled={isUpdatingRole}>
               {isUpdatingRole && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} 
               Salvar Alterações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDebitModalOpen} onOpenChange={(isOpen) => {
+        setIsDebitModalOpen(isOpen);
+        if (!isOpen) {
+          setSelectedUserForDebit(null);
+          setDebitAmount('');
+          setDebitReason('');
+        }
+      }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Subtrair Créditos de {selectedUserForDebit?.full_name || selectedUserForDebit?.username}</DialogTitle>
+            <DialogDescription>
+              Saldo atual: {selectedUserForDebit?.saldoCalculadoCreditos ?? 0}.<br />
+              Informe a quantidade a subtrair e o motivo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="debit-amount" className="text-right col-span-1">
+              Quantidade*
+            </Label>
+            <Input
+              id="debit-amount"
+              type="number"
+              min={1}
+              value={debitAmount}
+              onChange={(e) => setDebitAmount(e.target.value)}
+              className="col-span-3"
+              placeholder="Ex: 2"
+              disabled={isDebiting}
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="debit-reason" className="text-right col-span-1 self-start pt-2">
+              Motivo*
+            </Label>
+            <Textarea
+              id="debit-reason"
+              value={debitReason}
+              onChange={(e) => setDebitReason(e.target.value)}
+              className="col-span-3"
+              placeholder="Explique o motivo da subtração"
+              rows={3}
+              disabled={isDebiting}
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isDebiting}>Cancelar</Button>
+            </DialogClose>
+            <Button type="button" onClick={handleDebitCredits} disabled={isDebiting}>
+              {isDebiting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Subtrair Créditos
             </Button>
           </DialogFooter>
         </DialogContent>
