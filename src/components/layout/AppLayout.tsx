@@ -133,7 +133,7 @@ const AppLayout: React.FC = () => {
         {/* Logo no topo da Sidebar */}
         <div className="flex items-center justify-center mb-8"> {/* Adicionado mb-8 para espaço abaixo do logo */}
           <img
-            src="/logo.png" // Caminho corrigido
+            src="/logo-pontocom.png"
             alt="PONTOCOM ÁUDIO"
             className="h-10" // Ajuste a altura conforme necessário
           />
@@ -202,7 +202,7 @@ const AppLayout: React.FC = () => {
                   <SheetContent side="left" className="w-72 p-0 flex flex-col bg-neutral-100 text-gray-700">
                     {/* Logo no menu mobile */}
                     <div className="flex items-center justify-center py-6 px-4 border-b border-gray-300">
-                      <img src="/logo.png" alt="PONTOCOM ÁUDIO" className="h-9" />
+                      <img src="/logo-pontocom.png" alt="PONTOCOM ÁUDIO" className="h-9" />
                     </div>
 
                     {/* Perfil do Usuário no menu mobile */}
