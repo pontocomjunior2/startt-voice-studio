@@ -20,6 +20,7 @@ import {
   Twitter,
   Linkedin,
   Youtube,
+  Instagram,
   ArrowRight,
   Clock
 } from 'lucide-react';
@@ -28,6 +29,7 @@ import { cn } from '@/lib/utils';
 import Footer from './Footer'; // Garantir que esta importação existe
 import { Badge } from "@/components/ui/badge";
 import { TextShimmer } from '@/components/ui/text-shimmer';
+import WhatsappFloatingButton from './WhatsappFloatingButton';
 
 // Tipo para os itens de navegação
 interface NavItem {
@@ -81,9 +83,8 @@ const AppLayout: React.FC = () => {
 
   // Lista de links sociais
   const socialLinks: SocialLinkItem[] = [
-    { href: '#', label: 'Twitter', icon: Twitter }, // Substituir # pelos links reais se os tiver
-    { href: '#', label: 'LinkedIn', icon: Linkedin },
-    { href: '#', label: 'YouTube', icon: Youtube },
+    { href: 'https://instagram.com/pontocomaudio', label: 'Instagram', icon: Instagram },
+    { href: 'https://youtube.com/@pontocomaudio', label: 'YouTube', icon: Youtube },
   ];
 
   const handleBellClick = () => {
@@ -313,6 +314,7 @@ const AppLayout: React.FC = () => {
           <Footer />
         </div>
       </div>
+      <WhatsappFloatingButton />
     </div>
   );
 };

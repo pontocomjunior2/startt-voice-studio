@@ -9,7 +9,6 @@ import './index.css'
 
 // Importações do React Query
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'; // Opcional, mas útil
 
 // Crie uma instância do QueryClient
 const queryClient = new QueryClient({
@@ -32,7 +31,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       </AuthProvider>
     </BrowserRouter>
       </ThemeProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   </React.StrictMode>,
 )
