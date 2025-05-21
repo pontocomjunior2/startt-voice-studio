@@ -130,6 +130,37 @@ app.post('/api/upload/demo', uploadDemo.single('demo'), async (req, res) => {
         res.status(500).json({ message: 'Erro inesperado ao salvar demo.', details: err.message });
     }
 });
+// Upload de Áudio Guia do Cliente
+const guiaStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadPath = path.join(__dirname, '../public/uploads/guias');
+        if (!fs.existsSync(uploadPath))
+            fs.mkdirSync(uploadPath, { recursive: true });
+        cb(null, uploadPath);
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        cb(null, `audio-guia-${uniqueSuffix}${ext}`);
+    }
+});
+const uploadGuia = multer({
+    storage: guiaStorage,
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('audio/'))
+            cb(null, true);
+        else
+            cb(new Error('Apenas arquivos de áudio são permitidos para áudio guia!'));
+    }
+});
+app.post('/api/upload-guia', uploadGuia.single('audioGuia'), (req, res) => {
+    if (!req.file) {
+        res.status(400).json({ success: false, message: 'Nenhum arquivo enviado.' });
+        return;
+    }
+    const filePath = `/uploads/guias/${req.file.filename}`;
+    res.status(200).json({ success: true, filePath });
+});
 // ================= FIM DAS ROTAS DE UPLOAD =================
 // Adicionar body parser JSON para rotas de API que recebem JSON
 app.use(express.json());

@@ -348,7 +348,7 @@ function AdminDashboardPage() {
         .select(`
           id, created_at, status, texto_roteiro, creditos_debitados, titulo,
           estilo_locucao, tipo_audio, orientacoes, id_pedido_serial,
-          audio_final_url, downloaded_at, cliente_notificado_em,
+          audio_final_url, audio_guia_url, downloaded_at, cliente_notificado_em,
           profile:profiles ( id, full_name, email, username ),
           locutores ( id, nome )
         `)
@@ -398,6 +398,7 @@ function AdminDashboardPage() {
             } : null,
             locutores: locutorData ? { nome: locutorData.nome } : null,
             audio_final_url: p.audio_final_url,
+            audio_guia_url: p.audio_guia_url,
             titulo: p.titulo,
             estilo_locucao: p.estilo_locucao,
             orientacoes: p.orientacoes,
@@ -1310,6 +1311,35 @@ function AdminDashboardPage() {
                   {selectedPedido.texto_roteiro || 'Nenhum roteiro fornecido.'}
                 </div>
               </div>
+
+              {/* Áudio Guia Anexado */}
+              {selectedPedido.audio_guia_url && (
+                <div className="mt-4">
+                  <Label className="text-sm font-medium mb-1 flex items-center gap-2">
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-300">Áudio Guia</Badge>
+                    <span className="text-muted-foreground">(enviado pelo cliente)</span>
+                  </Label>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-2">
+                    <audio
+                      controls
+                      src={selectedPedido.audio_guia_url}
+                      className="w-full max-w-xs border rounded shadow"
+                      aria-label="Áudio Guia enviado pelo cliente"
+                    >
+                      Seu navegador não suporta o elemento de áudio.
+                    </audio>
+                    <a
+                      href={selectedPedido.audio_guia_url}
+                      download
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs font-medium transition-colors"
+                    >
+                      Baixar Áudio Guia
+                    </a>
+                  </div>
+                </div>
+              )}
 
               <Separator className="my-4" />
                   {/* Campos para alterar status e enviar áudio do pedido principal */}

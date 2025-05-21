@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { estimateCreditsFromText } from '@/utils/creditUtils';
 import { cn } from '@/lib/utils';
-import { PlayCircle, Send, Loader2, UserCircle, Users, ChevronLeft, ChevronRight, Heart, Filter, Star, AlertTriangle } from 'lucide-react';
+import { PlayCircle, Send, Loader2, UserCircle, Users, ChevronLeft, ChevronRight, Heart, Filter, Star, AlertTriangle, FileAudio, XCircle } from 'lucide-react';
 import { Separator } from "@/components/ui/separator";
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -40,6 +40,7 @@ import { PEDIDO_STATUS } from '@/types/pedido.type';
 import { atualizarPedidoAction } from '@/actions/pedido-actions';
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useDropzone } from 'react-dropzone';
 
 const estilosLocucaoOpcoes = [
   { id: 'padrao', label: 'Padrão' },
@@ -101,6 +102,8 @@ const multiStepGravarLocucaoFormSchema = z.object({
     // console.log('[Zod superRefine] Condition for Step 3 NOT met. tipoAudio:', data.tipoAudio, 'locutorId:', data.locutorId);
   }
 });
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 function GravarLocucaoPage() {
   const { user, profile, refreshProfile } = useAuth();
@@ -187,12 +190,12 @@ function GravarLocucaoPage() {
       // Buscar demos para cada locutor
       const locutoresComDemos = await Promise.all((locutoresData || []).map(async (locutor) => {
         try {
-          const res = await fetch(`http://localhost:3001/api/locutor/${locutor.id}/demos`);
+          const res = await fetch(`${import.meta.env.VITE_API_URL}/api/locutor/${locutor.id}/demos`);
           if (!res.ok) return { ...locutor, demos: [] };
           const json = await res.json();
-          return { ...locutor, demos: json.demos || [] };
+          return { ...locutor, demos: json.demos || [] } as Locutor & { demos: { url: string; estilo?: string }[] };
         } catch (e) {
-          return { ...locutor, demos: [] };
+          return { ...locutor, demos: [] } as Locutor & { demos: { url: string; estilo?: string }[] };
         }
       }));
       setLocutores(locutoresComDemos);
@@ -478,6 +481,25 @@ function GravarLocucaoPage() {
     }
   };
 
+  const [audioGuiaFile, setAudioGuiaFile] = useState<File | null>(null);
+  const [isUploadingGuia, setIsUploadingGuia] = useState(false);
+
+  // Dropzone para Áudio Guia
+  const onDropAudioGuia = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles && acceptedFiles.length > 0) {
+      setAudioGuiaFile(acceptedFiles[0]);
+    }
+  }, []);
+  const {
+    getRootProps,
+    getInputProps,
+    isDragActive
+  } = useDropzone({
+    onDrop: onDropAudioGuia,
+    accept: { 'audio/*': [] },
+    multiple: false,
+  });
+
   const onSubmitForm = async (values: z.infer<typeof multiStepGravarLocucaoFormSchema>) => {
     // console.log('[GravarLocucaoPage] onSubmitForm - Valores recebidos:', values);
     // console.log('[GravarLocucaoPage] onSubmitForm - Locutor selecionado (estado):', selectedLocutor);
@@ -615,22 +637,53 @@ function GravarLocucaoPage() {
           return;
         }
 
+        let uploadedAudioGuiaUrl: string | null = null;
+        if (audioGuiaFile) {
+          setIsUploadingGuia(true);
+          const uploadFormData = new FormData();
+          uploadFormData.append('audioGuia', audioGuiaFile);
+          try {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/upload-guia`, {
+              method: 'POST',
+              body: uploadFormData,
+            });
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido ao enviar áudio guia.' }));
+              throw new Error(errorData.message || `Falha no upload do áudio guia: ${response.statusText}`);
+            }
+            const result = await response.json();
+            if (result.success && result.filePath) {
+              uploadedAudioGuiaUrl = result.filePath;
+            } else {
+              throw new Error(result.message || "Servidor não retornou o caminho do arquivo após upload do guia.");
+            }
+          } catch (uploadError: any) {
+            console.error("Erro no upload do áudio guia:", uploadError);
+            toast.error("Erro no Áudio Guia", { description: uploadError.message });
+            setIsUploadingGuia(false);
+            return;
+          } finally {
+            setIsUploadingGuia(false);
+          }
+        }
+
         const paramsRpc = {
           p_locutor_id: locutorParaSubmissao.id,
           p_texto_roteiro: values.scriptText || '',
           p_creditos_a_debitar: estimatedCredits,
           p_titulo: values.tituloPedido || '',
-          p_tipo_audio: values.tipoAudio, // Garantido por validação anterior ou schema
+          p_tipo_audio: values.tipoAudio,
           p_estilo_locucao: values.estiloLocucao === 'outro' 
               ? `Outro: ${values.outroEstiloEspecificacao || ''}` 
               : values.estiloLocucao || '',
           p_orientacoes: values.orientacoes || '',
-          // Se a sua RPC 'criar_pedido' gerar o id_pedido_serial, não precisa passar aqui.
-          // Se ela esperar, você precisaria gerar e passar: p_id_pedido_serial: await gerarIdReferenciaUnico(supabase)
+          p_velocidade_locucao: velocidadeSelecionada,
+          p_tempo_estimado_segundos: tempoEstimadoSegundos,
+          p_audio_guia_url: uploadedAudioGuiaUrl,
         };
 
         // console.log("[GravarLocucaoPage] Chamando RPC criar_pedido com params:", paramsRpc);
-        const { data: rpcResultData, error: rpcError } = await supabase.rpc('criar_pedido', paramsRpc);
+        const { data: rpcResultData, error: rpcError } = await supabase.rpc('criar_pedido_com_guia', paramsRpc);
 
         if (rpcError) {
           // console.error("[GravarLocucaoPage] Erro ao chamar RPC criar_pedido:", rpcError);
@@ -660,6 +713,7 @@ function GravarLocucaoPage() {
           setCurrentStep(1); // Volta para a primeira etapa
           setSelectedLocutor(null);
           setEstimatedCredits(0);
+          setAudioGuiaFile(null);
           navigate('/meus-audios');
         } else {
           // console.warn("[GravarLocucaoPage] Resposta inesperada da RPC criar_pedido:", rpcResultData);
@@ -739,6 +793,11 @@ function GravarLocucaoPage() {
 
   const handlePreviousStep = () => {
     setCurrentStep(prev => prev - 1);
+  };
+
+  // Helper para demos do locutor (para evitar linter e problemas de tipagem)
+  const getLocutorDemos = (locutor: Locutor): { url: string; estilo?: string }[] => {
+    return Array.isArray((locutor as any).demos) ? (locutor as any).demos as { url: string; estilo?: string }[] : [];
   };
 
   return (
@@ -1018,7 +1077,7 @@ function GravarLocucaoPage() {
                                               </Button>
                                             </PopoverTrigger>
                                             <PopoverContent className="w-64 p-3 flex flex-col gap-3">
-                                              {locutor.demos.map((demo, i) => (
+                                              {getLocutorDemos(locutor).map((demo, i) => (
                                                 <div key={i} className="flex flex-col items-start">
                                                   <span className="text-xs font-semibold text-muted-foreground mb-1">{demo.estilo || 'Estilo'}</span>
                                                   <audio controls className="h-8 w-full" aria-label={`Demo de áudio estilo ${demo.estilo}`}>
@@ -1215,10 +1274,54 @@ function GravarLocucaoPage() {
                             onBlur={() => trigger("orientacoes")}
                           />
                         </FormControl>
-                        <FormMessage /> {/* Restaurado para Etapa 3 */}
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
+
+                  {/* Áudio Guia */}
+                  <div className="my-6">
+                    <Label htmlFor="audio-guia-dropzone" className="text-base font-semibold mb-2 block">
+                      Áudio Guia (Opcional)
+                    </Label>
+                    <div
+                      {...getRootProps()}
+                      className={cn(
+                        "flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary/70 transition-colors",
+                        isDragActive ? "border-primary bg-primary/10" : "border-muted-foreground/30",
+                        audioGuiaFile ? "border-green-500 bg-green-500/5" : ""
+                      )}
+                    >
+                      <input {...getInputProps()} id="audio-guia-dropzone" />
+                      {audioGuiaFile ? (
+                        <div className="text-center">
+                          <FileAudio className="mx-auto h-10 w-10 text-green-600 mb-2" />
+                          <p className="font-medium text-sm">{audioGuiaFile.name}</p>
+                          <p className="text-xs text-muted-foreground">{(audioGuiaFile.size / 1024).toFixed(1)} KB</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="mt-2 text-destructive hover:bg-destructive/10"
+                            onClick={e => { e.stopPropagation(); setAudioGuiaFile(null); }}
+                          >
+                            <XCircle className="mr-1 h-4 w-4" /> Remover
+                          </Button>
+                        </div>
+                      ) : isDragActive ? (
+                        <div className="text-center text-primary">
+                          <FileAudio className="mx-auto h-10 w-10 mb-2 animate-bounce" />
+                          <p className="font-medium">Solte o arquivo aqui...</p>
+                        </div>
+                      ) : (
+                        <div className="text-center text-muted-foreground">
+                          <FileAudio className="mx-auto h-10 w-10 mb-2" />
+                          <p className="font-medium">Arraste e solte um arquivo de áudio ou clique para selecionar</p>
+                          <p className="text-xs">Formatos aceitos: mp3, wav, ogg, etc.</p>
+                        </div>
+                      )}
+                    </div>
+                    {isUploadingGuia && <p className="text-sm text-primary mt-2 animate-pulse">Enviando áudio guia...</p>}
+                  </div>
 
                   <Separator className="my-6" />
                   <div className="p-4 border rounded-lg bg-muted/40 shadow-sm">

@@ -48,6 +48,7 @@ export interface AdminPedido {
   orientacoes: string | null;
   tipo_audio?: string | null;
   creditos_debitados?: number | null;
+  audio_guia_url?: string | null;
 }
 
 export interface Pedido {
