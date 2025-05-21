@@ -116,7 +116,7 @@ const AppLayout: React.FC = () => {
               <item.icon 
                 className={cn(
                   "h-4 w-4 flex-shrink-0",
-                  isActive ? "text-amber-500 dark:text-blue-400" : "text-gray-600"
+                  "text-amber-500"
                 )} 
               />
               <span>{item.label}</span>
@@ -131,12 +131,9 @@ const AppLayout: React.FC = () => {
     <div className="flex w-full bg-background text-foreground"> {/* Fundo principal */}
       <aside className="hidden md:flex md:w-[14rem] flex-col bg-card text-card-foreground px-6 py-10">
         {/* Logo no topo da Sidebar */}
-        <div className="flex items-center justify-center mb-8"> {/* Adicionado mb-8 para espaço abaixo do logo */}
-          <img
-            src="/logo-pontocom.png"
-            alt="PONTOCOM ÁUDIO"
-            className="h-14 w-auto" // Logo maior e responsivo
-          />
+        <div className="flex items-center justify-center mb-8">
+          <img src="/logo-pontocom.png" alt="PONTOCOM ÁUDIO" className="h-14 w-auto block dark:hidden" />
+          <img src="/LOGO_PONTOCOM_240X96 (BRANCA).png" alt="PONTOCOM ÁUDIO" className="h-14 w-auto hidden dark:block" />
         </div>
         <Separator className="mb-6 bg-gray-300 dark:bg-neutral-800" /> {/* Separador abaixo do logo, ajustado mb e cor */}
 
@@ -202,7 +199,8 @@ const AppLayout: React.FC = () => {
                   <SheetContent side="left" className="w-72 p-0 flex flex-col bg-neutral-100 text-gray-700">
                     {/* Logo no menu mobile */}
                     <div className="flex items-center justify-center py-6 px-4 border-b border-gray-300">
-                      <img src="/logo-pontocom.png" alt="PONTOCOM ÁUDIO" className="h-14 w-auto" />
+                      <img src="/logo-pontocom.png" alt="PONTOCOM ÁUDIO" className="h-14 w-auto block dark:hidden" />
+                      <img src="/LOGO_PONTOCOM_240X96 (BRANCA).png" alt="PONTOCOM ÁUDIO" className="h-14 w-auto hidden dark:block" />
                     </div>
 
                     {/* Perfil do Usuário no menu mobile */}

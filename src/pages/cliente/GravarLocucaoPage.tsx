@@ -736,8 +736,8 @@ function GravarLocucaoPage() {
       
       <Card className="w-full max-w-3xl mx-auto shadow-xl border-border/40 bg-neutral-100 dark:bg-neutral-900 text-gray-900 dark:text-gray-100">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold text-primary">Gravar Nova Locução</CardTitle>
-          <CardDescription className="text-lg">
+          <CardTitle className="text-3xl font-bold text-amber-500">Gravar Nova Locução</CardTitle>
+          <CardDescription className="text-lg text-amber-400">
             Siga os passos para criar seu pedido de locução.
           </CardDescription>
         </CardHeader>
@@ -756,7 +756,7 @@ function GravarLocucaoPage() {
                     <div
                       className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center font-semibold border-2",
-                        currentStep === step ? "bg-primary text-primary-foreground border-primary" : 
+                        currentStep === step ? "bg-amber-500 text-white border-amber-500" : 
                         currentStep > step ? "bg-green-500 text-white border-green-600" : 
                         "bg-muted text-muted-foreground border-border"
                       )}
@@ -768,7 +768,7 @@ function GravarLocucaoPage() {
                     </div>
                     <span className={cn(
                       "text-xs mt-2",
-                       currentStep === step ? "text-primary font-semibold" : 
+                       currentStep === step ? "text-amber-500 font-semibold" : 
                        currentStep > step ? "text-green-600" :
                        "text-muted-foreground"
                       )}>{label}</span>
@@ -799,8 +799,8 @@ function GravarLocucaoPage() {
                                 htmlFor="tipoOff" 
                                 className={cn(
                                   "flex flex-col items-center justify-center p-8 rounded-lg border-2 transition-all duration-200 shadow-md bg-card text-card-foreground",
-                                  field.value === 'off' ? "border-primary bg-primary/10" : "border-muted",
-                                  "hover:border-primary hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/50",
+                                  field.value === 'off' ? "border-amber-500 bg-amber-500/10" : "border-muted",
+                                  "hover:border-amber-500 hover:bg-amber-500/10 focus:outline-none focus:ring-2 focus:ring-amber-500/50",
                                   "disabled:opacity-50 disabled:cursor-not-allowed"
                                 )}
                               >
@@ -816,8 +816,8 @@ function GravarLocucaoPage() {
                                 htmlFor="tipoProduzido" 
                                 className={cn(
                                   "flex flex-col items-center justify-center p-8 rounded-lg border-2 transition-all duration-200 shadow-md bg-card text-card-foreground",
-                                  field.value === 'produzido' ? "border-primary bg-primary/10" : "border-muted",
-                                  "hover:border-primary hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/50",
+                                  field.value === 'produzido' ? "border-amber-500 bg-amber-500/10" : "border-muted",
+                                  "hover:border-amber-500 hover:bg-amber-500/10 focus:outline-none focus:ring-2 focus:ring-amber-500/50",
                                   "disabled:opacity-50 disabled:cursor-not-allowed"
                                 )}
                               >
@@ -867,9 +867,9 @@ function GravarLocucaoPage() {
                       className="flex items-center gap-2 group"
                     >
                       {mostrarApenasFavoritos ? (
-                        <Star className="h-4 w-4 text-primary fill-primary transition-all group-hover:scale-110" />
+                        <Star className="h-4 w-4 text-amber-500 fill-amber-500 transition-all group-hover:scale-110" />
                       ) : (
-                        <Filter className="h-4 w-4 text-muted-foreground transition-all group-hover:text-primary" />
+                        <Filter className="h-4 w-4 text-muted-foreground transition-all group-hover:text-amber-500" />
                       )}
                       <span>
                         {mostrarApenasFavoritos ? "Mostrando Favoritos" : "Locutores Favoritos"}
@@ -879,7 +879,7 @@ function GravarLocucaoPage() {
 
                   {loadingLocutores && (
                     <div className="flex justify-center items-center py-10">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
                       <p className="ml-3">Carregando locutores...</p>
                     </div>
                   )}
@@ -940,8 +940,8 @@ function GravarLocucaoPage() {
                                     key={locutor.id}
                                     // Removido onClick daqui para não conflitar com o botão de favoritar. A seleção será pelo radio/hidden input.
                                     className={cn(
-                                      "relative cursor-pointer transition-all duration-200 ease-in-out transform hover:shadow-xl hover:-translate-y-1 focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2",
-                                      watchedLocutorId === locutor.id && "ring-2 ring-primary shadow-xl -translate-y-1",
+                                      "relative cursor-pointer transition-all duration-200 ease-in-out transform hover:shadow-xl hover:-translate-y-1 focus-within:ring-2 focus-within:ring-amber-500 focus-within:ring-offset-2",
+                                      watchedLocutorId === locutor.id && "ring-2 ring-amber-500 shadow-xl -translate-y-1",
                                       "flex flex-col h-full"
                                     )}
                                     tabIndex={0}
@@ -1003,7 +1003,7 @@ function GravarLocucaoPage() {
                                           }}
                                           disabled={!locutor.amostra_audio_url}
                                         >
-                                          <PlayCircle className={cn("mr-1.5 h-3.5 w-3.5", isPlayingPreview === locutor.id && "animate-pulse text-primary")} />
+                                          <PlayCircle className={cn("mr-1.5 h-3.5 w-3.5", isPlayingPreview === locutor.id && "animate-pulse text-amber-500")} />
                                           {isPlayingPreview === locutor.id ? 'Pausar' : 'Ouvir Demo'}
                                         </Button>
                                       </CardContent>
@@ -1032,9 +1032,9 @@ function GravarLocucaoPage() {
                                       onClick={() => setCurrentPageLocutores(i + 1)} // Navegação direta
                                       className={cn(
                                         "h-2 w-2 rounded-full transition-all duration-150 ease-in-out",
-                                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2", // Estilo de foco melhorado
+                                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2", // Estilo de foco melhorado
                                         currentPageLocutores === i + 1
-                                          ? "bg-primary scale-125 transform" // Ponto ativo: cor primária e um pouco maior
+                                          ? "bg-amber-500 scale-125 transform" // Ponto ativo: cor primária e um pouco maior
                                           : "bg-muted hover:bg-muted-foreground/70" // Ponto inativo
                                       )}
                                       aria-label={`Ir para página ${i + 1}`}
@@ -1078,7 +1078,7 @@ function GravarLocucaoPage() {
                   <div className="text-center mb-6 p-4 border rounded-md bg-muted/30">
                     <h3 className="text-xl font-semibold">Detalhes da Locução</h3>
                     <p className="text-sm text-muted-foreground">
-                      Locutor: <span className="font-semibold text-primary">{selectedLocutor.nome}</span> | Tipo: <span className="font-semibold text-primary">{getValues("tipoAudio") === "off" ? "Áudio em OFF" : "Áudio Produzido"}</span>
+                      Locutor: <span className="font-semibold text-amber-500">{selectedLocutor.nome}</span> | Tipo: <span className="font-semibold text-amber-500">{getValues("tipoAudio") === "off" ? "Áudio em OFF" : "Áudio Produzido"}</span>
                     </p>
                   </div>
 
@@ -1191,7 +1191,7 @@ function GravarLocucaoPage() {
                     <div className="flex flex-col sm:flex-row justify-around sm:items-center space-y-4 sm:space-y-0">
                         <div className='text-center sm:text-left px-2'>
                             <p className="text-sm text-muted-foreground mb-1">Tempo Estimado:</p>
-                            <p className="text-3xl font-bold text-primary tabular-nums">
+                            <p className="text-3xl font-bold text-amber-500 tabular-nums">
                             <animated.span>
                                 {animatedSeconds.to((val: number) => formatarSegundosParaMMSS(Math.round(val)))}
                             </animated.span>
@@ -1250,18 +1250,7 @@ function GravarLocucaoPage() {
                           type="button" 
                           onClick={handleNextStep} 
                           disabled={isSubmitting}
-                          className={cn(
-                            {
-                              "opacity-60 cursor-not-allowed":
-                                (currentStep === 1 && !watchedTipoAudio) ||
-                                (currentStep === 2 && (!watchedLocutorId ||
-                                  (mostrarApenasFavoritos
-                                    ? locutores.filter(l => idsLocutoresFavoritos.includes(l.id)).length === 0 && locutores.length > 0
-                                    : locutores.length === 0 && watchedTipoAudio 
-                                  )
-                                ))
-                            }
-                          )}
+                          className="bg-amber-500 hover:bg-amber-600 text-white"
                         >
                           Avançar
                           <ChevronRight className="ml-2 h-4 w-4" />
@@ -1294,11 +1283,7 @@ function GravarLocucaoPage() {
                                 estimatedCredits === 0 ||
                                 (profile?.credits ?? 0) < estimatedCredits
                             }
-                            className={cn(
-                              (!isFormValid || !selectedLocutor || estimatedCredits === 0 || (profile?.credits ?? 0) >= estimatedCredits) && !isSubmitting
-                              ? "cursor-not-allowed" // Mantém o cursor visualmente indicando desabilitado
-                              : ""
-                            )}
+                            className="bg-amber-500 hover:bg-amber-600 text-white"
                           >
                             {isSubmitting ? (
                               <Loader2 className="mr-2 h-5 w-5 animate-spin" />

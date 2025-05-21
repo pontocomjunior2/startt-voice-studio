@@ -310,7 +310,7 @@ function DashboardPage() {
           >
             <RefreshCw className={cn("h-4 w-4", (loadingPedidos || loadingStats || isFetchingProfile || loadingSecoesDashboard) && "animate-spin")} />
           </Button>
-          <Button onClick={() => navigate('/gravar-locucao')} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+          <Button onClick={() => navigate('/gravar-locucao')} className="bg-amber-500 hover:bg-amber-600 text-white">
             <PlusCircle className="mr-2 h-4 w-4" /> Nova Locução
           </Button>
         </div>
@@ -321,7 +321,7 @@ function DashboardPage() {
           <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Meus Créditos</CardTitle>
-              <Wallet className="h-5 w-5 text-primary" />
+              <Wallet className="h-5 w-5 text-amber-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-foreground">{userSaldoCreditosCalculado.toLocaleString('pt-BR')}</div>
@@ -332,7 +332,7 @@ function DashboardPage() {
           <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Pedidos</CardTitle>
-              <ClipboardList className="h-5 w-5 text-primary" />
+              <ClipboardList className="h-5 w-5 text-amber-500" />
             </CardHeader>
             <CardContent>
               {loadingStats ? <Skeleton className="h-8 w-1/2 mb-1" /> : <div className="text-2xl font-bold text-foreground">{totalPedidos}</div>}
@@ -343,7 +343,7 @@ function DashboardPage() {
           <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pendentes / Em Andamento</CardTitle>
-              <Hourglass className="h-5 w-5 text-primary" />
+              <Hourglass className="h-5 w-5 text-amber-500" />
             </CardHeader>
             <CardContent>
               {loadingStats ? <Skeleton className="h-8 w-1/2 mb-1" /> : <div className="text-2xl font-bold text-foreground">{pedidosPendentes}</div>}
@@ -354,7 +354,7 @@ function DashboardPage() {
           <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pedidos Concluídos</CardTitle>
-              <CheckCircle2 className="h-5 w-5 text-primary" />
+              <CheckCircle2 className="h-5 w-5 text-amber-500" />
             </CardHeader>
             <CardContent>
               {loadingStats ? <Skeleton className="h-8 w-1/2 mb-1" /> : <div className="text-2xl font-bold text-foreground">{pedidosConcluidos}</div>}
@@ -384,7 +384,7 @@ function DashboardPage() {
                     <Link to={`/meus-audios#pedido-${pedido.id}`} className="block">
                       <div className="flex justify-between items-center">
                         <div>
-                          <p className="font-semibold text-primary truncate max-w-xs sm:max-w-sm md:max-w-md">
+                          <p className="font-semibold text-amber-500 dark:text-amber-400 truncate max-w-xs sm:max-w-sm md:max-w-md">
                             {pedido.titulo || `Pedido de ${new Date(pedido.created_at).toLocaleDateString('pt-BR')}`}
                           </p>
                           <p className="text-sm text-muted-foreground">
@@ -407,7 +407,7 @@ function DashboardPage() {
                 ))}
                 {pedidos.length > 3 && ( // Mostrar apenas se houver mais pedidos do que os últimos 3 exibidos
                   <div className="text-center mt-4">
-                    <Button variant="link" asChild className="text-primary hover:underline">
+                    <Button variant="link" asChild className="text-amber-400 hover:text-amber-300 dark:text-amber-400 dark:hover:text-amber-300 underline">
                       <Link to="/meus-audios">Ver todos os meus pedidos</Link>
                     </Button>
                   </div>
@@ -442,7 +442,7 @@ function DashboardPage() {
                         <AvatarFallback>{locutor.nome?.charAt(0).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-semibold text-foreground group-hover:text-primary transition-colors">{locutor.nome}</p>
+                        <p className="font-semibold text-amber-500 dark:text-amber-400 group-hover:text-amber-400 dark:group-hover:text-amber-300">{locutor.nome}</p>
                         <p className="text-xs text-muted-foreground truncate max-w-xs">
                           {locutor.descricao || "Locutor Profissional"}
                         </p>
@@ -451,7 +451,7 @@ function DashboardPage() {
                   </Card>
                 ))}
                  <div className="text-center mt-4">
-                    <Button variant="link" asChild className="text-primary hover:underline">
+                    <Button variant="link" asChild className="text-amber-400 hover:text-amber-300 dark:text-amber-400 dark:hover:text-amber-300 underline">
                         <Link to="/gravar-locucao">Explorar todos os locutores</Link>
                     </Button>
                 </div>

@@ -50,7 +50,7 @@
 
   .dark {
     --background: 222 47% 11%;         /* Azul escuro profundo (#151a2b) */
-    --foreground: 220 16% 85%;         /* Cinza-azulado claro para textos (#d1d5db) */
+    --foreground: 36 94% 60%;          /* Laranja vibrante (amber-400: #fbbf24) */
     --card: 223 36% 17%;               /* Azul escuro para cards (#232c47) */
     --card-foreground: 220 16% 85%;    /* Cinza-azulado claro */
     --primary: 217 91% 60%;            /* Azul vibrante (#2563eb) */
