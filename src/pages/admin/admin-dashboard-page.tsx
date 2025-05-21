@@ -1037,7 +1037,7 @@ function AdminDashboardPage() {
                 <TableBody>
                   {pedidosExibidos.map((pedido) => ( // Usar pedidosExibidos
                     <TableRow key={pedido.id} className="hover:bg-muted/50">
-                      <TableCell className="font-medium">{pedido.id_pedido_serial}</TableCell>
+                      <TableCell className="font-medium whitespace-nowrap max-w-[120px]">{pedido.id_pedido_serial}</TableCell>
                       <TableCell>
                         <div className="font-medium">{pedido.profile?.full_name || pedido.profile?.username || 'N/A'}</div>
                         <div className="text-xs text-muted-foreground">{pedido.profile?.email}</div>
