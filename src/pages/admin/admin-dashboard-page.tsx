@@ -171,6 +171,9 @@ function AdminDashboardPage() {
   const [isMarkingEmAnalise, setIsMarkingEmAnalise] = useState(false);
   const [adminAguardandoClienteMessage, setAdminAguardandoClienteMessage] = useState<string>(""); // <<< NOVO ESTADO
 
+  // 1. Estado para filtro de título
+  const [filtroTitulo, setFiltroTitulo] = useState("");
+
   const { // Este hook busca o histórico para o modal do pedido, deve ser mantido
     // data: historicoRevisoesPedido,
     // isLoading: isLoadingHistoricoRevisoesPedido,
@@ -356,6 +359,12 @@ function AdminDashboardPage() {
         dataQuery = dataQuery.lte('created_at', format(endOfDay(dataFim), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"));
       }
       
+      // 3. Adicionar filtro pelo título no fetchPedidosAdmin
+      if (filtroTitulo.trim() !== "") {
+        dataQuery = dataQuery.ilike('titulo', `%${filtroTitulo.trim()}%`);
+        countQuery = countQuery.ilike('titulo', `%${filtroTitulo.trim()}%`);
+      }
+      
       const { data, error: dataError } = await dataQuery;
 
       if (dataError) {
@@ -408,7 +417,7 @@ function AdminDashboardPage() {
   // useEffect para buscar pedidos quando os filtros ou paginação mudarem
   useEffect(() => {
     fetchPedidosAdmin();
-  }, [filtroStatus, dataInicio, dataFim, currentPage, itemsPerPage]); // Adicionado currentPage e itemsPerPage
+  }, [filtroStatus, dataInicio, dataFim, currentPage, itemsPerPage, filtroTitulo]); // Adicionado currentPage e itemsPerPage
 
   const handleOpenViewModal = async (pedido: AdminPedido) => {
     console.log('[AdminDashboardPage] Abrindo modal para pedido:', pedido);
@@ -943,7 +952,18 @@ function AdminDashboardPage() {
                 </SelectContent>
               </Select>
             </div>
-
+            {/* Filtro de Título */}
+            <div className="flex-1 min-w-[200px] md:min-w-[250px]">
+              <Label htmlFor="filtro-titulo-pedido" className="mb-1 block text-sm font-medium text-gray-700">Título do Pedido</Label>
+              <Input
+                id="filtro-titulo-pedido"
+                type="text"
+                placeholder="Buscar por título..."
+                value={filtroTitulo}
+                onChange={e => setFiltroTitulo(e.target.value)}
+                className="w-full"
+              />
+            </div>
             {/* Filtro de Data */}
             <div className="flex flex-1 flex-col md:flex-row gap-4 min-w-[280px] md:min-w-[320px]">
               <div className="flex-1">
@@ -974,6 +994,7 @@ function AdminDashboardPage() {
                 setFiltroStatus('todos'); 
                 setDataInicio(undefined); 
                 setDataFim(undefined); 
+                setFiltroTitulo("");
               }} 
               variant="outline" 
               className="w-full md:w-auto" // Ajuste de largura para responsividade
