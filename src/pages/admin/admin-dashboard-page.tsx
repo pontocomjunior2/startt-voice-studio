@@ -118,8 +118,11 @@ const ADMIN_REVISAO_ACTION_OPTIONS: { value: ActionableRevisaoStatusAdmin; label
   { value: REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO, label: "Ação: Enviar Áudio Revisado e Finalizar" },
 ];
 
+import { useAuth } from '../../contexts/AuthContext';
+
 function AdminDashboardPage() {
   const queryClient = useQueryClient();
+  const { refreshProfile } = useAuth();
 
   const { 
     data: stats, 
@@ -762,6 +765,7 @@ function AdminDashboardPage() {
       fetchPedidosAdmin();      
       fetchCreditosAtivos(); // Atualiza créditos após exclusão
       queryClient.invalidateQueries({ queryKey: ['adminDashboardStats'] }); 
+      if (refreshProfile) await refreshProfile(); // Atualiza o saldo do usuário no AuthContext
 
     } catch (err: any) {
       console.error("[handleDeletePedido] Catch:", err); // Log adicionado
