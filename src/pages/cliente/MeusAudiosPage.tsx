@@ -47,6 +47,17 @@ import { useAction } from 'next-safe-action/hooks'; // <<< Corrigir import para 
 import type { clienteResponderInfoSchema } from '@/actions/cliente-actions'; // Para tipar o resultado
 import { z } from 'zod'; // Para inferir o tipo do schema
 import { useQueryClient } from '@tanstack/react-query'; // <<< GARANTIR ESTE IMPORT NO TOPO
+import { Input } from '@/components/ui/input';
+import { DatePickerSingle } from '@/components/ui/date-picker-single';
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@/components/ui/select';
+import { format, startOfDay, endOfDay } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 // Componente para o Dialog de Histórico de Revisões
 interface HistoricoRevisoesDialogProps {
@@ -412,6 +423,16 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
   );
 };
 
+// Hook de debounce
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 function MeusAudiosPage() {
   const { user, profile, refreshNotifications } = useAuth();
   const navigate = useNavigate();
@@ -440,6 +461,13 @@ function MeusAudiosPage() {
   const [isConfirmarExclusaoModalOpen, setIsConfirmarExclusaoModalOpen] = useState(false);
   const [pedidoParaExcluir, setPedidoParaExcluir] = useState<Pedido | null>(null);
   const [submittingExclusao, setSubmittingExclusao] = useState(false);
+
+  // Filtros
+  const [filtroTitulo, setFiltroTitulo] = useState("");
+  const debouncedFiltroTitulo = useDebounce(filtroTitulo, 400);
+  const [filtroStatus, setFiltroStatus] = useState<string>("__all__");
+  const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined);
+  const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
 
   // Definir handleConfirmarExclusao AQUI, logo após os states e antes de fetchAllPedidos
   const handleConfirmarExclusao = async () => {
@@ -566,6 +594,90 @@ function MeusAudiosPage() {
       setLoadingPedidos(false);
     }
   };
+
+  // Função para limpar filtros
+  const handleLimparFiltros = () => {
+    setFiltroTitulo("");
+    setFiltroStatus("__all__");
+    setDataInicio(undefined);
+    setDataFim(undefined);
+    fetchAllPedidos();
+  };
+
+  // Função para buscar pedidos com filtros
+  const fetchPedidosFiltrados = async () => {
+    if (!profile?.id) return;
+    setLoadingPedidos(true);
+    setErrorLoadingPedidos(null);
+    try {
+      let query = supabase
+        .from('pedidos')
+        .select(`
+          id,
+          id_pedido_serial,
+          created_at,
+          texto_roteiro,
+          titulo,
+          creditos_debitados,
+          status,
+          audio_final_url,
+          downloaded_at,
+          cliente_notificado_em,
+          tipo_audio,
+          estilo_locucao,
+          orientacoes,
+          locutores ( nome ),
+          solicitacoes_revisao ( id, status_revisao )
+        `)
+        .eq('user_id', profile.id);
+      if (debouncedFiltroTitulo.trim()) {
+        query = query.ilike('titulo', `%${debouncedFiltroTitulo.trim()}%`);
+      }
+      if (filtroStatus && filtroStatus !== "__all__") {
+        query = query.eq('status', filtroStatus);
+      }
+      if (dataInicio) {
+        query = query.gte('created_at', startOfDay(dataInicio).toISOString());
+      }
+      if (dataFim) {
+        query = query.lte('created_at', endOfDay(dataFim).toISOString());
+      }
+      query = query.order('created_at', { ascending: false });
+      const { data, error } = await query;
+      if (error) {
+        setErrorLoadingPedidos(error.message || "Ocorreu um erro ao buscar seus áudios.");
+        throw error;
+      }
+      const mappedPedidos: Pedido[] = (data || []).map((item: any) => {
+        return {
+          ...item,
+          locutores: Array.isArray(item.locutores) ? item.locutores[0] : item.locutores,
+          solicitacoes_revisao_count: (item.solicitacoes_revisao?.filter((r: any) => 
+            r.status_revisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO || 
+            r.status_revisao === REVISAO_STATUS_ADMIN.NEGADA
+          ).length) || 0,
+          tem_info_solicitada_admin: item.solicitacoes_revisao?.some((r: any) => r.status_revisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE) || false,
+          estilo_locucao: item.estilo_locucao,
+          orientacoes: item.orientacoes,
+        };
+      });
+      setPedidos(mappedPedidos);
+    } catch (err: any) {
+      if (!errorLoadingPedidos) {
+        setErrorLoadingPedidos("Não foi possível carregar seu histórico de áudios.");
+      }
+    } finally {
+      setLoadingPedidos(false);
+    }
+  };
+
+  // Atualizar pedidos ao alterar filtros
+  useEffect(() => {
+    if (profile?.id) {
+      fetchPedidosFiltrados();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedFiltroTitulo, filtroStatus, dataInicio, dataFim, profile?.id]);
 
   useEffect(() => {
     if (profile?.id) {
@@ -746,19 +858,92 @@ function MeusAudiosPage() {
         </div>
       </div>
 
+      {/* Filtros */}
+      <div className="mb-6 p-4 border rounded-lg shadow-sm">
+        <h2 className="text-xl font-semibold mb-4 text-gray-700">Filtrar Pedidos</h2>
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
+          {/* Filtro de Status */}
+          <div className="flex-1 min-w-[180px] md:min-w-[200px]">
+            <Label htmlFor="filtro-status-pedido" className="mb-1 block text-sm font-medium text-gray-700">Status</Label>
+            <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+              <SelectTrigger id="filtro-status-pedido">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todos</SelectItem>
+                <SelectItem value="pendente">Pendente</SelectItem>
+                <SelectItem value="em_analise">Em Análise</SelectItem>
+                <SelectItem value="em_producao">Em Produção</SelectItem>
+                <SelectItem value="gravando">Gravando</SelectItem>
+                <SelectItem value="concluido">Concluído</SelectItem>
+                <SelectItem value="cancelado">Cancelado</SelectItem>
+                <SelectItem value="em_revisao">Em Revisão</SelectItem>
+                <SelectItem value="aguardando_cliente">Info Solicitada</SelectItem>
+                <SelectItem value="rejeitado">Rejeitado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Filtro Data Início */}
+          <div className="flex-1 min-w-[160px]">
+            <Label htmlFor="filtro-data-inicio" className="mb-1 block text-sm font-medium text-gray-700">Data Início</Label>
+            <DatePickerSingle
+              date={dataInicio}
+              onDateChange={setDataInicio}
+              placeholder="Data inicial"
+              id="filtro-data-inicio"
+            />
+          </div>
+          {/* Filtro Data Fim */}
+          <div className="flex-1 min-w-[160px]">
+            <Label htmlFor="filtro-data-fim" className="mb-1 block text-sm font-medium text-gray-700">Data Fim</Label>
+            <DatePickerSingle
+              date={dataFim}
+              onDateChange={setDataFim}
+              placeholder="Data final"
+              id="filtro-data-fim"
+            />
+          </div>
+          {/* Filtro por Título */}
+          <div className="flex-1 min-w-[200px]">
+            <Label htmlFor="filtro-titulo" className="mb-1 block text-sm font-medium text-gray-700">Buscar por Título</Label>
+            <Input
+              id="filtro-titulo"
+              type="text"
+              placeholder="Digite parte do título..."
+              value={filtroTitulo}
+              onChange={e => setFiltroTitulo(e.target.value)}
+              autoComplete="off"
+              className=""
+            />
+          </div>
+          {/* Botão Limpar Filtros */}
+          <div className="flex items-end">
+            <Button type="button" variant="outline" onClick={handleLimparFiltros} className="w-full md:w-auto whitespace-nowrap">Limpar Filtros</Button>
+          </div>
+        </div>
+      </div>
+
       {pedidos.length === 0 ? (
-        <Card className="shadow-sm bg-card text-card-foreground">
-          <CardContent className="text-center py-16">
-            <ListMusic className="h-16 w-16 text-muted-foreground mx-auto mb-6" />
-            <h3 className="text-2xl font-semibold text-foreground mb-2">Nenhum Pedido Ainda</h3>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Você ainda não fez nenhum pedido de locução. Clique no botão abaixo para começar a criar seus áudios!
-            </p>
-            <Button onClick={() => navigate('/gravar-locucao')} size="lg" className="bg-amber-500 hover:bg-amber-600 text-white">
-              <PlusCircle className="mr-2 h-4 w-4" /> Criar meu Primeiro Áudio
-            </Button>
-          </CardContent>
-        </Card>
+        filtroTitulo.trim() ? (
+          <Card className="shadow-sm bg-card text-card-foreground">
+            <CardContent className="text-center py-16">
+              <h3 className="text-2xl font-semibold text-foreground mb-2">Não existem pedidos com este título</h3>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="shadow-sm bg-card text-card-foreground">
+            <CardContent className="text-center py-16">
+              <ListMusic className="h-16 w-16 text-muted-foreground mx-auto mb-6" />
+              <h3 className="text-2xl font-semibold text-foreground mb-2">Nenhum Pedido Ainda</h3>
+              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                Você ainda não fez nenhum pedido de locução. Clique no botão abaixo para começar a criar seus áudios!
+              </p>
+              <Button onClick={() => navigate('/gravar-locucao')} size="lg" className="bg-amber-500 hover:bg-amber-600 text-white">
+                <PlusCircle className="mr-2 h-4 w-4" /> Criar meu Primeiro Áudio
+              </Button>
+            </CardContent>
+          </Card>
+        )
       ) : (
         <div className="overflow-x-auto relative rounded-lg shadow-md bg-card overflow-hidden">
           <Table>
