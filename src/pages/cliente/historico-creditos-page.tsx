@@ -154,16 +154,16 @@ const HistoricoCreditosPage: React.FC = () => {
   }, [profile?.id]);
 
   return (
-    <div className="max-w-2xl mx-auto py-8 px-2 md:px-0">
+    <div className="min-h-screen bg-background text-foreground max-w-2xl mx-auto py-8 px-2 md:px-0">
       <h1 className="text-2xl font-bold mb-6 text-foreground">Histórico de Créditos</h1>
       {/* Card de saldo real */}
-      <Card className="mb-6 p-4 flex flex-col items-center border-2 border-blue-500 bg-blue-50 dark:bg-blue-950">
-        <div className="text-lg font-semibold text-blue-900 dark:text-blue-200">Saldo atual</div>
-        <div className="text-3xl font-bold text-blue-700 dark:text-blue-300">{profile?.saldoCalculadoCreditos ?? 0} crédito{profile?.saldoCalculadoCreditos === 1 ? '' : 's'}</div>
+      <Card className="mb-6 p-4 flex flex-col items-center bg-card text-card-foreground border-2 border-amber-500">
+        <div className="text-lg font-semibold text-amber-900 dark:text-blue-200">Saldo atual</div>
+        <div className="text-3xl font-bold text-amber-700 dark:text-blue-300">{profile?.saldoCalculadoCreditos ?? 0} crédito{profile?.saldoCalculadoCreditos === 1 ? '' : 's'}</div>
       </Card>
       {/* Aviso de divergência */}
       {false && (
-        <div className="mb-6 flex items-center gap-2 p-3 rounded-md bg-yellow-100 border border-yellow-400 text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-200">
+        <div className="mb-6 flex items-center gap-2 p-3 rounded-md bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 text-yellow-900 dark:text-yellow-200">
           <AlertTriangle className="h-5 w-5 text-yellow-600" />
           <span>
             O saldo real pode ser diferente do saldo simulado na timeline devido a ajustes manuais, estornos ou eventos não exibidos.
@@ -189,17 +189,17 @@ const HistoricoCreditosPage: React.FC = () => {
                   <span className={`absolute -left-6 flex h-8 w-8 items-center justify-center rounded-full ring-8 ring-background
                     ${evento.tipo === 'ADICAO_CREDITO' ? 'bg-green-100 dark:bg-green-900' :
                       evento.tipo === 'USO_CREDITO' ? 'bg-red-100 dark:bg-red-900' :
-                      evento.tipo === 'EXPIRACAO_CREDITO' ? 'bg-yellow-100 dark:bg-yellow-900' :
+                      evento.tipo === 'EXPIRACAO_CREDITO' ? 'bg-yellow-100 dark:bg-yellow-900/30' :
                       evento.tipo === 'ESTORNO_CREDITO' ? 'bg-blue-100 dark:bg-blue-900' :
                       isAjusteManual ? 'bg-purple-100 dark:bg-purple-900' :
                       'bg-background'}`}> 
                     {getIcon(evento.tipo)}
                   </span>
-                  <Card className={`p-4 border shadow-sm
+                  <Card className={`p-4 border shadow-sm bg-card text-card-foreground
                     ${evento.tipo === 'ADICAO_CREDITO' ? 'border-green-400' :
                       evento.tipo === 'USO_CREDITO' ? 'border-red-400' :
                       evento.tipo === 'EXPIRACAO_CREDITO' ? 'border-yellow-400' :
-                      evento.tipo === 'ESTORNO_CREDITO' ? 'border-blue-400' :
+                      evento.tipo === 'ESTORNO_CREDITO' ? 'border-amber-400' :
                       isAjusteManual ? 'border-purple-400' :
                       ''}
                     ${isAjusteManual ? 'bg-purple-50 dark:bg-purple-900/30' : ''}
@@ -212,13 +212,13 @@ const HistoricoCreditosPage: React.FC = () => {
                         <span className="ml-2 px-2 py-0.5 rounded bg-purple-200 text-purple-900 text-xs font-bold dark:bg-purple-700 dark:text-purple-100">Atendimento</span>
                       )}
                       {evento.tipo === 'ESTORNO_CREDITO' && (
-                        <span className="ml-2 px-2 py-0.5 rounded bg-blue-200 text-blue-900 text-xs font-bold dark:bg-blue-700 dark:text-blue-100">Estorno</span>
+                        <span className="ml-2 px-2 py-0.5 rounded bg-amber-200 text-amber-900 text-xs font-bold dark:bg-blue-700 dark:text-blue-100">Estorno</span>
                       )}
                     </div>
                     <h3 className="text-lg font-semibold text-foreground">{evento.descricao}</h3>
                     <p className="text-sm text-muted-foreground whitespace-pre-line">{evento.detalhes}</p>
                     {typeof evento.saldoApos === 'number' && (
-                      <div className="mt-2 text-sm font-semibold text-blue-700 dark:text-blue-400">
+                      <div className="mt-2 text-sm font-semibold text-amber-700 dark:text-blue-400">
                         Saldo após este evento: {evento.saldoApos} crédito{evento.saldoApos === 1 ? '' : 's'}
                       </div>
                     )}

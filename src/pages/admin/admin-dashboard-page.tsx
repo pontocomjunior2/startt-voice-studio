@@ -880,7 +880,7 @@ function AdminDashboardPage() {
             }
 
             return (
-              <Card key={`stat-${index}`} className={`shadow-sm hover:shadow-md transition-shadow rounded-lg`}>
+              <Card key={`stat-${index}`} className={`shadow-sm hover:shadow-md transition-shadow rounded-lg bg-neutral-100 dark:bg-neutral-900 text-gray-900 dark:text-gray-100`}>
                 {cardInfo.isLoading || (cardInfo.title === "Correções Pendentes" && isLoadingStats) || (cardInfo.title === "Créditos (Clientes)" && cardInfo.customLoading) ? (
                   <CardContent className="flex flex-col items-center justify-center p-6">
                     <Skeleton className="h-12 w-12 rounded-full mb-3" /> 
@@ -974,14 +974,14 @@ function AdminDashboardPage() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center">
-              <ListChecks className="mr-2 h-5 w-5 text-blue-500" />
+              <ListChecks className="mr-2 h-5 w-5 text-amber-500 dark:text-blue-500" />
               Pedidos ({loadingPedidos ? '...' : totalPedidosCount}) {/* Usar totalPedidosCount */}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {loadingPedidos ? (
               <div className="flex justify-center items-center h-40">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                <Loader2 className="h-8 w-8 animate-spin text-amber-500 dark:text-blue-500" />
                 <p className="ml-2 text-gray-600">Carregando pedidos...</p>
               </div>
             ) : pedidosExibidos.length > 0 ? ( // Usar pedidosExibidos
@@ -1029,10 +1029,10 @@ function AdminDashboardPage() {
                               "capitalize",
                               pedido.status === 'concluido' && "border-green-500 bg-green-100 text-green-700 dark:border-green-400 dark:bg-green-900/30 dark:text-green-300",
                               pedido.status === 'em_revisao' && "border-pink-500 bg-pink-100 text-pink-700 dark:border-pink-400 dark:bg-pink-900/30 dark:text-pink-300",
-                              pedido.status === 'aguardando_cliente' && "border-blue-500 bg-blue-100 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300",
+                              pedido.status === 'aguardando_cliente' && "border-amber-500 bg-amber-100 text-amber-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300",
                               // ADICIONAR ESTILOS PARA EM_PRODUCAO E EM_ANALISE
-                              pedido.status === PEDIDO_STATUS.EM_PRODUCAO && "border-orange-500 bg-orange-100 text-orange-700 dark:border-orange-400 dark:bg-orange-900/30 dark:text-orange-300",
-                              pedido.status === PEDIDO_STATUS.EM_ANALISE && "border-sky-500 bg-sky-100 text-sky-700 dark:border-sky-400 dark:bg-sky-900/30 dark:text-sky-300", // Exemplo: cor azul céu para EM_ANALISE
+                              pedido.status === PEDIDO_STATUS.EM_PRODUCAO && "border-orange-500 dark:border-orange-400 bg-orange-100 dark:bg-orange-800 text-orange-700 dark:text-orange-200",
+                              pedido.status === PEDIDO_STATUS.EM_ANALISE && "border-amber-500 bg-amber-100 text-amber-700 dark:border-sky-400 dark:bg-sky-900/30 dark:text-sky-300", // Exemplo: cor laranja para EM_ANALISE
                               pedido.status === PEDIDO_STATUS.PENDENTE && "border-gray-400 bg-gray-100 text-gray-600 dark:border-gray-500 dark:bg-gray-700 dark:text-gray-300" // Exemplo: cor cinza para PENDENTE
                             )}
                           >
@@ -1226,7 +1226,7 @@ function AdminDashboardPage() {
                       variant={selectedPedido.tipo_audio === 'off' ? 'secondary' : 'default'}
                       className={cn(
                         "text-sm px-3 py-1 font-semibold",
-                        selectedPedido.tipo_audio === 'off' && "bg-blue-100 text-blue-700 border-blue-300",
+                        selectedPedido.tipo_audio === 'off' && "bg-amber-100 text-amber-700 border-amber-300",
                         selectedPedido.tipo_audio === 'produzido' && "bg-green-100 text-green-700 border-green-300"
                       )}
                     >
@@ -1439,10 +1439,10 @@ function AdminDashboardPage() {
                             <div className="p-3 bg-muted/50 rounded-md border text-sm space-y-3">
                               <p><strong>Data da Solicitação Original:</strong> {format(new Date(activeRevisao.data_solicitacao), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
                               <p><strong>Status Atual da Interação:</strong> <Badge variant="outline" className={cn(
-                                activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.SOLICITADA && "border-orange-500 text-orange-500 bg-orange-50 dark:bg-orange-900/30",
+                                activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.SOLICITADA && "border-orange-500 text-orange-500 bg-orange-50 dark:bg-orange-800",
                                 activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE && "border-yellow-500 text-yellow-600 bg-yellow-50 dark:text-yellow-400 dark:bg-yellow-900/30",
                                 activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU && "border-green-500 text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/30",
-                                activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN && "border-blue-500 text-blue-500 bg-blue-50 dark:bg-blue-900/30",
+                                activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN && "border-amber-500 text-amber-500 bg-amber-50 dark:bg-blue-900/30",
                                 activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.NEGADA && "border-red-500 text-red-500 bg-red-50 dark:bg-red-900/30",
                                 activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO && "border-teal-500 text-teal-500 bg-teal-50 dark:bg-teal-900/30"
                                 // Adicionar outros status conforme necessário
@@ -1455,7 +1455,7 @@ function AdminDashboardPage() {
                               {(activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE || activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU) && activeRevisao.admin_feedback && (
                                 <div className="mt-2">
                                   <p className="mb-0.5 font-medium text-gray-700 dark:text-gray-300">Sua Pergunta/Solicitação ao Cliente:</p>
-                                  <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-sm text-xs whitespace-pre-wrap border border-blue-200 dark:border-blue-700 min-h-[40px]">
+                                  <div className="p-2 bg-amber-50 dark:bg-blue-900/30 rounded-sm text-xs whitespace-pre-wrap border border-amber-200 dark:border-blue-700 min-h-[40px]">
                                     {activeRevisao.admin_feedback} {/* Corrigido de activeReivado */} 
                                   </div>
                                 </div>

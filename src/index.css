@@ -19,8 +19,8 @@
 
 @layer base {
   :root {
-    --primary: 205 90% 48%;           /* Azul (sky-600) */
-    --primary-foreground: 0 0% 100%;  /* Branco */
+    --primary: 36 90% 50%;           /* Laranja (amber-500) */
+    --primary-foreground: 0 0% 100%; /* Branco */
     --secondary: 205 30% 95%;          /* Cinza azulado muito claro */
     --secondary-foreground: 205 15% 40%; /* Cinza azulado escuro */
     --accent: 205 86% 51%;            /* Azul (sky-500) */
@@ -49,37 +49,39 @@
   }
 
   .dark {
-    /* TODO: Definir cores escuras correspondentes, se necessário */
-    /* Por enquanto, manterei as suas originais, mas elas também precisarão ser ajustadas */
-    --background: 36 90% 10%;
-    --foreground: 0 0% 100%;
-    --card: 36 90% 15%;
-    --card-foreground: 36 90% 90%;
-    --primary: 36 90% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 36 90% 20%;
-    --secondary-foreground: 36 90% 80%;
-    --accent: 36 80% 25%;
-    --accent-foreground: 0 0% 100%;
+    --background: 222 47% 11%;         /* Azul escuro profundo (#151a2b) */
+    --foreground: 220 16% 85%;         /* Cinza-azulado claro para textos (#d1d5db) */
+    --card: 223 36% 17%;               /* Azul escuro para cards (#232c47) */
+    --card-foreground: 220 16% 85%;    /* Cinza-azulado claro */
+    --primary: 217 91% 60%;            /* Azul vibrante (#2563eb) */
+    --primary-foreground: 0 0% 100%;   /* Branco */
+    --secondary: 222 47% 15%;          /* Azul ainda mais escuro para menus (#1a2138) */
+    --secondary-foreground: 220 16% 85%;/* Cinza-azulado claro */
+    --accent: 200 98% 39%;             /* Azul claro para detalhes (#38bdf8) */
+    --accent-foreground: 0 0% 100%;    /* Branco */
+    --muted: 220 16% 25%;              /* Azul acinzentado para áreas menos importantes (#374151) */
+    --muted-foreground: 220 16% 60%;   /* Cinza-azulado médio */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 16% 20%;             /* Azul escuro para bordas (#232c47) */
+    --input: 220 16% 20%;
+    --ring: 217 91% 60%;
     --status-green: 140 60% 40%;
     --status-red: 0 80% 55%;
     --status-orange: 36 90% 50%;
-    --muted: 36 20% 20%;
-    --muted-foreground: 0 0% 60%;
-    --destructive: 0 70% 50%;
-    --destructive-foreground: 0 0% 95%;
-    --border: 36 20% 25%;
-    --input: 36 20% 25%;
-    --ring: 36 90% 50%;
-    --status-blue: 210 80% 65%;
+    --status-blue: 217 91% 60%;
     --status-pink-badge: 340 80% 75%;
   }
 
   body {
     font-family: 'Inter', 'Poppins', 'Montserrat', 'Open Sans', Arial, sans-serif;
-    /* background-color: hsl(var(--background)); */ /* Linha comentada anteriormente, manter comentada */
+    background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  .dark body {
+    background-color: #0a0a0a !important;
   }
 }

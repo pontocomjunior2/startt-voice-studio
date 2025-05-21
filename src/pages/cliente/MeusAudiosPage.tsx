@@ -158,7 +158,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
         <div className="flex-grow overflow-y-auto pr-2 space-y-6 py-4">
           {/* Destaque para Solicitação de Informação Pendente */}
           {solicitacaoPendenteInfo && (
-            <Card className="mb-6 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 shadow-lg">
+            <Card className="mb-6 bg-card text-card-foreground">
               <CardHeader>
                 <CardTitle className="text-lg text-yellow-700 dark:text-yellow-400 flex items-center">
                   <AlertTriangle className="h-5 w-5 mr-2 shrink-0" />
@@ -175,7 +175,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
                     {solicitacaoPendenteInfo.adminFeedback || "Nenhuma mensagem específica fornecida."}
                   </div>
                 </div>
-                <Button onClick={() => handleOpenResponderModal(solicitacaoPendenteInfo)} className="w-full sm:w-auto bg-yellow-500 hover:bg-yellow-600 text-white dark:text-black">
+                <Button onClick={() => handleOpenResponderModal(solicitacaoPendenteInfo)} className="w-full sm:w-auto bg-yellow-500 dark:bg-yellow-700 hover:bg-yellow-600 dark:hover:bg-yellow-600 text-white dark:text-yellow-100">
                   <MessageSquare className="mr-2 h-4 w-4" />
                   Responder à Solicitação
                 </Button>
@@ -184,7 +184,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
           )}
 
           {/* Nova Seção: Detalhes do Pedido */}
-          <Card className="mb-6">
+          <Card className="mb-6 bg-card text-card-foreground">
             <CardHeader>
               <CardTitle className="text-xl">Informações do Pedido</CardTitle>
             </CardHeader>
@@ -212,7 +212,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
                       variant={pedido.tipo_audio.toLowerCase() === 'off' ? 'secondary' : 'default'}
                       className={cn(
                         "text-xs px-2 py-0.5 font-semibold",
-                        pedido.tipo_audio.toLowerCase() === 'off' && "bg-blue-100 text-blue-700 border-blue-300",
+                        pedido.tipo_audio.toLowerCase() === 'off' && "bg-amber-100 text-amber-700 border-amber-300",
                         pedido.tipo_audio.toLowerCase() === 'produzido' && "bg-green-100 text-green-700 border-green-300",
                         pedido.tipo_audio.toLowerCase() !== 'off' && pedido.tipo_audio.toLowerCase() !== 'produzido' && "bg-gray-100 text-gray-700 border-gray-300"
                       )}
@@ -229,14 +229,14 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
 
               <div className="pt-2">
                 <h4 className="text-sm font-medium text-muted-foreground mb-1">Orientações (Briefing):</h4>
-                <div className="p-3 bg-muted/30 rounded-md max-h-32 overflow-y-auto text-xs whitespace-pre-wrap border">
+                <div className="p-3 bg-muted/30 dark:bg-neutral-800 rounded-md max-h-32 overflow-y-auto text-xs whitespace-pre-wrap border">
                   {pedido.orientacoes || <span className="italic text-muted-foreground">Nenhuma orientação fornecida.</span>}
                 </div>
               </div>
 
               <div className="pt-2">
                 <h4 className="text-sm font-medium text-muted-foreground mb-1">Roteiro Completo:</h4>
-                <div className="p-3 bg-muted/30 rounded-md max-h-40 overflow-y-auto text-xs whitespace-pre-wrap border">
+                <div className="p-3 bg-muted/30 dark:bg-neutral-800 rounded-md max-h-40 overflow-y-auto text-xs whitespace-pre-wrap border">
                   {pedido.texto_roteiro || <span className="italic text-muted-foreground">Nenhum roteiro fornecido.</span>}
                 </div>
               </div>
@@ -269,7 +269,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
           )}
 
           {historicoRevisoes && historicoRevisoes.length > 0 && (
-            <Card>
+            <Card className="bg-card text-card-foreground">
               <CardHeader>
                 <CardTitle className="text-xl">Histórico de Solicitações de Revisão</CardTitle>
               </CardHeader>
@@ -291,8 +291,8 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
                         className={cn(
                           "text-xs",
                           revisao.statusRevisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO && "bg-green-500 hover:bg-green-600 text-white",
-                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE && "bg-yellow-500 hover:bg-yellow-600 text-black",
-                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU && "bg-blue-500 hover:bg-blue-600 text-white"
+                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE && "bg-amber-500 dark:bg-blue-700 hover:bg-amber-600 dark:hover:bg-blue-600 text-white dark:text-blue-100",
+                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU && "bg-purple-500 hover:bg-purple-600 text-white"
                         )}
                       >
                         {revisao.statusRevisao.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
@@ -316,11 +316,11 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
 
                     {/* Feedback do Admin OU Resposta do Cliente sobre o Feedback do Admin */}
                     {revisao.adminFeedback && (revisao.statusRevisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE || revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU) && (
-                      <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700 shadow-sm">
-                        <p className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-1">
+                      <div className="mt-4 p-4 bg-amber-50 dark:bg-blue-900/30 rounded-lg border border-amber-200 dark:border-blue-700 shadow-sm">
+                        <p className="text-sm font-semibold text-amber-700 dark:text-blue-300 mb-1">
                           {revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU ? "Contexto (Pergunta original do Administrador):" : "Feedback do Administrador (para esta solicitação):" }
                         </p>
-                        <p className="text-sm text-blue-600 dark:text-blue-400 whitespace-pre-wrap">
+                        <p className="text-sm text-amber-600 dark:text-blue-400 whitespace-pre-wrap">
                           {revisao.adminFeedback}
                         </p>
                       </div>
@@ -730,7 +730,7 @@ function MeusAudiosPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-background text-foreground container mx-auto px-4 py-8">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Meus Áudios</h1>
@@ -747,7 +747,7 @@ function MeusAudiosPage() {
       </div>
 
       {pedidos.length === 0 ? (
-        <Card className="shadow-sm">
+        <Card className="shadow-sm bg-card text-card-foreground">
           <CardContent className="text-center py-16">
             <ListMusic className="h-16 w-16 text-muted-foreground mx-auto mb-6" />
             <h3 className="text-2xl font-semibold text-foreground mb-2">Nenhum Pedido Ainda</h3>
@@ -760,7 +760,7 @@ function MeusAudiosPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="overflow-x-auto relative border border-border rounded-lg shadow-md">
+        <div className="overflow-x-auto relative rounded-lg shadow-md bg-card overflow-hidden">
           <Table>
             <TableCaption className="py-4 text-sm text-muted-foreground">
               Seu histórico completo de pedidos de locução. 
@@ -778,8 +778,8 @@ function MeusAudiosPage() {
                 <TableHead className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Ações</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody className="bg-card divide-y divide-border">
-              {pedidos.map((pedido) => {
+            <TableBody className="bg-card dark:bg-neutral-900">
+              {pedidos.map((pedido, idx) => {
                 const isPendente = pedido.status === PEDIDO_STATUS.PENDENTE;
                 const isConcluido = pedido.status === PEDIDO_STATUS.CONCLUIDO;
                 const isEmRevisaoComAudio = pedido.status === PEDIDO_STATUS.EM_REVISAO && pedido.audio_final_url;
@@ -789,7 +789,10 @@ function MeusAudiosPage() {
                                            !isEmRevisaoComAudio;
 
                 return (
-                  <TableRow key={pedido.id} className="hover:bg-muted/10 odd:bg-card even:bg-muted/5 transition-colors">
+                  <TableRow key={pedido.id} className={cn(
+                    "hover:bg-muted/10 odd:bg-card even:bg-muted/5 dark:odd:bg-card dark:even:bg-muted/10 transition-colors",
+                    idx === pedidos.length - 1 ? "border-0" : undefined
+                  )}>
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm font-medium text-foreground">{pedido.id_pedido_serial}</TableCell>
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm font-medium text-foreground">
                       {new Date(pedido.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
@@ -808,7 +811,7 @@ function MeusAudiosPage() {
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center font-medium">
                       {pedido.tipo_audio ? (
                         <span className={cn(
-                          pedido.tipo_audio.toUpperCase() === 'PROD' ? "text-sky-600 dark:text-sky-400" : "text-amber-600 dark:text-amber-400"
+                          pedido.tipo_audio.toUpperCase() === 'PROD' ? "text-amber-600 dark:text-sky-400" : "text-amber-600 dark:text-amber-400"
                         )}>
                           {pedido.tipo_audio.toUpperCase()}
                         </span>
@@ -832,12 +835,12 @@ function MeusAudiosPage() {
                         className={cn(
                           "capitalize text-xs px-2 py-0.5",
                           pedido.status === PEDIDO_STATUS.CONCLUIDO && "bg-green-500 hover:bg-green-600 text-white",
-                          pedido.status === PEDIDO_STATUS.PENDENTE && "bg-yellow-500 hover:bg-yellow-600 text-black",
-                          pedido.status === PEDIDO_STATUS.EM_PRODUCAO && "border-orange-500 bg-orange-100 text-orange-700 dark:border-orange-400 dark:bg-orange-900/30 dark:text-orange-300",
-                          pedido.status === PEDIDO_STATUS.EM_ANALISE && "border-blue-500 bg-blue-100 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300",
+                          pedido.status === PEDIDO_STATUS.PENDENTE && "bg-amber-500 dark:bg-blue-700 hover:bg-amber-600 dark:hover:bg-blue-600 text-white dark:text-blue-100",
+                          pedido.status === PEDIDO_STATUS.EM_PRODUCAO && "border-purple-500 dark:border-purple-400 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-200",
+                          pedido.status === PEDIDO_STATUS.EM_ANALISE && "border-amber-500 bg-amber-100 text-amber-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300",
                           pedido.status === PEDIDO_STATUS.GRAVANDO && "border-purple-500 bg-purple-100 text-purple-700 dark:border-purple-400 dark:bg-purple-900/30 dark:text-purple-300",
                           pedido.status === PEDIDO_STATUS.EM_REVISAO && "border-pink-500 bg-pink-100 text-pink-700 dark:border-pink-400 dark:bg-pink-900/30 dark:text-pink-300",
-                          pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && "border-amber-500 bg-amber-100 text-amber-700 dark:border-amber-400 dark:bg-amber-900/30 dark:text-amber-300",
+                          pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && "border-cyan-500 dark:border-cyan-400 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-200",
                           pedido.status === PEDIDO_STATUS.CANCELADO && "bg-red-600 hover:bg-red-700"
                         )}
                       >

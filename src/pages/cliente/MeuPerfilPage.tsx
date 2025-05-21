@@ -79,7 +79,7 @@ function MeuPerfilPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-4xl py-8 px-4">
+    <div className="min-h-screen bg-background text-foreground container mx-auto max-w-4xl py-8 px-4">
       <header className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Meu Perfil</h1>
         <p className="text-muted-foreground">Gerencie suas informações pessoais e da conta.</p>
@@ -87,7 +87,7 @@ function MeuPerfilPage() {
 
       <div className="grid gap-6 md:grid-cols-1">
         {/* Card de Informações Pessoais */}
-        <Card>
+        <Card className="bg-card text-card-foreground">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UserCircle2 className="h-5 w-5" /> Informações Pessoais
@@ -128,7 +128,7 @@ function MeuPerfilPage() {
         </Card>
 
         {/* Card de Conta e Créditos */}
-        <Card>
+        <Card className="bg-card text-card-foreground">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Wallet className="h-5 w-5" /> Minha Conta e Créditos
@@ -150,7 +150,7 @@ function MeuPerfilPage() {
         </Card>
 
         {/* Card de Segurança (com alteração de senha) */}
-        <Card>
+        <Card className="bg-card text-card-foreground">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5" /> Segurança

@@ -105,8 +105,8 @@ const AppLayout: React.FC = () => {
           to={item.href}
           className={({ isActive }) =>
             cn(
-              "flex items-center w-full gap-2 rounded-md px-2 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-200 transition-all duration-200",
-              isActive && "bg-white shadow-lg text-gray-800 font-medium"
+              "flex items-center w-full gap-2 rounded-md px-2 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-200 dark:hover:bg-neutral-800 transition-all duration-200",
+              isActive && "bg-neutral-100 dark:bg-neutral-900 shadow-lg text-gray-800 dark:text-gray-100 font-medium"
             )
           }
           end={item.href.indexOf('#') === -1}
@@ -116,7 +116,7 @@ const AppLayout: React.FC = () => {
               <item.icon 
                 className={cn(
                   "h-4 w-4 flex-shrink-0",
-                  isActive ? "text-sky-500" : "text-gray-600"
+                  isActive ? "text-amber-500 dark:text-blue-400" : "text-gray-600"
                 )} 
               />
               <span>{item.label}</span>
@@ -128,24 +128,24 @@ const AppLayout: React.FC = () => {
   );
 
   return (
-    <div className="flex w-full bg-gray-100"> {/* Simplificado para teste */}
-      <aside className="hidden md:flex md:w-[14rem] flex-col bg-neutral-100 text-gray-700 px-6 py-10">
+    <div className="flex w-full bg-background text-foreground"> {/* Fundo principal */}
+      <aside className="hidden md:flex md:w-[14rem] flex-col bg-card text-card-foreground px-6 py-10">
         {/* Logo no topo da Sidebar */}
         <div className="flex items-center justify-center mb-8"> {/* Adicionado mb-8 para espaço abaixo do logo */}
           <img
             src="/logo-pontocom.png"
             alt="PONTOCOM ÁUDIO"
-            className="h-10" // Ajuste a altura conforme necessário
+            className="h-14 w-auto" // Logo maior e responsivo
           />
         </div>
-        <Separator className="mb-6 bg-gray-300" /> {/* Separador abaixo do logo, ajustado mb e cor */}
+        <Separator className="mb-6 bg-gray-300 dark:bg-neutral-800" /> {/* Separador abaixo do logo, ajustado mb e cor */}
 
         {/* Menu */}
         <SidebarNav />
         {/* <Separator className="my-4 bg-slate-700" /> */}
         {/* Socials */}
         <div className="mt-10">
-          <h3 className="px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+          <h3 className="px-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
             Socials
           </h3>
           <nav className="flex flex-col gap-1">
@@ -155,7 +155,7 @@ const AppLayout: React.FC = () => {
                 href={link.href}
                 target="_blank" // Para links externos
                 rel="noopener noreferrer" // Para links externos
-                className="flex items-center gap-2 rounded-md px-2 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-200 transition-all duration-200"
+                className="flex items-center gap-2 rounded-md px-2 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-neutral-800 transition-all duration-200"
               >
                 <link.icon className="h-4 w-4 flex-shrink-0" />
                 <span>{link.label}</span>
@@ -169,8 +169,8 @@ const AppLayout: React.FC = () => {
             to="/informacoes"
             className={({ isActive }) => // Manter isActive para consistência, embora possa não ser necessário destaque especial
               cn(
-                "flex items-center justify-center gap-2 w-full rounded-lg bg-gray-800 px-4 py-3 text-sm font-medium text-gray-100 hover:bg-gray-700 transition-colors",
-                isActive && "bg-gray-900" // Leve destaque se ativo, opcional
+                "flex items-center justify-center gap-2 w-full rounded-lg bg-gray-800 dark:bg-neutral-800 px-4 py-3 text-sm font-medium text-gray-100 dark:text-gray-100 hover:bg-gray-700 dark:hover:bg-neutral-700 transition-colors",
+                isActive && "bg-gray-900 dark:bg-neutral-900" // Leve destaque se ativo, opcional
               )
             }
           >
@@ -186,8 +186,8 @@ const AppLayout: React.FC = () => {
         </div>
       </aside>
 
-      <div className="lg:pl-2 lg:pt-2 bg-gray-100 flex-1 overflow-y-auto">
-        <div className="flex-1 min-h-screen lg:rounded-tl-xl border border-border overflow-y-auto">
+      <div className="lg:pl-2 lg:pt-2 bg-background text-foreground flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-screen lg:rounded-tl-xl border border-border dark:border-neutral-800 bg-background text-foreground overflow-y-auto">
           <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-card text-card-foreground px-4 sm:px-6">
             <div className="flex items-center gap-4"> {/* Ajustado gap se necessário */}
               {/* Botão Menu Mobile (sempre visível em mobile, some em md) */}
@@ -202,7 +202,7 @@ const AppLayout: React.FC = () => {
                   <SheetContent side="left" className="w-72 p-0 flex flex-col bg-neutral-100 text-gray-700">
                     {/* Logo no menu mobile */}
                     <div className="flex items-center justify-center py-6 px-4 border-b border-gray-300">
-                      <img src="/logo-pontocom.png" alt="PONTOCOM ÁUDIO" className="h-9" />
+                      <img src="/logo-pontocom.png" alt="PONTOCOM ÁUDIO" className="h-14 w-auto" />
                     </div>
 
                     {/* Perfil do Usuário no menu mobile */}
@@ -261,7 +261,7 @@ const AppLayout: React.FC = () => {
               </div> */}
 
               {/* Saudação e Status (visível apenas em telas menores que md) - AGORA VISÍVEL EM TODAS AS TELAS */}
-              <div className='flex items-center gap-2 text-sm text-muted-foreground'> {/* Removido md:hidden */}
+              <div className='flex items-center gap-2 text-sm text-muted-foreground dark:text-gray-400'> {/* Removido md:hidden */}
                 {(() => { 
                   console.log('AppLayout Header - Auth State for Shimmer (restaurado):', { profile, user }); 
                   const userName = profile?.full_name?.split(' ')[0] || user?.email || 'Usuário';
@@ -285,13 +285,13 @@ const AppLayout: React.FC = () => {
                   TESTE NO APPLAYOUT: Olá, {profile?.full_name?.split(' ')[0] || user?.email || 'Usuário'}!
                 </span> */}
 
-                <span className='hidden sm:inline'>| Todos os nossos serviços estão operando!</span> 
+                <span className='hidden sm:inline'></span> 
               </div>
             </div>
             
             <div className="flex items-center gap-3 ml-auto">
               <ThemeToggle />
-              <Button variant="ghost" size="icon" className='relative text-muted-foreground hover:text-foreground' onClick={handleBellClick}>
+              <Button variant="ghost" size="icon" className='relative text-muted-foreground dark:text-gray-400 hover:text-foreground dark:hover:text-white' onClick={handleBellClick}>
                 <Bell className="h-5 w-5" />
                 {unreadNotificationsCount > 0 && (
                   <Badge
@@ -303,13 +303,13 @@ const AppLayout: React.FC = () => {
                 )}
                 <span className="sr-only">Notificações</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={handleLogout} disabled={isLoggingOut} className="hidden md:inline-flex">
+              <Button variant="outline" size="sm" onClick={handleLogout} disabled={isLoggingOut} className="hidden md:inline-flex dark:border-neutral-700 dark:bg-neutral-900 dark:text-gray-100 dark:hover:bg-neutral-800">
                 <LogOut className="mr-2 h-4 w-4" />
                 {isLoggingOut ? 'Saindo...' : 'Sair'}
               </Button>
             </div>
           </header>
-          <main className="flex-1 p-4 sm:p-6">
+          <main className="flex-1 bg-background text-foreground p-4 sm:p-6">
             <Outlet />
           </main>
           <Footer />

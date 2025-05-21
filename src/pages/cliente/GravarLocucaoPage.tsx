@@ -734,7 +734,7 @@ function GravarLocucaoPage() {
     <div className="container mx-auto px-4 py-8 md:py-12">
       <audio ref={audioPreviewRef} className="hidden" />
       
-      <Card className="w-full max-w-3xl mx-auto shadow-xl border-border/40">
+      <Card className="w-full max-w-3xl mx-auto shadow-xl border-border/40 bg-neutral-100 dark:bg-neutral-900 text-gray-900 dark:text-gray-100">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold text-primary">Gravar Nova Locução</CardTitle>
           <CardDescription className="text-lg">
@@ -798,11 +798,10 @@ function GravarLocucaoPage() {
                               <FormLabel 
                                 htmlFor="tipoOff" 
                                 className={cn(
-                                  "flex flex-col items-center justify-center rounded-md border-2 p-6 cursor-pointer transition-all",
-                                  "hover:bg-accent hover:text-accent-foreground",
-                                  field.value === "off" 
-                                    ? "border-primary bg-primary/10 shadow-md" 
-                                    : "border-muted bg-popover"
+                                  "flex flex-col items-center justify-center p-8 rounded-lg border-2 transition-all duration-200 shadow-md bg-card text-card-foreground",
+                                  field.value === 'off' ? "border-primary bg-primary/10" : "border-muted",
+                                  "hover:border-primary hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/50",
+                                  "disabled:opacity-50 disabled:cursor-not-allowed"
                                 )}
                               >
                                 <UserCircle className="mb-3 h-8 w-8" />
@@ -816,11 +815,10 @@ function GravarLocucaoPage() {
                               <FormLabel 
                                 htmlFor="tipoProduzido" 
                                 className={cn(
-                                  "flex flex-col items-center justify-center rounded-md border-2 p-6 cursor-pointer transition-all",
-                                  "hover:bg-accent hover:text-accent-foreground",
-                                  field.value === "produzido" 
-                                    ? "border-primary bg-primary/10 shadow-md" 
-                                    : "border-muted bg-popover"
+                                  "flex flex-col items-center justify-center p-8 rounded-lg border-2 transition-all duration-200 shadow-md bg-card text-card-foreground",
+                                  field.value === 'produzido' ? "border-primary bg-primary/10" : "border-muted",
+                                  "hover:border-primary hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/50",
+                                  "disabled:opacity-50 disabled:cursor-not-allowed"
                                 )}
                               >
                                 <Send className="mb-3 h-8 w-8" /> {/* Ícone pode ser melhorado */}
@@ -1272,7 +1270,7 @@ function GravarLocucaoPage() {
                       <PopoverContent 
                         side="top" 
                         align="center"
-                        className="bg-amber-50 border-amber-300 text-amber-800 shadow-lg p-3 w-auto max-w-xs sm:max-w-sm animate-fadeIn"
+                        className="bg-neutral-100 dark:bg-neutral-900 border-neutral-300 dark:border-neutral-800 text-gray-900 dark:text-gray-100 shadow-lg p-3 w-auto max-w-xs sm:max-w-sm animate-fadeIn"
                         onOpenAutoFocus={(e) => e.preventDefault()}
                       >
                         <div className="flex items-center">
