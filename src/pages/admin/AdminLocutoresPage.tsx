@@ -193,7 +193,7 @@ function AdminLocutoresPage() {
     <div className="p-4 md:p-8 space-y-6 max-w-5xl mx-auto">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold text-foreground">Gerenciar Locutores</h1>
-        <Button onClick={() => handleOpenModal(null)}>Adicionar Novo Locutor</Button>
+        <Button onClick={() => handleOpenModal(null)} className="bg-amber-500 hover:bg-amber-600 text-white">Adicionar Novo Locutor</Button>
       </div>
       
       <Separator className="my-4" />
@@ -236,7 +236,7 @@ function AdminLocutoresPage() {
                   </TableCell>
                   <TableCell className="px-4 py-3 whitespace-nowrap">
                     {locutor.amostra_audio_url ? 
-                      <a href={locutor.amostra_audio_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">Ouvir</a> 
+                      <a href={locutor.amostra_audio_url} target="_blank" rel="noopener noreferrer" className="text-sm text-amber-500 hover:text-amber-600 hover:underline">Ouvir</a> 
                       : 'N/A'}
                   </TableCell>
                   <TableCell className="px-4 py-3 whitespace-nowrap space-x-2">
@@ -290,7 +290,7 @@ function AdminLocutoresPage() {
             <DialogClose asChild>
               <Button type="button" variant="outline" disabled={isSaving}>Cancelar</Button>
             </DialogClose>
-            <Button type="button" onClick={handleSaveLocutor} disabled={isSaving}>
+            <Button type="button" onClick={handleSaveLocutor} disabled={isSaving} className="bg-amber-500 hover:bg-amber-600 text-white">
               {isSaving ? 'Salvando...' : 'Salvar'}
             </Button>
           </DialogFooter>

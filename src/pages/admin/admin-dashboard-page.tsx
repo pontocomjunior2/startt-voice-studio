@@ -889,7 +889,7 @@ function AdminDashboardPage() {
                   </CardContent>
                 ) : (
                   <CardContent className="flex flex-col items-center justify-center p-6">
-                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
                       <Icon className="h-6 w-6" />
                     </div>
                     <div className="text-3xl font-bold text-foreground">
@@ -1333,7 +1333,7 @@ function AdminDashboardPage() {
                   type="file" 
                   accept=".mp3,.wav,.ogg,.aac" 
                   onChange={handleFileChange} 
-                  className="w-full h-10 px-3 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" 
+                  className="w-full h-10 px-3 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-500 file:text-white hover:file:bg-amber-500/90" 
                       disabled={selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado' || isUpdatingPedido}
                 />
                 {selectedFile && <p className="text-xs text-muted-foreground mt-1">Arquivo selecionado: {selectedFile.name}</p>}
@@ -1566,7 +1566,7 @@ function AdminDashboardPage() {
                                       type="file"
                                       accept=".mp3,.wav,.ogg,.aac"
                                       onChange={handleRevisaoFileChange}
-                                      className="w-full mt-1 h-10 px-3 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                                      className="w-full mt-1 h-10 px-3 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-500 file:text-white hover:file:bg-amber-500/90"
                                       disabled={processarRevisaoStatus === 'executing'}
                                     />
                                     {revisaoAudioFile && <p className="text-xs text-muted-foreground mt-1">Arquivo selecionado: {revisaoAudioFile.name}</p>}
