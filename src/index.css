@@ -63,7 +63,7 @@
     --muted-foreground: 220 16% 60%;   /* Cinza-azulado médio */
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 16% 20%;             /* Azul escuro para bordas (#232c47) */
+    --border: 220 16% 12%;             /* Azul quase preto para bordas no dark mode */
     --input: 220 16% 20%;
     --ring: 217 91% 60%;
     --status-green: 140 60% 40%;
@@ -83,5 +83,15 @@
 
   .dark body {
     background-color: #0a0a0a !important;
+  }
+}
+
+@layer components {
+  .admin-table-fix-dark-border th,
+  .admin-table-fix-dark-border td,
+  .admin-table-fix-dark-border tr,
+  .admin-table-fix-dark-border thead,
+  .admin-table-fix-dark-border tbody {
+    border-color: hsl(var(--border)) !important;
   }
 }

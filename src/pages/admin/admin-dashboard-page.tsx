@@ -971,7 +971,7 @@ function AdminDashboardPage() {
         </div>
 
         {/* Tabela de Pedidos Unificada */}
-        <Card className="mb-6">
+        <Card className="mb-6 admin-table-fix-dark-border">
           <CardHeader>
             <CardTitle className="flex items-center">
               <ListChecks className="mr-2 h-5 w-5 text-amber-500 dark:text-blue-500" />

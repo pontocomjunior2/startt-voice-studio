@@ -212,7 +212,7 @@ function AdminLocutoresPage() {
       {loadingLocutores ? (
         <p>Carregando locutores...</p>
       ) : (
-        <div className="overflow-x-auto relative border border-border rounded-md">
+        <div className="overflow-x-auto relative border border-border rounded-md admin-table-fix-dark-border">
           <Table>
             <TableCaption className="py-3">Lista de todos os locutores cadastrados.</TableCaption>
             <TableHeader className="bg-muted/50">
