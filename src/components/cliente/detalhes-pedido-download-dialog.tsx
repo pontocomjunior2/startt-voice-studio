@@ -80,6 +80,10 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
 
   if (!pedidoInicial) return null;
 
+  if (pedidoDisplay) {
+    console.log('DEBUG DetalhesPedidoDownloadDialog pedidoDisplay:', pedidoDisplay);
+  }
+
   const handleDirectDownload = (url: string | null | undefined, nomeBase: string) => {
     if (!url) {
       console.error("URL de download inválida.");
@@ -187,6 +191,18 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
                           <Download className="mr-2 h-4 w-4" />
                           Baixar Áudio Final
                         </Button>
+                      </div>
+                    </div>
+                  )}
+                  {pedidoDisplay && pedidoDisplay.status === PEDIDO_STATUS.CANCELADO && pedidoDisplay.admin_cancel_reason && (
+                    <div className="mt-4 pt-4 border-t-2 border-destructive bg-destructive/10 rounded-md shadow-sm">
+                      <h4 className="text-lg font-bold text-destructive mb-2 flex items-center">
+                        <AlertTriangle className="h-6 w-6 mr-2 text-destructive" />
+                        Pedido Cancelado pelo Atendimento
+                      </h4>
+                      <div className="p-4 bg-destructive/20 rounded-md text-base text-destructive whitespace-pre-wrap border border-destructive font-semibold">
+                        <span className="block font-bold mb-1">Justificativa do Cancelamento:</span>
+                        {pedidoDisplay.admin_cancel_reason}
                       </div>
                     </div>
                   )}

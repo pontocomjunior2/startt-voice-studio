@@ -538,6 +538,7 @@ function MeusAudiosPage() {
           tipo_audio,
           estilo_locucao,
           orientacoes,
+          admin_cancel_reason,
           locutores ( nome ),
           solicitacoes_revisao ( id, status_revisao )
         `)
@@ -553,6 +554,7 @@ function MeusAudiosPage() {
       const mappedPedidos: Pedido[] = (data || []).map((item: any) => {
         return {
           ...item,
+          admin_cancel_reason: item.admin_cancel_reason,
           locutores: Array.isArray(item.locutores) ? item.locutores[0] : item.locutores,
           solicitacoes_revisao_count: (item.solicitacoes_revisao?.filter((r: any) => 
             r.status_revisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO || 
@@ -626,6 +628,7 @@ function MeusAudiosPage() {
           tipo_audio,
           estilo_locucao,
           orientacoes,
+          admin_cancel_reason,
           locutores ( nome ),
           solicitacoes_revisao ( id, status_revisao )
         `)
@@ -651,6 +654,7 @@ function MeusAudiosPage() {
       const mappedPedidos: Pedido[] = (data || []).map((item: any) => {
         return {
           ...item,
+          admin_cancel_reason: item.admin_cancel_reason,
           locutores: Array.isArray(item.locutores) ? item.locutores[0] : item.locutores,
           solicitacoes_revisao_count: (item.solicitacoes_revisao?.filter((r: any) => 
             r.status_revisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO || 
@@ -718,6 +722,7 @@ function MeusAudiosPage() {
 
   // Modificada para nova lógica
   const handleAbrirModalDetalhesOuBaixar = (pedido: Pedido) => {
+    console.log('DEBUG pedidoDisplay:', pedido);
     if (pedido.solicitacoes_revisao_count && pedido.solicitacoes_revisao_count > 0) {
       setPedidoParaDetalhesDownload(pedido);
       setIsDetalhesDownloadModalOpen(true);
@@ -968,10 +973,7 @@ function MeusAudiosPage() {
                 const isPendente = pedido.status === PEDIDO_STATUS.PENDENTE;
                 const isConcluido = pedido.status === PEDIDO_STATUS.CONCLUIDO;
                 const isEmRevisaoComAudio = pedido.status === PEDIDO_STATUS.EM_REVISAO && pedido.audio_final_url;
-                const podeVerDetalhesGeral = pedido.status !== PEDIDO_STATUS.PENDENTE && 
-                                           pedido.status !== PEDIDO_STATUS.CANCELADO && 
-                                           !isConcluido && 
-                                           !isEmRevisaoComAudio;
+                const podeVerDetalhesGeral = pedido.status !== PEDIDO_STATUS.PENDENTE;
 
                 return (
                   <TableRow key={pedido.id} className={cn(
@@ -1141,13 +1143,13 @@ function MeusAudiosPage() {
                           </>
                         )}
                         
-                        {podeVerDetalhesGeral && (
-                           <Button
-                            variant="outline" 
+                        {pedido.status === PEDIDO_STATUS.CANCELADO && (
+                          <Button
+                            variant="outline"
                             size="sm"
-                            onClick={() => handleOpenHistoricoRevisoesModal(pedido)}
+                            onClick={() => handleAbrirModalDetalhesOuBaixar(pedido)}
                             className="flex items-center"
-                            title="Ver detalhes e histórico de revisões deste pedido"
+                            title="Ver detalhes do pedido cancelado"
                           >
                             <Eye className="mr-2 h-4 w-4" />
                             Detalhes

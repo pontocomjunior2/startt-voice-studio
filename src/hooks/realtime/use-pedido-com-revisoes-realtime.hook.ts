@@ -27,6 +27,7 @@ export const usePedidoComRevisoesRealtime = (pedidoId: string | null | undefined
         .from('pedidos')
         .select(`
           *,
+          admin_cancel_reason,
           locutores ( nome )
         `)
         .eq('id', currentPedidoId)

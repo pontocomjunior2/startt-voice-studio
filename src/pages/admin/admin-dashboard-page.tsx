@@ -177,6 +177,9 @@ function AdminDashboardPage() {
   // 1. Estado para filtro de título
   const [filtroTitulo, setFiltroTitulo] = useState("");
 
+  // 1. Adicionar estado para justificativa de cancelamento
+  const [adminCancelReason, setAdminCancelReason] = useState("");
+
   const { // Este hook busca o histórico para o modal do pedido, deve ser mantido
     // data: historicoRevisoesPedido,
     // isLoading: isLoadingHistoricoRevisoesPedido,
@@ -478,17 +481,10 @@ function AdminDashboardPage() {
     if (!selectedPedido) return;
 
     // Verifica se houve mudança no status selecionado ou se um arquivo foi adicionado.
-    // A principal mudança é que currentPedidoStatus pode agora ser PEDIDO_STATUS.EM_PRODUCAO
     const statusHasChanged = currentPedidoStatus !== selectedPedido.status;
     const fileHasBeenSelected = selectedFile !== null;
 
     if (!statusHasChanged && !fileHasBeenSelected) {
-      // Se nada mudou efetivamente (ex: o status já era o selecionado e nenhum arquivo novo)
-      // podemos apenas fechar o modal ou não fazer nada.
-      // Considerar se currentPedidoStatus já reflete o estado do BD ou se é apenas o valor do select.
-      // Assumindo que se o select não mudou e não há arquivo, nada a fazer.
-      console.log("[handleUpdatePedido] Nenhuma alteração detectada (status ou arquivo).");
-      // setIsViewModalOpen(false); // Opcional: fechar se nenhuma ação é necessária
       return;
     }
 
@@ -497,7 +493,6 @@ function AdminDashboardPage() {
     try {
       let audioUrlToUpdate: string | undefined = undefined;
 
-      // 1. Upload de arquivo, se houver
       if (fileHasBeenSelected && selectedFile) {
         const username = selectedPedido.profile?.username;
         if (!username) {
@@ -505,23 +500,50 @@ function AdminDashboardPage() {
           setIsUpdatingPedido(false);
           return;
         }
-        console.log(`[handleUpdatePedido] Fazendo upload do arquivo ${selectedFile.name} para o pedido ${selectedPedido.id}`);
         const uploadResult = await uploadAudioMutation.mutateAsync({ file: selectedFile, username });
         audioUrlToUpdate = uploadResult.filePath;
-        console.log(`[handleUpdatePedido] Upload concluído. Caminho do arquivo: ${audioUrlToUpdate}`);
       }
 
       let novoStatusFinal = currentPedidoStatus;
       if (audioUrlToUpdate) {
         novoStatusFinal = PEDIDO_STATUS.CONCLUIDO;
-        console.log(`[handleUpdatePedido] Arquivo upado, definindo status final para CONCLUIDO.`);
       }
-      
+
+      // 3. No handleUpdatePedido, validar justificativa
+      if (currentPedidoStatus === PEDIDO_STATUS.CANCELADO && !adminCancelReason.trim()) {
+        toast.error("A justificativa do cancelamento é obrigatória.");
+        setIsUpdatingPedido(false);
+        return;
+      }
+
+      // 5. Se status for CANCELADO, chamar a nova RPC cancelar_pedido_e_estornar_creditos
+      if (currentPedidoStatus === PEDIDO_STATUS.CANCELADO) {
+        const { data: result, error } = await supabase.rpc('cancelar_pedido_e_estornar_creditos', {
+          p_pedido_id: selectedPedido.id,
+          p_justificativa: adminCancelReason.trim(),
+        });
+        if (error || result?.status === 'error') {
+          toast.error(result?.message || error?.message || 'Erro ao cancelar pedido.');
+          setIsUpdatingPedido(false);
+          return;
+        }
+        toast.success(result?.message || 'Pedido cancelado e créditos estornados com sucesso.');
+        setSelectedPedido(prev => prev ? { ...prev, status: PEDIDO_STATUS.CANCELADO } : null);
+        setCurrentPedidoStatus(PEDIDO_STATUS.CANCELADO);
+        fetchPedidosAdmin();
+        fetchCreditosAtivos();
+        queryClient.invalidateQueries({ queryKey: ['adminDashboardStats'] });
+        setIsViewModalOpen(false);
+        setIsUpdatingPedido(false);
+        return;
+      }
+
       const mutationPayload: { 
         pedidoId: string; 
         novoStatus: string; 
         audioUrl?: string;
-        adminMessage?: string; // <<< NOVO CAMPO PARA A MENSAGEM
+        adminMessage?: string; 
+        adminCancelReason?: string;
       } = {
         pedidoId: selectedPedido.id,
         novoStatus: novoStatusFinal,
@@ -531,29 +553,24 @@ function AdminDashboardPage() {
         mutationPayload.audioUrl = audioUrlToUpdate;
       }
 
-      // Adicionar a mensagem ao payload se o status for AGUARDANDO_CLIENTE
       if (novoStatusFinal === PEDIDO_STATUS.AGUARDANDO_CLIENTE) {
         if (!adminAguardandoClienteMessage.trim()) {
           toast.error("A mensagem para o cliente é obrigatória ao definir o status como 'Aguardando Cliente'.");
           setIsUpdatingPedido(false);
-          return; // Interrompe a execução se a mensagem for obrigatória e não fornecida
+          return;
         }
         mutationPayload.adminMessage = adminAguardandoClienteMessage.trim();
       }
 
-      console.log(`[handleUpdatePedido] Atualizando pedido ${selectedPedido.id}. Payload:`, mutationPayload);
       await updateAudioAndStatusMutation.mutateAsync(mutationPayload);
-      
       toast.success("Pedido atualizado com sucesso!");
       setSelectedPedido(prev => prev ? { ...prev, status: novoStatusFinal, audio_final_url: audioUrlToUpdate || prev.audio_final_url } : null);
       setCurrentPedidoStatus(novoStatusFinal);
       fetchPedidosAdmin();
       queryClient.invalidateQueries({ queryKey: ['adminDashboardStats'] });
       setIsViewModalOpen(false);
-
     } catch (error) {
       console.error('Erro em handleUpdatePedido:', error);
-      // toast.error já é tratado pelas mutations, mas um fallback pode ser útil
       if (error instanceof Error) {
          toast.error(`Erro ao atualizar pedido: ${error.message}`);
       }
@@ -1339,28 +1356,22 @@ function AdminDashboardPage() {
                   </SelectContent>
                 </Select>
               </div>
-              {/* Campo de mensagem para o cliente quando AGUARDANDO_CLIENTE */}
-              {currentPedidoStatus === PEDIDO_STATUS.AGUARDANDO_CLIENTE && (
+              {currentPedidoStatus === PEDIDO_STATUS.CANCELADO && (
                 <div className="space-y-2 mt-4">
-                  <Label htmlFor="admin-message-aguardando-cliente" className="text-sm font-medium">
-                    Mensagem para o Cliente (justificativa para "Aguardando Cliente"):
+                  <Label htmlFor="admin-cancel-reason" className="text-sm font-medium">
+                    Justificativa do Cancelamento <span className="text-destructive">*</span>
                   </Label>
                   <Textarea
-                    id="admin-message-aguardando-cliente"
-                    placeholder="Informe ao cliente quais informações são necessárias ou o motivo de aguardar..."
-                    value={adminAguardandoClienteMessage}
-                    onChange={(e) => setAdminAguardandoClienteMessage(e.target.value)}
+                    id="admin-cancel-reason"
+                    placeholder="Explique o motivo do cancelamento para o cliente..."
+                    value={adminCancelReason}
+                    onChange={(e) => setAdminCancelReason(e.target.value)}
                     rows={3}
-                    disabled={ 
-                      !selectedPedido ||
-                      selectedPedido.status === PEDIDO_STATUS.CONCLUIDO || 
-                      selectedPedido.status === PEDIDO_STATUS.CANCELADO ||
-                      isUpdatingPedido
-                    }
                     required
+                    disabled={isUpdatingPedido}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Esta mensagem será registrada e visível no histórico do pedido.
+                    Esta justificativa será registrada e visível no histórico do pedido.
                   </p>
                 </div>
               )}

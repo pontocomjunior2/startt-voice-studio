@@ -66,6 +66,7 @@ export interface Pedido {
   estilo_locucao?: string | null;
   orientacoes?: string | null;
   solicitacoes_revisao_count?: number;
+  admin_cancel_reason?: string | null;
 }
 
 // Tipos para o Histórico Detalhado do Pedido e Revisões
