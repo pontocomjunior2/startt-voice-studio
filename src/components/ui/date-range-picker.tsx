@@ -60,7 +60,7 @@ export function DatePickerWithRange({
             defaultMonth={date?.from}
             selected={date}
             onSelect={onDateChange}
-            numberOfMonths={2}
+            numberOfMonths={1}
             locale={ptBR} // Aplicar locale pt-BR ao calendário
           />
         </PopoverContent>

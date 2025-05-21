@@ -41,6 +41,7 @@ import { useQueryClient } from '@tanstack/react-query';
 // Importações para filtros
 import { type DateRange } from "react-day-picker";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import { DatePickerSingle } from '@/components/ui/date-picker-single';
 import { supabase } from '@/lib/supabaseClient'; // Para a query direta
 
 // Hook e tipo customizado
@@ -130,7 +131,8 @@ function AdminDashboardPage() {
 
   // Estados para os filtros
   const [filtroStatus, setFiltroStatus] = useState<string>('todos');
-  const [filtroData, setFiltroData] = useState<DateRange | undefined>(undefined);
+  const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined);
+  const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
   
   // Estados para os pedidos paginados e loading (substituindo pedidosAdmin)
   const [pedidosExibidos, setPedidosExibidos] = useState<AdminPedido[]>([]);
@@ -141,11 +143,8 @@ function AdminDashboardPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10); 
   const [totalPedidosCount, setTotalPedidosCount] = useState(0);
 
-  console.log(
-    'AdminDashboard RENDER: isFetchingStats:',
-    isFetchingStats
-    // isLoadingSolicitacoesRevisao removido
-  );
+  // const isLoading = isLoadingStats || loadingPedidos || isLoadingSolicitacoesRevisao; // isLoadingSolicitacoesRevisao removido
+  const isLoadingGlobal = isLoadingStats || loadingPedidos;
 
   const [selectedPedido, setSelectedPedido] = useState<AdminPedido | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false); // Modal principal do pedido
@@ -259,32 +258,34 @@ function AdminDashboardPage() {
         toast.error('Resposta inesperada ao processar a revisão.');
       }
     },
-    onError: (error: any) => { // MUDADO PARA any TEMPORARIAMENTE PARA EVITAR LOOP DE LINTER
+    onError: (error: unknown) => {
       toast.dismiss();
       console.error('[AdminDashboardPage] Erro ao processar revisão (onError):', error);
-      
       let errorMessage = 'Erro desconhecido ao processar revisão.';
-      if (error.serverError) {
-        errorMessage = error.serverError === "ACESSO_NEGADO_ADMIN" 
-          ? "Acesso negado. Você não tem permissão para executar esta ação." 
-          : `Erro do servidor: ${error.serverError}`;
-      } else if (error.validationErrors) {
-        const fieldMapping: Record<string, string> = {
+      if (typeof error === 'object' && error !== null) {
+        const err = error as { serverError?: string; validationErrors?: Record<string, string[]>; fetchError?: string };
+        if (err.serverError) {
+          errorMessage = err.serverError === "ACESSO_NEGADO_ADMIN"
+            ? "Acesso negado. Você não tem permissão para executar esta ação."
+            : `Erro do servidor: ${err.serverError}`;
+        } else if (err.validationErrors) {
+          const fieldMapping: Record<string, string> = {
             solicitacaoId: 'ID da Solicitação',
             adminFeedback: 'Feedback do Admin',
             audioFile: 'Arquivo de Áudio',
             novoStatusRevisao: 'Ação da Revisão',
-        };
-        const validationMessages = Object.entries(error.validationErrors)
-          .map(([field, fieldMessages]) => {
-            const fieldName = fieldMapping[field] || field;
-            const messagesString = Array.isArray(fieldMessages) ? fieldMessages.join(', ') : 'Erro de validação';
-            return `${fieldName}: ${messagesString}`;
-          })
-          .join('\n');
-        errorMessage = `Erro de validação:\n${validationMessages}`;
-      } else if (error.fetchError) {
-        errorMessage = `Erro de comunicação: ${error.fetchError}`;
+          };
+          const validationMessages = Object.entries(err.validationErrors)
+            .map(([field, fieldMessages]) => {
+              const fieldName = fieldMapping[field] || field;
+              const messagesString = Array.isArray(fieldMessages) ? fieldMessages.join(', ') : 'Erro de validação';
+              return `${fieldName}: ${messagesString}`;
+            })
+            .join('\n');
+          errorMessage = `Erro de validação:\n${validationMessages}`;
+        } else if (err.fetchError) {
+          errorMessage = `Erro de comunicação: ${err.fetchError}`;
+        }
       }
       toast.error(errorMessage);
     },
@@ -301,7 +302,7 @@ function AdminDashboardPage() {
 
   // Nova função para buscar pedidos com filtros e paginação
   const fetchPedidosAdmin = async () => {
-    console.log('[AdminDashboardPage] fetchPedidosAdmin chamado com filtros:', { filtroStatus, filtroData, currentPage, itemsPerPage });
+    console.log('[AdminDashboardPage] fetchPedidosAdmin chamado com filtros:', { filtroStatus, dataInicio, dataFim, currentPage, itemsPerPage });
     setLoadingPedidos(true);
     try {
       const from = (currentPage - 1) * itemsPerPage;
@@ -315,11 +316,11 @@ function AdminDashboardPage() {
       if (filtroStatus !== 'todos') {
         countQuery = countQuery.eq('status', filtroStatus);
       }
-      if (filtroData?.from) {
-        countQuery = countQuery.gte('created_at', format(startOfDay(filtroData.from), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"));
+      if (dataInicio) {
+        countQuery = countQuery.gte('created_at', format(startOfDay(dataInicio), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"));
       }
-      if (filtroData?.to) {
-        countQuery = countQuery.lte('created_at', format(endOfDay(filtroData.to), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"));
+      if (dataFim) {
+        countQuery = countQuery.lte('created_at', format(endOfDay(dataFim), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"));
       }
       
       const { count, error: countError } = await countQuery;
@@ -348,11 +349,11 @@ function AdminDashboardPage() {
       if (filtroStatus !== 'todos') {
         dataQuery = dataQuery.eq('status', filtroStatus);
       }
-      if (filtroData?.from) {
-        dataQuery = dataQuery.gte('created_at', format(startOfDay(filtroData.from), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"));
+      if (dataInicio) {
+        dataQuery = dataQuery.gte('created_at', format(startOfDay(dataInicio), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"));
       }
-      if (filtroData?.to) {
-        dataQuery = dataQuery.lte('created_at', format(endOfDay(filtroData.to), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"));
+      if (dataFim) {
+        dataQuery = dataQuery.lte('created_at', format(endOfDay(dataFim), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"));
       }
       
       const { data, error: dataError } = await dataQuery;
@@ -407,7 +408,7 @@ function AdminDashboardPage() {
   // useEffect para buscar pedidos quando os filtros ou paginação mudarem
   useEffect(() => {
     fetchPedidosAdmin();
-  }, [filtroStatus, filtroData, currentPage, itemsPerPage]); // Adicionado currentPage e itemsPerPage
+  }, [filtroStatus, dataInicio, dataFim, currentPage, itemsPerPage]); // Adicionado currentPage e itemsPerPage
 
   const handleOpenViewModal = async (pedido: AdminPedido) => {
     console.log('[AdminDashboardPage] Abrindo modal para pedido:', pedido);
@@ -529,7 +530,7 @@ function AdminDashboardPage() {
       }
 
       console.log(`[handleUpdatePedido] Atualizando pedido ${selectedPedido.id}. Payload:`, mutationPayload);
-      await updateAudioAndStatusMutation.mutateAsync(mutationPayload as any); 
+      await updateAudioAndStatusMutation.mutateAsync(mutationPayload);
       
       toast.success("Pedido atualizado com sucesso!");
       setSelectedPedido(prev => prev ? { ...prev, status: novoStatusFinal, audio_final_url: audioUrlToUpdate || prev.audio_final_url } : null);
@@ -607,9 +608,6 @@ function AdminDashboardPage() {
       tagColorClass: "bg-status-yellow text-black" // Exemplo de cor, ajuste conforme necessário
     },
   ];
-
-  // const isLoading = isLoadingStats || loadingPedidos || isLoadingSolicitacoesRevisao; // isLoadingSolicitacoesRevisao removido
-  const isLoadingGlobal = isLoadingStats || loadingPedidos;
 
   // const adminRevisaoStatusOptions = [ ... ]; // Removido, pois o modal específico foi removido. Será reintroduzido no modal do pedido.
 
@@ -944,23 +942,38 @@ function AdminDashboardPage() {
                   ))}
                 </SelectContent>
               </Select>
-          </div>
+            </div>
 
             {/* Filtro de Data */}
-            <div className="flex-1 min-w-[280px] md:min-w-[320px]">
-              <Label htmlFor="filtro-data-pedido" className="mb-1 block text-sm font-medium text-gray-700">Período</Label>
-              <DatePickerWithRange
-                date={filtroData}
-                onDateChange={setFiltroData}
-                className="w-full" // O ID é aplicado no botão dentro do DatePickerWithRange
-              />
-          </div>
-            
+            <div className="flex flex-1 flex-col md:flex-row gap-4 min-w-[280px] md:min-w-[320px]">
+              <div className="flex-1">
+                <Label htmlFor="filtro-data-inicio" className="mb-1 block text-sm font-medium text-gray-700">Data Início</Label>
+                <DatePickerSingle
+                  label=""
+                  date={dataInicio}
+                  onDateChange={setDataInicio}
+                  placeholder="Data inicial"
+                  className="mb-2 md:mb-0"
+                  id="filtro-data-inicio"
+                />
+              </div>
+              <div className="flex-1">
+                <Label htmlFor="filtro-data-fim" className="mb-1 block text-sm font-medium text-gray-700">Data Fim</Label>
+                <DatePickerSingle
+                  label=""
+                  date={dataFim}
+                  onDateChange={setDataFim}
+                  placeholder="Data final"
+                  id="filtro-data-fim"
+                />
+              </div>
+            </div>
             {/* Botão Limpar Filtros */}
             <Button 
               onClick={() => { 
                 setFiltroStatus('todos'); 
-                setFiltroData(undefined); 
+                setDataInicio(undefined); 
+                setDataFim(undefined); 
               }} 
               variant="outline" 
               className="w-full md:w-auto" // Ajuste de largura para responsividade

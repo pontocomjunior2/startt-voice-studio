@@ -95,3 +95,6 @@
     border-color: hsl(var(--border)) !important;
   }
 }
+
+/* Esconde o cabeçalho dos dias da semana do react-day-picker */
+.rdp-head { display: none !important; }
