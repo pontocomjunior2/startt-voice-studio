@@ -7,6 +7,7 @@ interface InputUploadAudioLocutorProps {
   onChange: (url: string) => void;
   uploadUrl?: string;
   accept?: string;
+  disabled?: boolean;
 }
 
 export const InputUploadAudioLocutor: React.FC<InputUploadAudioLocutorProps> = ({
@@ -16,6 +17,7 @@ export const InputUploadAudioLocutor: React.FC<InputUploadAudioLocutorProps> = (
   onChange,
   uploadUrl = 'http://localhost:3001/api/upload/demo',
   accept = 'audio/*',
+  disabled = false,
 }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(value || null);
@@ -58,10 +60,10 @@ export const InputUploadAudioLocutor: React.FC<InputUploadAudioLocutorProps> = (
         name={name}
         type="file"
         accept={accept}
-        className="block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
+        className="block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 disabled:opacity-50"
         onChange={handleFileChange}
         aria-label={label}
-        disabled={loading}
+        disabled={loading || disabled}
       />
       {loading && <span className="text-xs text-muted-foreground">Enviando áudio...</span>}
       {error && <span className="text-xs text-red-600">{error}</span>}

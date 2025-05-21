@@ -51,6 +51,13 @@ interface Locutor {
   avatar_url?: string | null;
   ativo?: boolean;
   amostra_audio_url?: string | null;
+  demos?: DemoLocutor[];
+}
+
+// Adicionar tipos auxiliares para demo
+interface DemoLocutor {
+  estilo: string;
+  url: string;
 }
 
 function AdminLocutoresPage() {
@@ -67,7 +74,7 @@ function AdminLocutoresPage() {
   const [nome, setNome] = useState('');
   const [descricao, setDescricao] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
-  const [amostraAudioUrl, setAmostraAudioUrl] = useState('');
+  const [demos, setDemos] = useState<DemoLocutor[]>([]);
   const [ativo, setAtivo] = useState(true);
 
   const fetchAllLocutores = async () => {
@@ -81,7 +88,18 @@ function AdminLocutoresPage() {
         console.error("Erro ao buscar locutores:", error);
         throw error;
       }
-      setLocutores(data || []);
+      // Buscar demos para cada locutor
+      const locutoresComDemos = await Promise.all((data || []).map(async (locutor) => {
+        try {
+          const res = await fetch(`http://localhost:3001/api/locutor/${locutor.id}/demos`);
+          if (!res.ok) return { ...locutor, demos: [] };
+          const json = await res.json();
+          return { ...locutor, demos: json.demos || [] };
+        } catch (e) {
+          return { ...locutor, demos: [] };
+        }
+      }));
+      setLocutores(locutoresComDemos);
     } catch (err: any) {
       toast.error("Erro ao Carregar Locutores", { description: err.message || "Tente novamente." });
     } finally {
@@ -97,7 +115,7 @@ function AdminLocutoresPage() {
     setNome('');
     setDescricao('');
     setAvatarUrl('');
-    setAmostraAudioUrl('');
+    setDemos([]);
     setAtivo(true);
     setEditingLocutor(null);
   };
@@ -108,7 +126,7 @@ function AdminLocutoresPage() {
       setNome(locutor.nome);
       setDescricao(locutor.descricao || '');
       setAvatarUrl(locutor.avatar_url || '');
-      setAmostraAudioUrl(locutor.amostra_audio_url || '');
+      setDemos(locutor.demos || []);
       setAtivo(locutor.ativo === undefined ? true : locutor.ativo);
     } else {
       resetFormStates();
@@ -119,31 +137,53 @@ function AdminLocutoresPage() {
   const handleSaveLocutor = async () => {
     setIsSaving(true);
     try {
+      // Montar objeto apenas com campos da tabela locutores
       const locutorData = {
         nome,
         descricao: descricao || null,
         avatar_url: avatarUrl || null,
-        amostra_audio_url: amostraAudioUrl || null,
         ativo,
       };
 
-      let error;
+      let error, locutorId;
       if (editingLocutor) {
         const { error: updateError } = await supabase
           .from('locutores')
           .update(locutorData)
           .eq('id', editingLocutor.id);
         error = updateError;
+        locutorId = editingLocutor.id;
       } else {
-        const { error: insertError } = await supabase
+        const { data: insertData, error: insertError } = await supabase
           .from('locutores')
-          .insert([locutorData]);
+          .insert([locutorData])
+          .select('id')
+          .single();
         error = insertError;
+        locutorId = insertData?.id;
       }
 
       if (error) {
         console.error("Erro ao salvar locutor:", error);
         throw error;
+      }
+
+      // Salvar demos na tabela locutor_demos
+      if (locutorId) {
+        // Remover todas as demos antigas se estiver editando
+        if (editingLocutor) {
+          await supabase.from('locutor_demos').delete().eq('locutor_id', locutorId);
+        }
+        // Adicionar as demos atuais
+        for (const demo of demos) {
+          if (demo.estilo && demo.url) {
+            await fetch(`http://localhost:3001/api/locutor/${locutorId}/demos`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ estilo: demo.estilo, url: demo.url })
+            });
+          }
+        }
       }
 
       toast.success(`Locutor ${editingLocutor ? 'atualizado' : 'adicionado'} com sucesso!`);
@@ -237,9 +277,19 @@ function AdminLocutoresPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="px-4 py-3 whitespace-nowrap">
-                    {locutor.amostra_audio_url ? 
-                      <a href={locutor.amostra_audio_url} target="_blank" rel="noopener noreferrer" className="text-sm text-amber-500 hover:text-amber-600 hover:underline">Ouvir</a> 
-                      : 'N/A'}
+                    {locutor.demos && locutor.demos.length > 0 ? (
+                      <div className="flex flex-col gap-2">
+                        {locutor.demos.map((demo, i) => (
+                          <div key={i} className="flex flex-col items-start">
+                            <span className="text-xs font-semibold text-muted-foreground mb-1">{demo.estilo || 'Estilo'}</span>
+                            <audio controls className="h-8 w-48 max-w-full" aria-label={`Demo de áudio estilo ${demo.estilo}`}>
+                              <source src={demo.url} />
+                              Seu navegador não suporta o elemento de áudio.
+                            </audio>
+                          </div>
+                        ))}
+                      </div>
+                    ) : 'N/A'}
                   </TableCell>
                   <TableCell className="px-4 py-3 whitespace-nowrap space-x-2">
                     <Button variant="outline" size="sm" onClick={() => handleOpenModal(locutor)}>Editar</Button>
@@ -257,14 +307,14 @@ function AdminLocutoresPage() {
         setIsLocutorModalOpen(isOpen);
         if (!isOpen) resetFormStates();
       }}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{editingLocutor ? 'Editar Locutor' : 'Adicionar Novo Locutor'}</DialogTitle>
             <DialogDescription>
               {editingLocutor ? `Modifique os dados de ${editingLocutor.nome}.` : 'Preencha os dados do novo locutor.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 max-h-[80vh] overflow-y-auto">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="nome-locutor" className="text-right">Nome</Label>
               <Input id="nome-locutor" value={nome} onChange={(e) => setNome(e.target.value)} className="col-span-3" disabled={isSaving} />
@@ -284,15 +334,65 @@ function AdminLocutoresPage() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="amostra-url-locutor" className="text-right">Amostra de Áudio</Label>
-              <div className="col-span-3">
-                <InputUploadAudioLocutor
-                  name="amostra-url-locutor"
-                  label="Amostra de Áudio"
-                  value={amostraAudioUrl}
-                  onChange={setAmostraAudioUrl}
-                />
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label className="text-right pt-2">Demos</Label>
+              <div className="col-span-3 flex flex-col gap-4">
+                {demos.map((demo, idx) => (
+                  <div key={idx} className="flex flex-col gap-2 p-4 border rounded bg-muted/10 mb-2 relative">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-semibold text-foreground">Estilo</label>
+                      <select
+                        className="border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        value={demo.estilo}
+                        onChange={e => {
+                          const newDemos = [...demos];
+                          newDemos[idx].estilo = e.target.value;
+                          setDemos(newDemos);
+                        }}
+                      >
+                        <option value="">Selecione o estilo</option>
+                        <option value="padrao">Padrão</option>
+                        <option value="impacto">Impacto</option>
+                        <option value="jovem">Jovem</option>
+                        <option value="varejo">Varejo</option>
+                        <option value="institucional">Institucional</option>
+                        <option value="up_festas">Up/Festas</option>
+                        <option value="jornalistico">Jornalístico</option>
+                        <option value="outro">Outro</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-2 mt-2">
+                      <InputUploadAudioLocutor
+                        name={`demo-audio-${idx}`}
+                        label="Amostra de Áudio"
+                        value={demo.url}
+                        onChange={url => {
+                          const newDemos = [...demos];
+                          newDemos[idx].url = url;
+                          setDemos(newDemos);
+                        }}
+                        uploadUrl={`http://localhost:3001/api/upload/demo?nomeLocutor=${encodeURIComponent(nome)}&estilo=${encodeURIComponent(demo.estilo)}`}
+                        disabled={!demo.estilo}
+                      />
+                      {!demo.estilo && (
+                        <span className="text-xs text-red-600">Selecione o estilo antes de enviar o áudio.</span>
+                      )}
+                    </div>
+                    <div className="flex justify-end mt-2">
+                      <button
+                        type="button"
+                        className="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-red-400"
+                        onClick={() => setDemos(demos.filter((_, i) => i !== idx))}
+                        aria-label="Remover demo"
+                      >Remover</button>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="mt-2 px-3 py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  onClick={() => setDemos([...demos, { estilo: '', url: '' }])}
+                >Adicionar nova demo</button>
               </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">

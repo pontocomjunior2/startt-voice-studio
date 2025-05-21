@@ -63,7 +63,7 @@ app.post('/api/upload/avatar', uploadAvatar.single('avatar'), (req, res) => {
   return;
 });
 
-// Upload de demo de áudio do locutor
+// Upload de demo de áudio do locutor (agora com nome customizado)
 const demoStorage = multer.diskStorage({
   destination: function (req, file, cb) {
     const uploadPath = path.join(__dirname, '../public/uploads/demos');
@@ -71,9 +71,15 @@ const demoStorage = multer.diskStorage({
     cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
+    // Receber nome do locutor e estilo via body ou query
+    let nomeLocutor = req.body.nomeLocutor || req.query.nomeLocutor || 'locutor';
+    let estilo = req.body.estilo || req.query.estilo || 'estilo';
+    // Slugify para evitar caracteres inválidos
+    nomeLocutor = String(nomeLocutor).toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '');
+    estilo = String(estilo).toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '');
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const ext = path.extname(file.originalname);
-    cb(null, `demo-${uniqueSuffix}${ext}`);
+    cb(null, `${nomeLocutor}-${estilo}-${uniqueSuffix}${ext}`);
   }
 });
 const uploadDemo = multer({
@@ -84,20 +90,53 @@ const uploadDemo = multer({
   }
 });
 
-app.post('/api/upload/demo', uploadDemo.single('demo'), (req, res) => {
+app.post('/api/upload/demo', uploadDemo.single('demo'), async (req, res) => {
   if (!req.file) {
     res.status(400).json({ message: 'Nenhum arquivo enviado.' });
     return;
   }
+  if (!supabase) {
+    res.status(500).json({ message: 'Supabase não configurado no backend.' });
+    return;
+  }
   const url = `/uploads/demos/${req.file.filename}`;
-  res.status(200).json({ url });
-  return;
+  const nomeLocutor = req.body.nomeLocutor || req.query.nomeLocutor;
+  const estilo = req.body.estilo || req.query.estilo;
+  if (!nomeLocutor || !estilo) {
+    res.status(400).json({ message: 'nomeLocutor e estilo são obrigatórios.' });
+    return;
+  }
+  try {
+    const { data: locutores, error: locutorError } = await supabase
+      .from('locutores')
+      .select('id')
+      .ilike('nome', nomeLocutor);
+    if (locutorError || !locutores || locutores.length === 0) {
+      res.status(404).json({ message: 'Locutor não encontrado para nome informado.' });
+      return;
+    }
+    const locutor_id = locutores[0].id;
+    const { error: demoError } = await supabase
+      .from('locutor_demos')
+      .insert({
+        locutor_id,
+        estilo,
+        url,
+        data_criacao: new Date().toISOString(),
+      });
+    if (demoError) {
+      res.status(500).json({ message: 'Erro ao salvar demo no banco.', details: demoError.message });
+      return;
+    }
+    res.status(200).json({ url, nomeLocutor, estilo });
+  } catch (err) {
+    res.status(500).json({ message: 'Erro inesperado ao salvar demo.', details: err.message });
+  }
 });
 // ================= FIM DAS ROTAS DE UPLOAD =================
 
-// Somente após as rotas de upload, adicione body parsers globais se necessário
-// app.use(express.json());
-// app.use(express.urlencoded({ extended: true }));
+// Adicionar body parser JSON para rotas de API que recebem JSON
+app.use(express.json());
 
 // Configuração do Multer para armazenamento de arquivos
 const storage = multer.diskStorage({
@@ -399,6 +438,60 @@ app.post('/api/revisoes/processar-upload/:clientUsername', (req, res) => { // MO
 });
 
 // --- FIM NOVA ROTA PARA UPLOAD DE REVISÕES ---
+
+// GET demos de um locutor
+app.get('/api/locutor/:id/demos', async (req, res) => {
+  const locutor_id = req.params.id;
+  if (!supabase) {
+    res.status(500).json({ message: 'Supabase não configurado no backend.' });
+    return;
+  }
+  try {
+    const { data, error } = await supabase
+      .from('locutor_demos')
+      .select('id, estilo, url, data_criacao')
+      .eq('locutor_id', locutor_id)
+      .order('data_criacao', { ascending: false });
+    if (error) {
+      res.status(500).json({ message: 'Erro ao buscar demos.', details: error.message });
+      return;
+    }
+    res.status(200).json({ demos: data });
+  } catch (err) {
+    res.status(500).json({ message: 'Erro inesperado ao buscar demos.', details: err.message });
+  }
+});
+
+// POST criar demo para locutor
+app.post('/api/locutor/:id/demos', async (req, res) => {
+  const locutor_id = req.params.id;
+  const { estilo, url } = req.body;
+  if (!supabase) {
+    res.status(500).json({ message: 'Supabase não configurado no backend.' });
+    return;
+  }
+  if (!locutor_id || !estilo || !url) {
+    res.status(400).json({ message: 'locutor_id, estilo e url são obrigatórios.' });
+    return;
+  }
+  try {
+    const { error } = await supabase
+      .from('locutor_demos')
+      .insert({
+        locutor_id,
+        estilo,
+        url,
+        data_criacao: new Date().toISOString(),
+      });
+    if (error) {
+      res.status(500).json({ message: 'Erro ao salvar demo.', details: error.message });
+      return;
+    }
+    res.status(200).json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Erro inesperado ao salvar demo.', details: err.message });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Servidor backend rodando na porta ${PORT}`);

@@ -184,7 +184,18 @@ function GravarLocucaoPage() {
         .order('nome');
       
       if (locutoresError) throw locutoresError;
-      setLocutores(locutoresData || []);
+      // Buscar demos para cada locutor
+      const locutoresComDemos = await Promise.all((locutoresData || []).map(async (locutor) => {
+        try {
+          const res = await fetch(`http://localhost:3001/api/locutor/${locutor.id}/demos`);
+          if (!res.ok) return { ...locutor, demos: [] };
+          const json = await res.json();
+          return { ...locutor, demos: json.demos || [] };
+        } catch (e) {
+          return { ...locutor, demos: [] };
+        }
+      }));
+      setLocutores(locutoresComDemos);
 
       if (user.id) {
         const { data: favoritosData, error: favoritosError } = await supabase
@@ -993,19 +1004,42 @@ function GravarLocucaoPage() {
                                         </div>
                                       </CardHeader>
                                       <CardContent className="p-3 pt-0 text-center flex-grow flex flex-col justify-end">
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="w-full text-xs mt-auto"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handlePlayPreview(locutor);
-                                          }}
-                                          disabled={!locutor.amostra_audio_url}
-                                        >
-                                          <PlayCircle className={cn("mr-1.5 h-3.5 w-3.5", isPlayingPreview === locutor.id && "animate-pulse text-amber-500")} />
-                                          {isPlayingPreview === locutor.id ? 'Pausar' : 'Ouvir Demo'}
-                                        </Button>
+                                        {locutor.demos && locutor.demos.length > 0 ? (
+                                          <Popover>
+                                            <PopoverTrigger asChild>
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="w-full text-xs mt-auto"
+                                                onClick={e => e.stopPropagation()}
+                                              >
+                                                <PlayCircle className="mr-1.5 h-3.5 w-3.5" />
+                                                Ouvir Demos
+                                              </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-64 p-3 flex flex-col gap-3">
+                                              {locutor.demos.map((demo, i) => (
+                                                <div key={i} className="flex flex-col items-start">
+                                                  <span className="text-xs font-semibold text-muted-foreground mb-1">{demo.estilo || 'Estilo'}</span>
+                                                  <audio controls className="h-8 w-full" aria-label={`Demo de áudio estilo ${demo.estilo}`}>
+                                                    <source src={demo.url} />
+                                                    Seu navegador não suporta o elemento de áudio.
+                                                  </audio>
+                                                </div>
+                                              ))}
+                                            </PopoverContent>
+                                          </Popover>
+                                        ) : (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full text-xs mt-auto"
+                                            disabled
+                                          >
+                                            <PlayCircle className="mr-1.5 h-3.5 w-3.5" />
+                                            Sem Demo
+                                          </Button>
+                                        )}
                                       </CardContent>
                                     </CardContent>
                                   </Card>
