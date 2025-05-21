@@ -470,30 +470,6 @@ function DashboardPage() {
       </div>
 
       <Separator className="my-8" />
-
-      <section id="meu-perfil-resumo" className="mb-12">
-        <Card className="shadow-sm hover:shadow-md transition-shadow bg-card text-card-foreground">
-          <CardHeader>
-            <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16 border">
-                <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || user?.email || ''} />
-                <AvatarFallback>{(profile?.full_name || user?.email || 'U').substring(0,2).toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div>
-                <CardTitle className="text-xl">{profile?.full_name || user?.email || 'Usuário'}</CardTitle>
-                <CardDescription>Perfil de {profile?.role === 'cliente' ? 'Cliente' : profile?.role || 'Usuário'}</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-sm text-muted-foreground">Email: {userEmail}</p>
-            {profile?.username && <p className="text-sm text-muted-foreground">Username: {profile.username}</p>}
-          </CardContent>
-          <CardFooter className="flex justify-end gap-2">
-             <Button variant="outline" size="sm" onClick={() => navigate('/meu-perfil')}>Ver Perfil Completo</Button>
-          </CardFooter>
-        </Card>
-      </section>
     </div>
   );
 }
