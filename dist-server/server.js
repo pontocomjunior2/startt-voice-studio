@@ -19,11 +19,80 @@ console.log('[Servidor Express] SUPABASE_SERVICE_ROLE_KEY lido:', process.env.SU
 const app = express();
 const PORT = process.env.PORT || 3001; // Porta para o servidor backend
 // Habilitar CORS para todas as origens (em produção, restrinja para o seu domínio frontend)
-app.use(cors());
+app.use(cors({ origin: '*', credentials: true }));
 // Middleware para servir arquivos estáticos da pasta 'public' (onde os uploads estarão)
 // Isso é útil se você acessar o backend diretamente ou se o frontend buscar os arquivos por aqui.
 // O servidor Vite também servirá a pasta 'public' do projeto raiz.
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+// ================= ROTAS DE UPLOAD DEVEM VIR ANTES DE QUALQUER BODY PARSER =================
+// Upload de avatar do locutor
+const avatarStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadPath = path.join(__dirname, '../public/uploads/avatars');
+        if (!fs.existsSync(uploadPath))
+            fs.mkdirSync(uploadPath, { recursive: true });
+        cb(null, uploadPath);
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        cb(null, `avatar-${uniqueSuffix}${ext}`);
+    }
+});
+const uploadAvatar = multer({
+    storage: avatarStorage,
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/'))
+            cb(null, true);
+        else
+            cb(new Error('Apenas imagens são permitidas para avatar!'));
+    }
+});
+app.post('/api/upload/avatar', uploadAvatar.single('avatar'), (req, res) => {
+    if (!req.file) {
+        res.status(400).json({ message: 'Nenhum arquivo enviado.' });
+        return;
+    }
+    const url = `/uploads/avatars/${req.file.filename}`;
+    res.status(200).json({ url });
+    return;
+});
+// Upload de demo de áudio do locutor
+const demoStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadPath = path.join(__dirname, '../public/uploads/demos');
+        if (!fs.existsSync(uploadPath))
+            fs.mkdirSync(uploadPath, { recursive: true });
+        cb(null, uploadPath);
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        cb(null, `demo-${uniqueSuffix}${ext}`);
+    }
+});
+const uploadDemo = multer({
+    storage: demoStorage,
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('audio/'))
+            cb(null, true);
+        else
+            cb(new Error('Apenas arquivos de áudio são permitidos para demo!'));
+    }
+});
+app.post('/api/upload/demo', uploadDemo.single('demo'), (req, res) => {
+    if (!req.file) {
+        res.status(400).json({ message: 'Nenhum arquivo enviado.' });
+        return;
+    }
+    const url = `/uploads/demos/${req.file.filename}`;
+    res.status(200).json({ url });
+    return;
+});
+// ================= FIM DAS ROTAS DE UPLOAD =================
+// Somente após as rotas de upload, adicione body parsers globais se necessário
+// app.use(express.json());
+// app.use(express.urlencoded({ extended: true }));
 // Configuração do Multer para armazenamento de arquivos
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {

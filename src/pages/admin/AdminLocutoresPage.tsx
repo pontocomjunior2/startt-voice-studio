@@ -39,6 +39,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Link } from 'react-router-dom';
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { InputUploadImagemLocutor } from '@/components/admin/input-upload-imagem-locutor';
+import { InputUploadAudioLocutor } from '@/components/admin/input-upload-audio-locutor';
 
 // Interface para o tipo Locutor (ajuste conforme sua tabela)
 interface Locutor {
@@ -272,12 +274,26 @@ function AdminLocutoresPage() {
               <Textarea id="descricao-locutor" value={descricao} onChange={(e) => setDescricao(e.target.value)} className="col-span-3" rows={3} disabled={isSaving} />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="avatar-url-locutor" className="text-right">URL Avatar</Label>
-              <Input id="avatar-url-locutor" value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} className="col-span-3" placeholder="https://exemplo.com/avatar.webp" disabled={isSaving} />
+              <Label htmlFor="avatar-url-locutor" className="text-right">Avatar</Label>
+              <div className="col-span-3">
+                <InputUploadImagemLocutor
+                  name="avatar-url-locutor"
+                  label="Avatar do Locutor"
+                  value={avatarUrl}
+                  onChange={setAvatarUrl}
+                />
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="amostra-url-locutor" className="text-right">URL Amostra Áudio</Label>
-              <Input id="amostra-url-locutor" value={amostraAudioUrl} onChange={(e) => setAmostraAudioUrl(e.target.value)} className="col-span-3" placeholder="https://exemplo.com/amostra.mp3" disabled={isSaving} />
+              <Label htmlFor="amostra-url-locutor" className="text-right">Amostra de Áudio</Label>
+              <div className="col-span-3">
+                <InputUploadAudioLocutor
+                  name="amostra-url-locutor"
+                  label="Amostra de Áudio"
+                  value={amostraAudioUrl}
+                  onChange={setAmostraAudioUrl}
+                />
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="ativo-locutor" className="text-right">Ativo</Label>
