@@ -32,7 +32,7 @@ export const RevisaoListItem: React.FC<RevisaoListItemProps> = ({
   const isInfoSolicitada = solicitacao.statusRevisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_PELO_ADMIN;
 
   return (
-    <li className="border border-border p-4 rounded-lg shadow-sm bg-card">
+    <li className="p-4 rounded-lg shadow-sm bg-card">
       <div className="flex justify-between items-start mb-1">
         <h4 className="text-md font-semibold text-foreground">
           Solicitação de Revisão {numeroSolicitacao}
@@ -83,7 +83,7 @@ export const RevisaoListItem: React.FC<RevisaoListItemProps> = ({
 
       {/* Feedback do admin para solicitações NEGADAS */} 
       {solicitacao.statusRevisao === REVISAO_STATUS_ADMIN.NEGADA && solicitacao.adminFeedback && (
-        <div className="mb-3 p-3 bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-md">
+        <div className="mb-3 p-3 bg-orange-50 dark:bg-orange-900/30 rounded-md">
           <p className="text-sm font-semibold text-orange-700 dark:text-orange-300 mb-1">
             Feedback do Atendimento sobre esta solicitação:
           </p>
@@ -114,7 +114,7 @@ export const RevisaoListItem: React.FC<RevisaoListItemProps> = ({
           </h5>
           <ul className="space-y-3">
             {solicitacao.versoesAudio.map((versao: VersaoAudioRevisadoCliente, idxVer: number) => (
-              <li key={versao.id || idxVer} className="border-t border-border pt-3 first:border-t-0 first:pt-0">
+              <li key={versao.id || idxVer} className="pt-3 first:pt-0">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <p className="text-sm font-medium text-foreground">
@@ -159,7 +159,7 @@ export const RevisaoListItem: React.FC<RevisaoListItemProps> = ({
        solicitacao.statusRevisao !== REVISAO_STATUS_ADMIN.NEGADA &&
        solicitacao.statusRevisao !== REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN && 
        (!solicitacao.versoesAudio || solicitacao.versoesAudio.length === 0) && (
-          <div className="mt-3 text-sm text-muted-foreground italic border-t border-border pt-3">
+          <div className="mt-3 text-sm text-muted-foreground italic pt-3">
             Revisão em processamento pelo atendimento.
           </div>
       )}

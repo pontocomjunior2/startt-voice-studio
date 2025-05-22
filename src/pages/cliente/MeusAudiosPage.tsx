@@ -169,7 +169,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
         <div className="flex-grow overflow-y-auto pr-2 space-y-6 py-4">
           {/* Destaque para Solicitação de Informação Pendente */}
           {solicitacaoPendenteInfo && (
-            <Card className="mb-6 bg-card text-card-foreground">
+            <Card className="shadow-sm rounded-lg bg-card text-card-foreground border-none">
               <CardHeader>
                 <CardTitle className="text-lg text-yellow-700 dark:text-yellow-400 flex items-center">
                   <AlertTriangle className="h-5 w-5 mr-2 shrink-0" />
@@ -182,7 +182,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
               <CardContent className="space-y-3">
                 <div>
                   <p className="text-sm font-semibold text-muted-foreground mb-1">Mensagem do Administrador:</p>
-                  <div className="p-3 bg-background rounded-md text-sm whitespace-pre-wrap border min-h-[60px]">
+                  <div className="p-3 bg-muted/30 dark:bg-neutral-800 rounded-md text-sm whitespace-pre-wrap border-none">
                     {solicitacaoPendenteInfo.adminFeedback || "Nenhuma mensagem específica fornecida."}
                   </div>
                 </div>
@@ -195,7 +195,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
           )}
 
           {/* Nova Seção: Detalhes do Pedido */}
-          <Card className="mb-6 bg-card text-card-foreground">
+          <Card className="shadow-sm rounded-lg bg-card text-card-foreground border-none">
             <CardHeader>
               <CardTitle className="text-xl">Informações do Pedido</CardTitle>
             </CardHeader>
@@ -240,14 +240,14 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
 
               <div className="pt-2">
                 <h4 className="text-sm font-medium text-muted-foreground mb-1">Orientações (Briefing):</h4>
-                <div className="p-3 bg-muted/30 dark:bg-neutral-800 rounded-md max-h-32 overflow-y-auto text-xs whitespace-pre-wrap border">
+                <div className="p-3 bg-muted/30 dark:bg-neutral-800 rounded-md max-h-32 overflow-y-auto text-xs whitespace-pre-wrap border-none">
                   {pedido.orientacoes || <span className="italic text-muted-foreground">Nenhuma orientação fornecida.</span>}
                 </div>
               </div>
 
               <div className="pt-2">
                 <h4 className="text-sm font-medium text-muted-foreground mb-1">Roteiro Completo:</h4>
-                <div className="p-3 bg-muted/30 dark:bg-neutral-800 rounded-md max-h-40 overflow-y-auto text-xs whitespace-pre-wrap border">
+                <div className="p-3 bg-muted/30 dark:bg-neutral-800 rounded-md max-h-40 overflow-y-auto text-xs whitespace-pre-wrap border-none">
                   {pedido.texto_roteiro || <span className="italic text-muted-foreground">Nenhum roteiro fornecido.</span>}
                 </div>
               </div>
@@ -280,13 +280,13 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
           )}
 
           {historicoRevisoes && historicoRevisoes.length > 0 && (
-            <Card className="bg-card text-card-foreground">
+            <Card className="shadow-sm rounded-lg bg-card text-card-foreground border-none">
               <CardHeader>
                 <CardTitle className="text-xl">Histórico de Solicitações de Revisão</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 {historicoRevisoes.map((revisao, index) => (
-                  <div key={revisao.id} className={`p-4 rounded-lg shadow-sm bg-card border border-border ${index < historicoRevisoes.length - 1 ? 'mb-6 border-b' : ''}`}>
+                  <div key={revisao.id} className={`p-4 rounded-lg shadow-sm bg-card ${index < historicoRevisoes.length - 1 ? 'mb-6' : ''}`}>
                     <div className="flex justify-between items-center mb-2">
                       <h4 className="font-semibold text-md">
                         Solicitação de Revisão (#{revisao.id.substring(0, 8)})
@@ -319,7 +319,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
                     {revisao.descricaoCliente && (
                       <div className="mt-3">
                         <p className="text-sm font-medium text-muted-foreground mb-1">Sua solicitação (descrição):</p>
-                        <div className="p-3 bg-muted/50 rounded-md text-sm whitespace-pre-wrap border">
+                        <div className="p-3 bg-muted/50 rounded-md text-sm whitespace-pre-wrap border-none">
                           {revisao.descricaoCliente}
                         </div>
                       </div>
@@ -327,7 +327,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
 
                     {/* Feedback do Admin OU Resposta do Cliente sobre o Feedback do Admin */}
                     {revisao.adminFeedback && (revisao.statusRevisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE || revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU) && (
-                      <div className="mt-4 p-4 bg-amber-50 dark:bg-blue-900/30 rounded-lg border border-amber-200 dark:border-blue-700 shadow-sm">
+                      <div className="mt-4 p-4 bg-amber-50 dark:bg-blue-900/30 rounded-lg shadow-sm">
                         <p className="text-sm font-semibold text-amber-700 dark:text-blue-300 mb-1">
                           {revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU ? "Contexto (Pergunta original do Administrador):" : "Feedback do Administrador (para esta solicitação):" }
                         </p>
@@ -338,7 +338,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
                     )}
                     
                     {revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU && revisao.cliente_info_response_details && (
-                      <div className="mt-3 p-4 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-700 shadow-sm">
+                      <div className="mt-3 p-4 bg-green-50 dark:bg-green-900/30 rounded-md shadow-sm">
                         <p className="text-sm font-semibold text-green-700 dark:text-green-300 mb-1">
                           Sua Resposta (enviada em: {formatarDataHora(revisao.data_resposta_cliente)})
                         </p>
@@ -353,7 +353,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
                         <h5 className="text-md font-semibold text-foreground mb-2">Áudios Revisados Entregues:</h5>
                         <ul className="space-y-3">
                           {revisao.versoesAudio.map((versao) => (
-                            <li key={versao.id} className="border-t border-border pt-3">
+                            <li key={versao.id} className="pt-3">
                               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                 <div>
                                   <p className="text-sm font-medium text-foreground">Versão {versao.numeroVersao}</p>
@@ -864,7 +864,7 @@ function MeusAudiosPage() {
       </div>
 
       {/* Filtros */}
-      <div className="mb-6 p-4 border rounded-lg shadow-sm">
+      <div className="mb-6 p-4 rounded-lg shadow-sm bg-card">
         <h2 className="text-xl font-semibold mb-4 text-gray-700">Filtrar Pedidos</h2>
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
           {/* Filtro de Status */}
@@ -936,8 +936,8 @@ function MeusAudiosPage() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="shadow-sm bg-card text-card-foreground">
-            <CardContent className="text-center py-16">
+          <Card className="shadow-sm bg-card text-card-foreground m-0 border-none">
+            <CardContent className="text-center py-16 px-0">
               <ListMusic className="h-16 w-16 text-muted-foreground mx-auto mb-6" />
               <h3 className="text-2xl font-semibold text-foreground mb-2">Nenhum Pedido Ainda</h3>
               <p className="text-muted-foreground mb-6 max-w-md mx-auto">
@@ -950,7 +950,7 @@ function MeusAudiosPage() {
           </Card>
         )
       ) : (
-        <div className="overflow-x-auto relative rounded-lg shadow-md bg-card overflow-hidden">
+        <div className="overflow-x-auto relative rounded-lg shadow-md bg-card overflow-hidden border-none">
           <Table>
             <TableCaption className="py-4 text-sm text-muted-foreground">
               Seu histórico completo de pedidos de áudio. 

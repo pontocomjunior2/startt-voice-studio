@@ -102,7 +102,7 @@ export function LoginForm({ onSuccess, showConfirmEmailAlert, confirmEmailMessag
           </div>
         </div>
       )}
-      <Card className="w-full max-w-md shadow-lg rounded-2xl border border-border/40">
+      <Card className="w-full max-w-md shadow-lg rounded-2xl border-none">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardHeader className="pb-2">

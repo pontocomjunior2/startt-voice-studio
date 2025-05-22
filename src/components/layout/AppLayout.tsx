@@ -185,7 +185,7 @@ const AppLayout: React.FC = () => {
       </aside>
 
       <div className="lg:pl-2 lg:pt-2 bg-background text-foreground flex-1 overflow-y-auto">
-        <div className="flex-1 min-h-screen lg:rounded-tl-xl border border-border dark:border-neutral-800 bg-background text-foreground overflow-y-auto">
+        <div className="flex-1 min-h-screen lg:rounded-tl-xl border-none bg-background text-foreground overflow-y-auto">
           <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-card text-card-foreground px-4 sm:px-6">
             <div className="flex items-center gap-4"> {/* Ajustado gap se necessário */}
               {/* Botão Menu Mobile (sempre visível em mobile, some em md) */}

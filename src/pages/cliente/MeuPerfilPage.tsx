@@ -87,7 +87,7 @@ function MeuPerfilPage() {
 
       <div className="grid gap-6 md:grid-cols-1">
         {/* Card de Informações Pessoais */}
-        <Card className="bg-card text-card-foreground">
+        <Card className="bg-card text-card-foreground border-none">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UserCircle2 className="h-5 w-5" /> Informações Pessoais
@@ -95,9 +95,9 @@ function MeuPerfilPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col items-center space-y-4 mb-6">
-              <Avatar className="h-24 w-24">
+              <Avatar className="h-24 w-24 bg-background">
                 <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || profile?.username || 'Avatar'} />
-                <AvatarFallback className="text-3xl">
+                <AvatarFallback className="text-3xl text-white bg-background">
                   {profile?.full_name?.charAt(0).toUpperCase() || profile?.username?.charAt(0).toUpperCase() || 'U'}
                 </AvatarFallback>
               </Avatar>
@@ -106,19 +106,19 @@ function MeuPerfilPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="fullName">Nome Completo</Label>
-                <Input id="fullName" value={profile?.full_name || 'Não informado'} readOnly className="mt-1 bg-muted/50 border-none" />
+                <Input id="fullName" value={profile?.full_name || 'Não informado'} readOnly className="mt-1 bg-background text-foreground placeholder:text-muted-foreground border-none" />
               </div>
               <div>
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" value={user?.email || 'Não informado'} readOnly className="mt-1 bg-muted/50 border-none" />
+                <Input id="email" value={user?.email || 'Não informado'} readOnly className="mt-1 bg-background text-foreground placeholder:text-muted-foreground border-none" />
               </div>
               <div>
                 <Label htmlFor="username">Nome de Usuário</Label>
-                <Input id="username" value={profile?.username || 'Não informado'} readOnly className="mt-1 bg-muted/50 border-none" />
+                <Input id="username" value={profile?.username || 'Não informado'} readOnly className="mt-1 bg-background text-foreground placeholder:text-muted-foreground border-none" />
               </div>
               <div>
                 <Label htmlFor="joinedDate">Membro Desde</Label>
-                <Input id="joinedDate" value={profile?.updated_at ? new Date(profile.updated_at).toLocaleDateString('pt-BR') : 'Não informado'} readOnly className="mt-1 bg-muted/50 border-none" />
+                <Input id="joinedDate" value={profile?.updated_at ? new Date(profile.updated_at).toLocaleDateString('pt-BR') : 'Não informado'} readOnly className="mt-1 bg-background text-foreground placeholder:text-muted-foreground border-none" />
               </div>
             </div>
           </CardContent>
@@ -128,7 +128,7 @@ function MeuPerfilPage() {
         </Card>
 
         {/* Card de Conta e Créditos */}
-        <Card className="bg-card text-card-foreground">
+        <Card className="bg-card text-card-foreground border-none">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Wallet className="h-5 w-5" /> Minha Conta e Créditos
@@ -150,7 +150,7 @@ function MeuPerfilPage() {
         </Card>
 
         {/* Card de Segurança (com alteração de senha) */}
-        <Card className="bg-card text-card-foreground">
+        <Card className="bg-card text-card-foreground border-none">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5" /> Segurança
@@ -181,6 +181,7 @@ function MeuPerfilPage() {
                       type="password"
                       {...register('newPassword')}
                       disabled={isUpdatingPassword}
+                      className="mt-1 bg-background text-foreground placeholder:text-muted-foreground border-none"
                     />
                     {errors.newPassword && <p className="text-sm text-destructive mt-1">{errors.newPassword.message}</p>}
                   </div>
@@ -191,6 +192,7 @@ function MeuPerfilPage() {
                       type="password"
                       {...register('confirmPassword')}
                       disabled={isUpdatingPassword}
+                      className="mt-1 bg-background text-foreground placeholder:text-muted-foreground border-none"
                     />
                     {errors.confirmPassword && <p className="text-sm text-destructive mt-1">{errors.confirmPassword.message}</p>}
                   </div>

@@ -138,7 +138,7 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
           {pedidoDisplay ? (
             <>
               {/* Detalhes do Pedido Principal - Usa pedidoDisplay */}
-              <Card className="shadow-sm border-border">
+              <Card className="shadow-sm border-none">
                 <CardHeader>
                   <CardTitle className="text-xl">Informações do Pedido Principal</CardTitle>
                 </CardHeader>
@@ -231,7 +231,7 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
                       const IconeStatus = statusInfo.icon;
 
                       return (
-                        <li key={solicitacao.id || idxSol} className="border border-border p-4 rounded-lg shadow-sm bg-card">
+                        <li key={solicitacao.id || idxSol} className="border-none p-4 rounded-lg shadow-sm bg-card">
                           <h4 className="text-md font-semibold text-foreground mb-1 flex justify-between items-center">
                             <span>
                               Solicitação de Revisão {historicoRevisoes.length - idxSol}

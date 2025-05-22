@@ -318,7 +318,7 @@ function DashboardPage() {
 
       <section id="estatisticas-cliente" className="mb-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground">
+          <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground border-none">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Meus Créditos</CardTitle>
               <Wallet className="h-5 w-5 text-startt-blue" />
@@ -329,7 +329,7 @@ function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground">
+          <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground border-none">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Pedidos</CardTitle>
               <ClipboardList className="h-5 w-5 text-startt-purple" />
@@ -340,7 +340,7 @@ function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground">
+          <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground border-none">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pendentes / Em Andamento</CardTitle>
               <Hourglass className="h-5 w-5 text-startt-blue" />
@@ -351,7 +351,7 @@ function DashboardPage() {
             </CardContent>
           </Card>
           
-          <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground">
+          <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground border-none">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pedidos Concluídos</CardTitle>
               <CheckCircle2 className="h-5 w-5 text-startt-purple" />
@@ -380,7 +380,7 @@ function DashboardPage() {
             ) : ultimosPedidos.length > 0 ? (
               <div className="space-y-3">
                 {ultimosPedidos.map((pedido) => (
-                  <Card key={pedido.id} className="p-4 hover:shadow-lg transition-shadow rounded-lg bg-card text-card-foreground">
+                  <Card key={pedido.id} className="p-4 hover:shadow-lg transition-shadow rounded-lg bg-card text-card-foreground border-none">
                     <Link to={`/meus-audios#pedido-${pedido.id}`} className="block">
                       <div className="flex justify-between items-center">
                         <div>
@@ -414,7 +414,7 @@ function DashboardPage() {
                 )}
               </div>
             ) : (
-              <Card className="p-6 flex flex-col items-center justify-center text-center rounded-lg bg-card text-card-foreground">
+              <Card className="p-6 flex flex-col items-center justify-center text-center rounded-lg bg-card text-card-foreground border-none">
                  <ListMusic className="h-12 w-12 text-muted-foreground mb-3" />
                 <p className="text-muted-foreground mb-2">Você ainda não realizou nenhum pedido.</p>
                 <Button onClick={() => navigate('/gravar-locucao')} size="sm">Criar Novo Áudio</Button>
@@ -435,7 +435,7 @@ function DashboardPage() {
             ) : locutoresFavoritosExibicao.length > 0 ? (
               <div className="space-y-3">
                 {locutoresFavoritosExibicao.map((locutor) => (
-                  <Card key={locutor.id} className="p-3 hover:shadow-lg transition-shadow rounded-lg bg-card text-card-foreground">
+                  <Card key={locutor.id} className="p-3 hover:shadow-lg transition-shadow rounded-lg bg-card text-card-foreground border-none">
                     <Link to={`/gravar-locucao?locutorId=${locutor.id}`} className="flex items-center space-x-3 group">
                       <Avatar className="h-12 w-12 border">
                         <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome} />
@@ -457,7 +457,7 @@ function DashboardPage() {
                 </div>
               </div>
             ) : (
-              <Card className="p-6 flex flex-col items-center justify-center text-center rounded-lg bg-card text-card-foreground">
+              <Card className="p-6 flex flex-col items-center justify-center text-center rounded-lg bg-card text-card-foreground border-none">
                 <User className="h-12 w-12 text-muted-foreground mb-3" />
                 <p className="text-muted-foreground mb-2">Você ainda não favoritou locutores.</p>
                 <Button variant="outline" size="sm" asChild>

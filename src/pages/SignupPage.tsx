@@ -168,7 +168,7 @@ function SignupPage() {
                     loading="lazy"
                   />
                 </div>
-                <Card className="w-full max-w-md shadow-lg rounded-2xl border border-border/40 p-2 sm:p-4 max-h-[90vh] overflow-y-auto flex flex-col justify-center">
+                <Card className="w-full max-w-md shadow-lg rounded-2xl border-none p-2 sm:p-4 max-h-[90vh] overflow-y-auto flex flex-col justify-center">
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)}>
                       <CardHeader className="pb-1">

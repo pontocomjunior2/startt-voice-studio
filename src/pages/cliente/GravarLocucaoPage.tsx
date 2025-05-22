@@ -804,7 +804,7 @@ function GravarLocucaoPage() {
     <div className="container mx-auto px-4 py-8 md:py-12">
       <audio ref={audioPreviewRef} className="hidden" />
       
-      <Card className="w-full max-w-3xl mx-auto shadow-xl border-border/40 bg-neutral-100 dark:bg-neutral-900 text-gray-900 dark:text-gray-100">
+      <Card className="w-full max-w-3xl mx-auto shadow-xl border-none bg-card text-card-foreground">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">Novo Áudio</CardTitle>
           <CardDescription className="text-lg text-startt-blue">
@@ -865,9 +865,9 @@ function GravarLocucaoPage() {
                               <FormLabel 
                                 htmlFor="tipoOff" 
                                 className={cn(
-                                  "flex flex-col items-center justify-center p-8 rounded-lg border-2 transition-all duration-200 shadow-md bg-card text-card-foreground",
-                                  field.value === 'off' ? "bg-gradient-to-r from-startt-blue to-startt-purple text-white border-startt-blue" : "border-muted",
-                                  "hover:bg-startt-blue/10 focus:outline-none focus:ring-2 focus:ring-startt-blue/50",
+                                  "flex flex-col items-center justify-center p-8 rounded-lg transition-all duration-200 shadow-md bg-background text-foreground border-none",
+                                  field.value === 'off' ? "bg-gradient-to-r from-startt-blue to-startt-purple text-white" : "",
+                                  "hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-startt-blue/50",
                                   "disabled:opacity-50 disabled:cursor-not-allowed"
                                 )}
                               >
@@ -882,9 +882,9 @@ function GravarLocucaoPage() {
                               <FormLabel 
                                 htmlFor="tipoProduzido" 
                                 className={cn(
-                                  "flex flex-col items-center justify-center p-8 rounded-lg border-2 transition-all duration-200 shadow-md bg-card text-card-foreground",
-                                  field.value === 'produzido' ? "bg-gradient-to-r from-startt-blue to-startt-purple text-white border-startt-blue" : "border-muted",
-                                  "hover:bg-startt-blue/10 focus:outline-none focus:ring-2 focus:ring-startt-blue/50",
+                                  "flex flex-col items-center justify-center p-8 rounded-lg transition-all duration-200 shadow-md bg-background text-foreground border-none",
+                                  field.value === 'produzido' ? "bg-gradient-to-r from-startt-blue to-startt-purple text-white" : "",
+                                  "hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-startt-blue/50",
                                   "disabled:opacity-50 disabled:cursor-not-allowed"
                                 )}
                               >
@@ -1043,9 +1043,9 @@ function GravarLocucaoPage() {
                                     >
                                       <CardHeader className="p-3 flex-shrink-0">
                                         <div className="flex items-center space-x-3">
-                                          <Avatar className="h-12 w-12 border-2 border-muted">
+                                          <Avatar className="h-12 w-12 border-2 border-muted bg-background">
                                             <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome} />
-                                            <AvatarFallback className="text-xs">
+                                            <AvatarFallback className="text-xs text-white bg-background">
                                               {locutor.nome.substring(0, 2).toUpperCase()}
                                             </AvatarFallback>
                                           </Avatar>
@@ -1165,7 +1165,7 @@ function GravarLocucaoPage() {
               {/* ETAPA 3: FORMULÁRIO DE TEXTO E DETALHES */}
               {currentStep === 3 && selectedLocutor && (
                 <div className="space-y-6 animate-fadeIn">
-                  <div className="text-center mb-6 p-4 border rounded-md bg-muted/30">
+                  <div className="text-center mb-6 p-4 rounded-md bg-muted/30">
                     <h3 className="text-xl font-semibold">Detalhes do Áudio</h3>
                     <p className="text-sm text-muted-foreground">
                       Locutor: <span className="font-semibold text-startt-blue">{selectedLocutor.nome}</span> | Tipo: <span className="font-semibold text-startt-blue">{getValues("tipoAudio") === "off" ? "Áudio em OFF" : "Áudio Produzido"}</span>
@@ -1321,7 +1321,7 @@ function GravarLocucaoPage() {
                   </div>
 
                   <Separator className="my-6" />
-                  <div className="p-4 border rounded-lg bg-muted/40 shadow-sm">
+                  <div className="p-4 rounded-lg bg-muted/40 shadow-sm">
                     <div className="flex flex-col sm:flex-row justify-around sm:items-center space-y-4 sm:space-y-0">
                         <div className='text-center sm:text-left px-2'>
                             <p className="text-sm text-muted-foreground mb-1">Tempo Estimado:</p>

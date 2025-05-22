@@ -134,7 +134,19 @@ const LocutoresPage: React.FC = () => {
               const isFavorito = idsLocutoresFavoritos.includes(locutor.id);
               const amostras = amostrasPorLocutor[locutor.id] || [];
               return (
-                <Card key={locutor.id} className="flex flex-col overflow-hidden transform hover:scale-[1.02] transition-transform duration-300 ease-out bg-card">
+                <Card key={locutor.id} className="flex flex-col overflow-hidden transform hover:scale-[1.02] transition-transform duration-300 ease-out bg-card relative">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => toggleFavorito(locutor.id, isFavorito)}
+                    className={cn(
+                      "absolute top-3 right-3 z-10 text-muted-foreground hover:text-startt-purple bg-background/80 backdrop-blur-sm",
+                      isFavorito && "text-startt-purple fill-current"
+                    )}
+                    aria-label={isFavorito ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                  >
+                    <Heart className="h-5 w-5" />
+                  </Button>
                   <div className="p-4 flex items-center space-x-4">
                     <Avatar className="h-16 w-16 md:h-20 md:w-20">
                       <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome} />
@@ -154,20 +166,11 @@ const LocutoresPage: React.FC = () => {
                         size="sm"
                         className="mt-2"
                         onClick={() => setModalAmostrasLocutorId(locutor.id)}
-                        aria-label={`Ouvir amostras de ${locutor.nome}`}
+                        aria-label={`Ouvir demos de ${locutor.nome}`}
                       >
-                        <PlayCircle className="mr-2 h-4 w-4" /> Ouvir Amostras
+                        <PlayCircle className="mr-2 h-4 w-4" /> Ouvir Demos
                       </Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => toggleFavorito(locutor.id, isFavorito)}
-                      className={cn("text-muted-foreground hover:text-startt-purple", isFavorito && "text-startt-purple fill-current")}
-                      aria-label={isFavorito ? "Remover dos favoritos" : "Adicionar aos favoritos"}
-                    >
-                      <Heart className="h-5 w-5" />
-                    </Button>
                   </div>
                   <CardFooter className="p-4 mt-auto">
                     <Button asChild className="w-full bg-gradient-to-r from-startt-blue to-startt-purple text-primary-foreground hover:opacity-90">
@@ -181,11 +184,13 @@ const LocutoresPage: React.FC = () => {
                     <Dialog open onOpenChange={() => setModalAmostrasLocutorId(null)}>
                       <DialogContent className="max-w-lg w-full">
                         <DialogHeader>
-                          <DialogTitle>Amostras de {locutor.nome}</DialogTitle>
+                          <DialogTitle className="bg-clip-text text-transparent bg-gradient-to-r from-startt-blue to-startt-purple">
+                            Demos de {locutor.nome}
+                          </DialogTitle>
                           <DialogDescription>
                             {amostras.length > 0
-                              ? 'Ouça as diferentes amostras de voz deste locutor.'
-                              : 'Nenhuma amostra disponível para este locutor.'}
+                              ? 'Ouça as diferentes demos de voz deste locutor.'
+                              : 'Nenhuma demo disponível para este locutor.'}
                           </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4">

@@ -909,7 +909,7 @@ function AdminDashboardPage() {
             }
 
             return (
-              <Card key={`stat-${index}`} className={`shadow-lg hover:shadow-xl transition-shadow rounded-2xl bg-card text-card-foreground border-2 border-startt-blue`}>
+              <Card key={`stat-${index}`} className={`shadow-lg hover:shadow-xl transition-shadow rounded-2xl bg-card text-card-foreground border-none`}>
                 {cardInfo.isLoading || (cardInfo.title === "Correções Pendentes" && isLoadingStats) || (cardInfo.title === "Créditos (Clientes)" && cardInfo.customLoading) ? (
                   <CardContent className="flex flex-col items-center justify-center p-6">
                     <Skeleton className="h-12 w-12 rounded-full mb-3" /> 
@@ -952,7 +952,7 @@ function AdminDashboardPage() {
         <Separator className="my-4 bg-neutral-800" />
 
         {/* Seção de Filtros */}
-        <div className="mb-6 p-4 border border-neutral-800 rounded-lg shadow-sm bg-card">
+        <div className="mb-6 p-4 border-none rounded-lg shadow-sm bg-card">
           <h2 className="text-xl font-semibold mb-4 text-gray-700">Filtrar Pedidos</h2>
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-end"> {/* Alterado para items-end para alinhar botão com inputs */}
             {/* Filtro de Status */}
@@ -1027,7 +1027,7 @@ function AdminDashboardPage() {
         </div>
 
         {/* Tabela de Pedidos Unificada */}
-        <Card className="mb-6 admin-table-fix-dark-border border border-neutral-800">
+        <Card className="mb-6 admin-table-fix-dark-border border-none">
           <CardHeader>
             <CardTitle className="flex items-center">
               <ListChecks className="mr-2 h-5 w-5 text-amber-500 dark:text-blue-500" />
