@@ -321,7 +321,7 @@ function DashboardPage() {
           <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Meus Créditos</CardTitle>
-              <Wallet className="h-5 w-5 text-amber-500" />
+              <Wallet className="h-5 w-5 text-startt-blue" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-foreground">{userSaldoCreditosCalculado.toLocaleString('pt-BR')}</div>
@@ -332,7 +332,7 @@ function DashboardPage() {
           <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Pedidos</CardTitle>
-              <ClipboardList className="h-5 w-5 text-amber-500" />
+              <ClipboardList className="h-5 w-5 text-startt-purple" />
             </CardHeader>
             <CardContent>
               {loadingStats ? <Skeleton className="h-8 w-1/2 mb-1" /> : <div className="text-2xl font-bold text-foreground">{totalPedidos}</div>}
@@ -343,7 +343,7 @@ function DashboardPage() {
           <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pendentes / Em Andamento</CardTitle>
-              <Hourglass className="h-5 w-5 text-amber-500" />
+              <Hourglass className="h-5 w-5 text-startt-blue" />
             </CardHeader>
             <CardContent>
               {loadingStats ? <Skeleton className="h-8 w-1/2 mb-1" /> : <div className="text-2xl font-bold text-foreground">{pedidosPendentes}</div>}
@@ -354,7 +354,7 @@ function DashboardPage() {
           <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pedidos Concluídos</CardTitle>
-              <CheckCircle2 className="h-5 w-5 text-amber-500" />
+              <CheckCircle2 className="h-5 w-5 text-startt-purple" />
             </CardHeader>
             <CardContent>
               {loadingStats ? <Skeleton className="h-8 w-1/2 mb-1" /> : <div className="text-2xl font-bold text-foreground">{pedidosConcluidos}</div>}

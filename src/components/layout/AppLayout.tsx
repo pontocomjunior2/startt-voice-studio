@@ -76,6 +76,7 @@ const AppLayout: React.FC = () => {
       { href: '/dashboard', label: 'Meu Painel', icon: LayoutDashboard, roles: ['cliente'] },
       { href: '/gravar-locucao', label: 'Novo Áudio', icon: PlusCircle, roles: ['cliente'] },
       { href: '/meus-audios', label: 'Meus Áudios', icon: ListMusic, roles: ['cliente'] },
+      { href: '/locutores', label: 'Locutores', icon: Voicemail, roles: ['cliente'] },
       { href: '/meu-perfil', label: 'Meu Perfil', icon: UserIcon, roles: ['cliente'] },
       { href: '/historico-creditos', label: 'Histórico de Créditos', icon: Clock, roles: ['cliente'] },
     ];

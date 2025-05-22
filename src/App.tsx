@@ -17,6 +17,7 @@ import MeusAudiosPage from './pages/cliente/MeusAudiosPage';
 import MeuPerfilPage from './pages/cliente/MeuPerfilPage';
 import PedidoSucessoPage from './pages/cliente/PedidoSucessoPage';
 import HistoricoCreditosPage from './pages/cliente/historico-creditos-page';
+import LocutoresPage from './pages/cliente/LocutoresPage';
 
 function App() {
   // Remover useAuth daqui, pois AuthRedirector cuidará da lógica inicial
@@ -118,6 +119,15 @@ function App() {
           element={
             <ProtectedRoute requiredRole="admin">
               <AdminUsuariosPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route 
+          path="/locutores"
+          element={
+            <ProtectedRoute>
+              <LocutoresPage />
             </ProtectedRoute>
           }
         />
