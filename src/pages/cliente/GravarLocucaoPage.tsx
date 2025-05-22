@@ -806,9 +806,9 @@ function GravarLocucaoPage() {
       
       <Card className="w-full max-w-3xl mx-auto shadow-xl border-border/40 bg-neutral-100 dark:bg-neutral-900 text-gray-900 dark:text-gray-100">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">Gravar Nova Locução</CardTitle>
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">Novo Áudio</CardTitle>
           <CardDescription className="text-lg text-startt-blue">
-            Siga os passos para criar seu pedido de locução.
+            Siga os passos para criar seu pedido.
           </CardDescription>
         </CardHeader>
 
@@ -1166,7 +1166,7 @@ function GravarLocucaoPage() {
               {currentStep === 3 && selectedLocutor && (
                 <div className="space-y-6 animate-fadeIn">
                   <div className="text-center mb-6 p-4 border rounded-md bg-muted/30">
-                    <h3 className="text-xl font-semibold">Detalhes da Locução</h3>
+                    <h3 className="text-xl font-semibold">Detalhes do Áudio</h3>
                     <p className="text-sm text-muted-foreground">
                       Locutor: <span className="font-semibold text-startt-blue">{selectedLocutor.nome}</span> | Tipo: <span className="font-semibold text-startt-blue">{getValues("tipoAudio") === "off" ? "Áudio em OFF" : "Áudio Produzido"}</span>
                     </p>
@@ -1223,7 +1223,7 @@ function GravarLocucaoPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="flex justify-between items-center">
-                          <span>Roteiro da Locução</span>
+                          <span>Roteiro do Áudio</span>
                           <span className="text-xs text-muted-foreground">
                             {(getValues("scriptText") || "").split(/\s+/).filter(Boolean).length} palavras
                           </span>

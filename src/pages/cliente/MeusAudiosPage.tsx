@@ -213,7 +213,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
                 <div className="font-medium text-muted-foreground">Locutor:</div>
                 <div className="md:col-span-2">{pedido.locutores?.nome || <span className="italic text-muted-foreground">Não definido</span>}</div>
 
-                <div className="font-medium text-muted-foreground">Estilo de Locução:</div>
+                <div className="font-medium text-muted-foreground">Estilo de Áudio:</div>
                 <div className="md:col-span-2">{pedido.estilo_locucao || <span className="italic text-muted-foreground">N/A</span>}</div>
                 
                 <div className="font-medium text-muted-foreground self-start">Tipo de Áudio:</div>
@@ -851,7 +851,7 @@ function MeusAudiosPage() {
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Meus Áudios</h1>
-          <p className="text-muted-foreground">Acompanhe o status e baixe todos os seus pedidos de locução.</p>
+          <p className="text-muted-foreground">Acompanhe o status e baixe todos os seus pedidos de áudio.</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => fetchAllPedidos()} variant="outline" size="icon" disabled={loadingPedidos} aria-label="Atualizar lista de áudios">
@@ -941,7 +941,7 @@ function MeusAudiosPage() {
               <ListMusic className="h-16 w-16 text-muted-foreground mx-auto mb-6" />
               <h3 className="text-2xl font-semibold text-foreground mb-2">Nenhum Pedido Ainda</h3>
               <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Você ainda não fez nenhum pedido de locução. Clique no botão abaixo para começar a criar seus áudios!
+                Você ainda não fez nenhum pedido de áudio. Clique no botão abaixo para começar a criar seus áudios!
               </p>
               <Button onClick={() => navigate('/gravar-locucao')} size="lg" className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90">
                 <PlusCircle className="mr-2 h-4 w-4" /> Criar meu Primeiro Áudio
@@ -953,7 +953,7 @@ function MeusAudiosPage() {
         <div className="overflow-x-auto relative rounded-lg shadow-md bg-card overflow-hidden">
           <Table>
             <TableCaption className="py-4 text-sm text-muted-foreground">
-              Seu histórico completo de pedidos de locução. 
+              Seu histórico completo de pedidos de áudio. 
               {pedidos.length > 10 && `Exibindo ${pedidos.length} pedidos.`}
             </TableCaption>
             <TableHeader className="bg-muted/50">

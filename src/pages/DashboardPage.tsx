@@ -311,7 +311,7 @@ function DashboardPage() {
             <RefreshCw className={cn("h-4 w-4", (loadingPedidos || loadingStats || isFetchingProfile || loadingSecoesDashboard) && "animate-spin")} />
           </Button>
           <Button onClick={() => navigate('/gravar-locucao')} className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90">
-            <PlusCircle className="mr-2 h-4 w-4" /> Nova Locução
+            <PlusCircle className="mr-2 h-4 w-4" /> Novo Áudio
           </Button>
         </div>
       </div>
@@ -417,7 +417,7 @@ function DashboardPage() {
               <Card className="p-6 flex flex-col items-center justify-center text-center rounded-lg bg-card text-card-foreground">
                  <ListMusic className="h-12 w-12 text-muted-foreground mb-3" />
                 <p className="text-muted-foreground mb-2">Você ainda não realizou nenhum pedido.</p>
-                <Button onClick={() => navigate('/gravar-locucao')} size="sm">Criar Nova Locução</Button>
+                <Button onClick={() => navigate('/gravar-locucao')} size="sm">Criar Novo Áudio</Button>
               </Card>
             )}
           </section>

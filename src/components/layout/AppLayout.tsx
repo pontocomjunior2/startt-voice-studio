@@ -74,7 +74,7 @@ const AppLayout: React.FC = () => {
   } else if (profile?.role === 'cliente') {
     navItems = [
       { href: '/dashboard', label: 'Meu Painel', icon: LayoutDashboard, roles: ['cliente'] },
-      { href: '/gravar-locucao', label: 'Gravar Locução', icon: PlusCircle, roles: ['cliente'] },
+      { href: '/gravar-locucao', label: 'Novo Áudio', icon: PlusCircle, roles: ['cliente'] },
       { href: '/meus-audios', label: 'Meus Áudios', icon: ListMusic, roles: ['cliente'] },
       { href: '/meu-perfil', label: 'Meu Perfil', icon: UserIcon, roles: ['cliente'] },
       { href: '/historico-creditos', label: 'Histórico de Créditos', icon: Clock, roles: ['cliente'] },
