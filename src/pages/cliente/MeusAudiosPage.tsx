@@ -857,7 +857,7 @@ function MeusAudiosPage() {
           <Button onClick={() => fetchAllPedidos()} variant="outline" size="icon" disabled={loadingPedidos} aria-label="Atualizar lista de áudios">
             <RefreshCw className={cn("h-4 w-4", loadingPedidos && "animate-spin")} />
           </Button>
-          <Button onClick={() => navigate('/gravar-locucao')} className="bg-amber-500 hover:bg-amber-600 text-white">
+          <Button onClick={() => navigate('/gravar-locucao')} className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90">
             <PlusCircle className="mr-2 h-4 w-4" /> Fazer Novo Pedido
           </Button>
         </div>
@@ -943,7 +943,7 @@ function MeusAudiosPage() {
               <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                 Você ainda não fez nenhum pedido de locução. Clique no botão abaixo para começar a criar seus áudios!
               </p>
-              <Button onClick={() => navigate('/gravar-locucao')} size="lg" className="bg-amber-500 hover:bg-amber-600 text-white">
+              <Button onClick={() => navigate('/gravar-locucao')} size="lg" className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90">
                 <PlusCircle className="mr-2 h-4 w-4" /> Criar meu Primeiro Áudio
               </Button>
             </CardContent>

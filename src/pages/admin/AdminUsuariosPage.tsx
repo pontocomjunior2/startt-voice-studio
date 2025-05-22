@@ -496,7 +496,7 @@ function AdminUsuariosPage() {
             <DialogClose asChild>
               <Button type="button" variant="outline" disabled={isAddingCredits}>Cancelar</Button>
             </DialogClose>
-            <Button type="button" onClick={handleAddCreditBatch} disabled={isAddingCredits} className="bg-amber-500 hover:bg-amber-600 text-white">
+            <Button type="button" onClick={handleAddCreditBatch} disabled={isAddingCredits} className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90">
               {isAddingCredits ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Adicionar/Reduzir Lote de Créditos
             </Button>
@@ -536,7 +536,7 @@ function AdminUsuariosPage() {
             <DialogClose asChild>
               <Button type="button" variant="outline" disabled={isUpdatingRole}>Cancelar</Button>
             </DialogClose>
-            <Button type="button" onClick={handleUpdateUserRole} disabled={isUpdatingRole} className="bg-amber-500 hover:bg-amber-600 text-white">
+            <Button type="button" onClick={handleUpdateUserRole} disabled={isUpdatingRole} className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90">
               {isUpdatingRole && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} 
               Salvar Alterações
             </Button>
@@ -593,7 +593,7 @@ function AdminUsuariosPage() {
             <DialogClose asChild>
               <Button type="button" variant="outline" disabled={isDebiting}>Cancelar</Button>
             </DialogClose>
-            <Button type="button" onClick={handleDebitCredits} disabled={isDebiting} className="bg-amber-500 hover:bg-amber-600 text-white">
+            <Button type="button" onClick={handleDebitCredits} disabled={isDebiting} className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90">
               {isDebiting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Subtrair Créditos
             </Button>
@@ -611,7 +611,7 @@ function AdminUsuariosPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeletingUser}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteUser} disabled={isDeletingUser} className="bg-red-600 hover:bg-red-700 text-white">
+            <AlertDialogAction onClick={handleDeleteUser} disabled={isDeletingUser} className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90">
               {isDeletingUser ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Excluir Usuário
             </AlertDialogAction>

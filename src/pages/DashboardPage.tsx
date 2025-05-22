@@ -310,7 +310,7 @@ function DashboardPage() {
           >
             <RefreshCw className={cn("h-4 w-4", (loadingPedidos || loadingStats || isFetchingProfile || loadingSecoesDashboard) && "animate-spin")} />
           </Button>
-          <Button onClick={() => navigate('/gravar-locucao')} className="bg-amber-500 hover:bg-amber-600 text-white">
+          <Button onClick={() => navigate('/gravar-locucao')} className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90">
             <PlusCircle className="mr-2 h-4 w-4" /> Nova Locução
           </Button>
         </div>

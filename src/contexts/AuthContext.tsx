@@ -26,7 +26,7 @@ interface AuthContextProps {
   isProcessing: boolean;
   isFetchingProfile: boolean;
   error: AuthError | null;
-  signInWithPassword: (credentials: { email: string; password: string }) => Promise<{ error: AuthError | null }>;
+  signInWithPassword: (credentials: { identifier: string; password: string }) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   signUp: (credentials: SignUpWithPasswordCredentials) => Promise<{ error: AuthError | null }>;
   refreshProfile: () => Promise<void>;
@@ -277,26 +277,44 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, []);
 
-  const signInWithPassword = async ({ email, password }: { email: string; password: string }) => {
-      setIsProcessing(true);
-      setError(null); 
-      let result = { error: null as AuthError | null };
-      try {
-          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-          result.error = signInError;
-          if (signInError) {
-            setError(signInError);
-            console.error("AuthProvider: signInWithPassword - Erro no login:", signInError);
-            setIsProcessing(false); 
-          }
-      } catch (err: any) {
-          console.error("AuthProvider: signInWithPassword - Erro inesperado no login:", err);
-          const unexpectedError = new AuthError(err.message || "Erro inesperado. Tente novamente.");
-          setError(unexpectedError);
-          result.error = unexpectedError;
-          setIsProcessing(false); 
-      } 
-      return result;
+  const signInWithPassword = async ({ identifier, password }: { identifier: string; password: string }) => {
+    setIsProcessing(true);
+    setError(null);
+    let result = { error: null as AuthError | null };
+    try {
+      let email: string;
+      if (identifier.includes('@')) {
+        email = identifier;
+      } else {
+        // Login por username: buscar email correspondente no Supabase
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('username', identifier)
+          .single();
+        if (error || !data?.email) {
+          result.error = new AuthError('Usuário não encontrado. Verifique o nome de usuário.');
+          setError(result.error);
+          setIsProcessing(false);
+          return result;
+        }
+        email = data.email;
+      }
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      result.error = signInError;
+      if (signInError) {
+        setError(signInError);
+        console.error("AuthProvider: signInWithPassword - Erro no login:", signInError);
+      }
+    } catch (err: any) {
+      console.error("AuthProvider: signInWithPassword - Erro inesperado no login:", err);
+      const unexpectedError = new AuthError(err.message || "Erro inesperado. Tente novamente.");
+      setError(unexpectedError);
+      result.error = unexpectedError;
+    } finally {
+      setIsProcessing(false);
+    }
+    return result;
   };
 
   const signOut = async () => {

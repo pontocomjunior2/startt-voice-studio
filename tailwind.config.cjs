@@ -33,11 +33,22 @@ module.exports = {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        primary: { // Mantém sua estrutura, mas as cores do template podem precisar de mapeamento
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+        background: '#0a0c1b',
+        card: '#181a2a',
+        foreground: '#f3f4f6',
+        primary: {
+          DEFAULT: '#18e0ff',
+          dark: '#8f5fff',
+          gradient: 'linear-gradient(90deg, #18e0ff 0%, #8f5fff 100%)',
+          foreground: '#f3f4f6',
+        },
+        startt: {
+          blue: '#18e0ff',
+          purple: '#8f5fff',
+        },
+        text: {
+          DEFAULT: '#f3f4f6',
+          muted: '#b0b3c6',
         },
         secondary: { // Mantém sua estrutura
           DEFAULT: "hsl(var(--secondary))",
@@ -63,10 +74,6 @@ module.exports = {
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
-        },
-        card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
         },
         // Definições de cores de status adicionadas aqui
         'status-red': '#EF4444',    // red-500

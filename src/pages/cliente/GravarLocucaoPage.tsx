@@ -806,8 +806,8 @@ function GravarLocucaoPage() {
       
       <Card className="w-full max-w-3xl mx-auto shadow-xl border-border/40 bg-neutral-100 dark:bg-neutral-900 text-gray-900 dark:text-gray-100">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold text-amber-500">Gravar Nova Locução</CardTitle>
-          <CardDescription className="text-lg text-amber-400">
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">Gravar Nova Locução</CardTitle>
+          <CardDescription className="text-lg text-startt-blue">
             Siga os passos para criar seu pedido de locução.
           </CardDescription>
         </CardHeader>
@@ -826,19 +826,16 @@ function GravarLocucaoPage() {
                     <div
                       className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center font-semibold border-2",
-                        currentStep === step ? "bg-amber-500 text-white border-amber-500" : 
+                        currentStep === step ? "bg-gradient-to-r from-startt-blue to-startt-purple text-white border-startt-blue" : 
                         currentStep > step ? "bg-green-500 text-white border-green-600" : 
                         "bg-muted text-muted-foreground border-border"
                       )}
                     >
-                      {currentStep > step ? <CheckIcon className="w-5 h-5" /> : 
-                       currentStep === step ? step : 
-                       step 
-                      }
+                      {currentStep > step ? <CheckIcon className="w-5 h-5" /> : step}
                     </div>
                     <span className={cn(
                       "text-xs mt-2",
-                       currentStep === step ? "text-amber-500 font-semibold" : 
+                       currentStep === step ? "text-startt-blue font-semibold" : 
                        currentStep > step ? "text-green-600" :
                        "text-muted-foreground"
                       )}>{label}</span>
@@ -869,8 +866,8 @@ function GravarLocucaoPage() {
                                 htmlFor="tipoOff" 
                                 className={cn(
                                   "flex flex-col items-center justify-center p-8 rounded-lg border-2 transition-all duration-200 shadow-md bg-card text-card-foreground",
-                                  field.value === 'off' ? "border-amber-500 bg-amber-500/10" : "border-muted",
-                                  "hover:border-amber-500 hover:bg-amber-500/10 focus:outline-none focus:ring-2 focus:ring-amber-500/50",
+                                  field.value === 'off' ? "bg-gradient-to-r from-startt-blue to-startt-purple text-white border-startt-blue" : "border-muted",
+                                  "hover:bg-startt-blue/10 focus:outline-none focus:ring-2 focus:ring-startt-blue/50",
                                   "disabled:opacity-50 disabled:cursor-not-allowed"
                                 )}
                               >
@@ -886,8 +883,8 @@ function GravarLocucaoPage() {
                                 htmlFor="tipoProduzido" 
                                 className={cn(
                                   "flex flex-col items-center justify-center p-8 rounded-lg border-2 transition-all duration-200 shadow-md bg-card text-card-foreground",
-                                  field.value === 'produzido' ? "border-amber-500 bg-amber-500/10" : "border-muted",
-                                  "hover:border-amber-500 hover:bg-amber-500/10 focus:outline-none focus:ring-2 focus:ring-amber-500/50",
+                                  field.value === 'produzido' ? "bg-gradient-to-r from-startt-blue to-startt-purple text-white border-startt-blue" : "border-muted",
+                                  "hover:bg-startt-blue/10 focus:outline-none focus:ring-2 focus:ring-startt-blue/50",
                                   "disabled:opacity-50 disabled:cursor-not-allowed"
                                 )}
                               >
@@ -937,9 +934,9 @@ function GravarLocucaoPage() {
                       className="flex items-center gap-2 group"
                     >
                       {mostrarApenasFavoritos ? (
-                        <Star className="h-4 w-4 text-amber-500 fill-amber-500 transition-all group-hover:scale-110" />
+                        <Star className="h-4 w-4 text-startt-blue fill-startt-blue transition-all group-hover:scale-110" />
                       ) : (
-                        <Filter className="h-4 w-4 text-muted-foreground transition-all group-hover:text-amber-500" />
+                        <Filter className="h-4 w-4 text-muted-foreground transition-all group-hover:text-startt-blue" />
                       )}
                       <span>
                         {mostrarApenasFavoritos ? "Mostrando Favoritos" : "Locutores Favoritos"}
@@ -949,7 +946,7 @@ function GravarLocucaoPage() {
 
                   {loadingLocutores && (
                     <div className="flex justify-center items-center py-10">
-                      <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+                      <Loader2 className="h-8 w-8 animate-spin text-startt-blue" />
                       <p className="ml-3">Carregando locutores...</p>
                     </div>
                   )}
@@ -1127,7 +1124,7 @@ function GravarLocucaoPage() {
                                         "h-2 w-2 rounded-full transition-all duration-150 ease-in-out",
                                         "focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2", // Estilo de foco melhorado
                                         currentPageLocutores === i + 1
-                                          ? "bg-amber-500 scale-125 transform" // Ponto ativo: cor primária e um pouco maior
+                                          ? "bg-gradient-to-r from-startt-blue to-startt-purple scale-125 transform" // Ponto ativo: cor primária e um pouco maior
                                           : "bg-muted hover:bg-muted-foreground/70" // Ponto inativo
                                       )}
                                       aria-label={`Ir para página ${i + 1}`}
@@ -1171,7 +1168,7 @@ function GravarLocucaoPage() {
                   <div className="text-center mb-6 p-4 border rounded-md bg-muted/30">
                     <h3 className="text-xl font-semibold">Detalhes da Locução</h3>
                     <p className="text-sm text-muted-foreground">
-                      Locutor: <span className="font-semibold text-amber-500">{selectedLocutor.nome}</span> | Tipo: <span className="font-semibold text-amber-500">{getValues("tipoAudio") === "off" ? "Áudio em OFF" : "Áudio Produzido"}</span>
+                      Locutor: <span className="font-semibold text-startt-blue">{selectedLocutor.nome}</span> | Tipo: <span className="font-semibold text-startt-blue">{getValues("tipoAudio") === "off" ? "Áudio em OFF" : "Áudio Produzido"}</span>
                     </p>
                   </div>
 
@@ -1308,7 +1305,7 @@ function GravarLocucaoPage() {
                           </Button>
                         </div>
                       ) : isDragActive ? (
-                        <div className="text-center text-primary">
+                        <div className="text-center text-startt-blue">
                           <FileAudio className="mx-auto h-10 w-10 mb-2 animate-bounce" />
                           <p className="font-medium">Solte o arquivo aqui...</p>
                         </div>
@@ -1320,7 +1317,7 @@ function GravarLocucaoPage() {
                         </div>
                       )}
                     </div>
-                    {isUploadingGuia && <p className="text-sm text-primary mt-2 animate-pulse">Enviando áudio guia...</p>}
+                    {isUploadingGuia && <p className="text-sm text-startt-blue mt-2 animate-pulse">Enviando áudio guia...</p>}
                   </div>
 
                   <Separator className="my-6" />
@@ -1328,7 +1325,7 @@ function GravarLocucaoPage() {
                     <div className="flex flex-col sm:flex-row justify-around sm:items-center space-y-4 sm:space-y-0">
                         <div className='text-center sm:text-left px-2'>
                             <p className="text-sm text-muted-foreground mb-1">Tempo Estimado:</p>
-                            <p className="text-3xl font-bold text-amber-500 tabular-nums">
+                            <p className="text-3xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent tabular-nums">
                             <animated.span>
                                 {animatedSeconds.to((val: number) => formatarSegundosParaMMSS(Math.round(val)))}
                             </animated.span>
@@ -1387,7 +1384,7 @@ function GravarLocucaoPage() {
                           type="button" 
                           onClick={handleNextStep} 
                           disabled={isSubmitting}
-                          className="bg-amber-500 hover:bg-amber-600 text-white"
+                          className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90"
                         >
                           Avançar
                           <ChevronRight className="ml-2 h-4 w-4" />
@@ -1400,7 +1397,7 @@ function GravarLocucaoPage() {
                         onOpenAutoFocus={(e) => e.preventDefault()}
                       >
                         <div className="flex items-center">
-                          <AlertTriangle className="h-5 w-5 mr-2 text-amber-600 flex-shrink-0" />
+                          <AlertTriangle className="h-5 w-5 mr-2 text-startt-blue flex-shrink-0" />
                           <p className="text-sm font-medium">{popoverErrorMessage}</p>
                         </div>
                       </PopoverContent>
@@ -1420,7 +1417,7 @@ function GravarLocucaoPage() {
                                 estimatedCredits === 0 ||
                                 (profile?.credits ?? 0) < estimatedCredits
                             }
-                            className="bg-amber-500 hover:bg-amber-600 text-white"
+                            className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90"
                           >
                             {isSubmitting ? (
                               <Loader2 className="mr-2 h-5 w-5 animate-spin" />

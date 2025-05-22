@@ -235,7 +235,7 @@ function AdminLocutoresPage() {
     <div className="p-4 md:p-8 space-y-6 max-w-5xl mx-auto">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold text-foreground">Gerenciar Locutores</h1>
-        <Button onClick={() => handleOpenModal(null)} className="bg-amber-500 hover:bg-amber-600 text-white">Adicionar Novo Locutor</Button>
+        <Button onClick={() => handleOpenModal(null)} className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90">Adicionar Novo Locutor</Button>
       </div>
       
       <Separator className="my-4" />
@@ -390,7 +390,7 @@ function AdminLocutoresPage() {
                 ))}
                 <button
                   type="button"
-                  className="mt-2 px-3 py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  className="mt-2 px-3 py-2 rounded bg-gradient-to-r from-startt-blue to-startt-purple text-white text-sm font-semibold hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-amber-400"
                   onClick={() => setDemos([...demos, { estilo: '', url: '' }])}
                 >Adicionar nova demo</button>
               </div>
@@ -406,7 +406,7 @@ function AdminLocutoresPage() {
             <DialogClose asChild>
               <Button type="button" variant="outline" disabled={isSaving}>Cancelar</Button>
             </DialogClose>
-            <Button type="button" onClick={handleSaveLocutor} disabled={isSaving} className="bg-amber-500 hover:bg-amber-600 text-white">
+            <Button type="button" onClick={handleSaveLocutor} disabled={isSaving} className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90">
               {isSaving ? 'Salvando...' : 'Salvar'}
             </Button>
           </DialogFooter>

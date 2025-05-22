@@ -879,7 +879,7 @@ function AdminDashboardPage() {
             Atualizar Tudo
           </Button>
         </div>
-        <Separator className="my-4" />
+        <Separator className="my-4 bg-neutral-800" />
         {isFetchStatsError && (
           <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
             Erro ao carregar estatísticas do dashboard: {fetchStatsError?.message}
@@ -909,7 +909,7 @@ function AdminDashboardPage() {
             }
 
             return (
-              <Card key={`stat-${index}`} className={`shadow-sm hover:shadow-md transition-shadow rounded-lg bg-neutral-100 dark:bg-neutral-900 text-gray-900 dark:text-gray-100`}>
+              <Card key={`stat-${index}`} className={`shadow-lg hover:shadow-xl transition-shadow rounded-2xl bg-card text-card-foreground border-2 border-startt-blue`}>
                 {cardInfo.isLoading || (cardInfo.title === "Correções Pendentes" && isLoadingStats) || (cardInfo.title === "Créditos (Clientes)" && cardInfo.customLoading) ? (
                   <CardContent className="flex flex-col items-center justify-center p-6">
                     <Skeleton className="h-12 w-12 rounded-full mb-3" /> 
@@ -918,10 +918,10 @@ function AdminDashboardPage() {
                   </CardContent>
                 ) : (
                   <CardContent className="flex flex-col items-center justify-center p-6">
-                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
-                      <Icon className="h-6 w-6" />
+                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-startt-blue to-startt-purple text-white shadow-lg">
+                      <Icon className="h-7 w-7" />
                     </div>
-                    <div className="text-3xl font-bold text-foreground">
+                    <div className="text-3xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">
                       {value !== undefined && value !== null ? value.toLocaleString('pt-BR') : (cardInfo.valueKey === undefined && !cardInfo.fixedValue && cardInfo.title !== "Correções Pendentes") ? '-' : '0'}
                     </div>
                     <p className="text-sm font-medium text-muted-foreground mt-1 text-center">
@@ -933,7 +933,7 @@ function AdminDashboardPage() {
                        </p>
                     )}
                     {tagText !== undefined && tagText !== null && (cardInfo.tagKey || cardInfo.tagText) && (
-                      <div className={`mt-2 inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${cardInfo.tagColorClass ? cardInfo.tagColorClass : 'bg-muted text-muted-foreground'}`}>
+                      <div className={`mt-2 inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-gradient-to-r from-startt-blue to-startt-purple text-white`}>
                         {tagText} {cardInfo.tagKey && cardInfo.title.includes("Pedidos") ? (String(tagText) === '1' ? " Pedido" : " Pedidos") : ""}
                       </div>
                     )}
@@ -949,10 +949,10 @@ function AdminDashboardPage() {
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-semibold text-foreground">Lista de Pedidos</h2>
         </div>
-        <Separator className="my-4" />
+        <Separator className="my-4 bg-neutral-800" />
 
         {/* Seção de Filtros */}
-        <div className="mb-6 p-4 border rounded-lg shadow-sm">
+        <div className="mb-6 p-4 border border-neutral-800 rounded-lg shadow-sm bg-card">
           <h2 className="text-xl font-semibold mb-4 text-gray-700">Filtrar Pedidos</h2>
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-end"> {/* Alterado para items-end para alinhar botão com inputs */}
             {/* Filtro de Status */}
@@ -1027,7 +1027,7 @@ function AdminDashboardPage() {
         </div>
 
         {/* Tabela de Pedidos Unificada */}
-        <Card className="mb-6 admin-table-fix-dark-border">
+        <Card className="mb-6 admin-table-fix-dark-border border border-neutral-800">
           <CardHeader>
             <CardTitle className="flex items-center">
               <ListChecks className="mr-2 h-5 w-5 text-amber-500 dark:text-blue-500" />
