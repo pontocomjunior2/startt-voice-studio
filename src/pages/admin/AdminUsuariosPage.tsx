@@ -52,6 +52,7 @@ import { useUpdateUserRole } from '../../hooks/mutations/use-update-user-role.ho
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabaseClient'; // Usar o cliente supabase global
 import { useQueryClient } from '@tanstack/react-query'; // Adicionar se não estiver lá
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 function AdminUsuariosPage() {
   const { profile: adminProfile } = useAuth(); // Para admin_id_que_adicionou
@@ -89,6 +90,12 @@ function AdminUsuariosPage() {
   const [debitAmount, setDebitAmount] = useState<string>('');
   const [debitReason, setDebitReason] = useState('');
   const [isDebiting, setIsDebiting] = useState(false);
+
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedUserForDelete, setSelectedUserForDelete] = useState<UserProfile | null>(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
   useEffect(() => {
     const fetchBalancesForUsers = async () => {
@@ -245,6 +252,36 @@ function AdminUsuariosPage() {
     }
   };
 
+  const openDeleteDialog = (user: UserProfile) => {
+    setSelectedUserForDelete(user);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUserForDelete) return;
+    setIsDeletingUser(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/delete-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-secret': import.meta.env.VITE_ADMIN_SECRET || '',
+        },
+        body: JSON.stringify({ userId: selectedUserForDelete.id }),
+      });
+      const result = await res.json();
+      if (!res.ok || result.error) throw new Error(result.error || 'Erro ao excluir usuário');
+      toast.success('Usuário excluído com sucesso!');
+      setIsDeleteDialogOpen(false);
+      setSelectedUserForDelete(null);
+      await queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
+    } catch (err: any) {
+      toast.error('Erro ao excluir usuário', { description: err.message });
+    } finally {
+      setIsDeletingUser(false);
+    }
+  };
+
   const filteredUsers = usersWithCalculatedCredit.filter(user => 
     (user.full_name?.toLowerCase().includes(userFilter.toLowerCase())) ||
     (user.username?.toLowerCase().includes(userFilter.toLowerCase()))
@@ -329,6 +366,14 @@ function AdminUsuariosPage() {
                       disabled={isAddingCredits || isDebiting || isUpdatingRole}
                     >
                       Subtrair Créditos
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => openDeleteDialog(user)}
+                      disabled={isAddingCredits || isDebiting || isUpdatingRole || isDeletingUser}
+                    >
+                      Excluir Usuário
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -555,6 +600,24 @@ function AdminUsuariosPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Usuário</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o usuário <b>{selectedUserForDelete?.full_name || selectedUserForDelete?.username}</b>? Esta ação é irreversível e removerá todos os dados do usuário.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingUser}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} disabled={isDeletingUser} className="bg-red-600 hover:bg-red-700 text-white">
+              {isDeletingUser ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Excluir Usuário
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );

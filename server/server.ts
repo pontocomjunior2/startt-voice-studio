@@ -523,6 +523,94 @@ app.post('/api/locutor/:id/demos', async (req, res) => {
   }
 });
 
+const supabaseAdmin = createClient(
+  process.env.VITE_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+// ROTA: Exclusão total de usuário (Auth + profiles)
+app.post('/api/admin/delete-user', async (req, res) => {
+  const { userId } = req.body;
+  if (!userId) {
+    res.status(400).json({ error: 'userId obrigatório' });
+    return;
+  }
+
+  if (process.env.ADMIN_SECRET && req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET) {
+    res.status(403).json({ error: 'Acesso negado.' });
+    return;
+  }
+
+  // Exclui do Auth
+  const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+  if (authError) {
+    console.error('[DeleteUser] Erro ao deletar do Auth:', authError);
+    // Se for erro 500 (Database error deleting user), apenas loga e segue
+    if (authError.status !== 500) {
+      res.status(500).json({ error: authError.message });
+      return;
+    }
+    console.warn('[DeleteUser] Ignorando erro 500 do Auth e continuando exclusão no banco.');
+  }
+
+  // Buscar todos os IDs de solicitacoes_revisao do usuário
+  const { data: solicitacoes, error: solicitacoesError } = await supabaseAdmin
+    .from('solicitacoes_revisao')
+    .select('id')
+    .eq('user_id', userId);
+  if (solicitacoesError) {
+    console.error('[DeleteUser] Erro ao buscar solicitacoes_revisao:', solicitacoesError);
+    res.status(500).json({ error: 'Erro ao buscar solicitações de revisão: ' + solicitacoesError.message });
+    return;
+  }
+  const solicitacaoIds = (solicitacoes || []).map(s => s.id);
+  if (solicitacaoIds.length > 0) {
+    // Deletar todas as versoes_audio_revisao dessas solicitações
+    const { error: audioRevError } = await supabaseAdmin
+      .from('versoes_audio_revisao')
+      .delete()
+      .in('solicitacao_id', solicitacaoIds);
+    if (audioRevError) {
+      console.error('[DeleteUser] Erro ao deletar versoes_audio_revisao:', audioRevError);
+      res.status(500).json({ error: 'Erro ao deletar versões de áudio de revisão: ' + audioRevError.message });
+      return;
+    }
+  }
+
+  // 2. Solicitações de revisão
+  const { error: revisaoError } = await supabaseAdmin.from('solicitacoes_revisao').delete().eq('user_id', userId);
+  if (revisaoError) {
+    console.error('[DeleteUser] Erro ao deletar solicitacoes_revisao:', revisaoError);
+    res.status(500).json({ error: 'Erro ao deletar solicitações de revisão: ' + revisaoError.message });
+    return;
+  }
+  // 3. Lotes de créditos
+  const { error: lotesError } = await supabaseAdmin.from('lotes_creditos').delete().eq('user_id', userId);
+  if (lotesError) {
+    console.error('[DeleteUser] Erro ao deletar lotes_creditos:', lotesError);
+    res.status(500).json({ error: 'Erro ao deletar lotes de créditos: ' + lotesError.message });
+    return;
+  }
+  // 4. Pedidos
+  const { error: pedidosError } = await supabaseAdmin.from('pedidos').delete().eq('user_id', userId);
+  if (pedidosError) {
+    console.error('[DeleteUser] Erro ao deletar pedidos:', pedidosError);
+    res.status(500).json({ error: 'Erro ao deletar pedidos: ' + pedidosError.message });
+    return;
+  }
+  // 5. Outros dados relacionados (adicione aqui caso existam mais tabelas)
+
+  // 6. Exclui do banco (profiles)
+  const { error: dbError } = await supabaseAdmin.from('profiles').delete().eq('id', userId);
+  if (dbError) {
+    console.error('[DeleteUser] Erro ao deletar profile:', dbError);
+    res.status(500).json({ error: dbError.message });
+    return;
+  }
+
+  res.json({ success: true });
+});
+
 app.listen(PORT, () => {
   console.log(`Servidor backend rodando na porta ${PORT}`);
   console.log(`Uploads serão salvos em: ${path.join(__dirname, '../public/uploads')}`);

@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently \"vite\" \"node dist-server/server.js\"",
     "build": "tsc -b && vite build",
     "build:server": "tsc --project tsconfig.server.json",
     "start:server": "node ./dist-server/server.js",
