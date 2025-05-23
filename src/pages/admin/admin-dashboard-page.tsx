@@ -1258,24 +1258,24 @@ function AdminDashboardPage() {
               <TabsContent value="detalhesPedido">
                 <div className="space-y-6 py-4 pr-3 overflow-y-auto max-h-[calc(80vh-200px)]">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3 text-sm">
-                <div className="font-medium text-muted-foreground">Cliente:</div>
-                <div className="md:col-span-2">{selectedPedido.profile?.full_name || selectedPedido.profile?.username || 'N/A'}</div>
+                <div className="font-medium text-foreground">Cliente:</div>
+                <div className="md:col-span-2 text-foreground">{selectedPedido.profile?.full_name || selectedPedido.profile?.username || 'N/A'}</div>
                 
-                <div className="font-medium text-muted-foreground">Data/Hora:</div>
-                <div className="md:col-span-2">
+                <div className="font-medium text-foreground">Data/Hora:</div>
+                <div className="md:col-span-2 text-foreground">
                   {new Date(selectedPedido.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </div>
 
-                <div className="font-medium text-muted-foreground">Título do Pedido:</div>
-                <div className="md:col-span-2">{selectedPedido.titulo || 'N/A'}</div>
+                <div className="font-medium text-foreground">Título do Pedido:</div>
+                <div className="md:col-span-2 text-foreground">{selectedPedido.titulo || 'N/A'}</div>
 
-                <div className="font-medium text-muted-foreground">Locutor:</div>
-                <div className="md:col-span-2">{selectedPedido.locutores?.nome || 'N/A'}</div>
+                <div className="font-medium text-foreground">Locutor:</div>
+                <div className="md:col-span-2 text-foreground">{selectedPedido.locutores?.nome || 'N/A'}</div>
 
-                <div className="font-medium text-muted-foreground">Estilo de Locução:</div>
-                <div className="md:col-span-2">{selectedPedido.estilo_locucao || 'N/A'}</div>
+                <div className="font-medium text-foreground">Estilo de Locução:</div>
+                <div className="md:col-span-2 text-foreground">{selectedPedido.estilo_locucao || 'N/A'}</div>
 
-                <div className="font-medium text-muted-foreground self-start pt-1">Tipo de Áudio:</div>
+                <div className="font-medium text-foreground self-start pt-1">Tipo de Áudio:</div>
                 <div className="md:col-span-2">
                   {selectedPedido.tipo_audio ? (
                     <Badge 
@@ -1297,8 +1297,8 @@ function AdminDashboardPage() {
               <Separator />
 
               <div>
-                <h4 className="text-sm font-medium text-muted-foreground mb-1">Orientações (Briefing):</h4>
-                <div className="p-3 bg-muted/50 rounded-md max-h-32 overflow-y-auto text-sm whitespace-pre-wrap border">
+                <h4 className="text-sm font-medium text-foreground mb-1">Orientações (Briefing):</h4>
+                <div className="p-3 bg-muted/50 rounded-md max-h-32 overflow-y-auto text-sm whitespace-pre-wrap border text-foreground">
                   {selectedPedido.orientacoes || 'Nenhuma orientação fornecida.'}
                 </div>
               </div>
@@ -1306,8 +1306,8 @@ function AdminDashboardPage() {
               <Separator />
 
               <div>
-                <h4 className="text-sm font-medium text-muted-foreground mb-1">Roteiro Completo:</h4>
-                <div className="p-3 bg-muted/50 rounded-md max-h-40 overflow-y-auto text-sm whitespace-pre-wrap border">
+                <h4 className="text-sm font-medium text-foreground mb-1">Roteiro Completo:</h4>
+                <div className="p-3 bg-muted/50 rounded-md max-h-40 overflow-y-auto text-sm whitespace-pre-wrap border text-foreground">
                   {selectedPedido.texto_roteiro || 'Nenhum roteiro fornecido.'}
                 </div>
               </div>
@@ -1344,7 +1344,7 @@ function AdminDashboardPage() {
               <Separator className="my-4" />
                   {/* Campos para alterar status e enviar áudio do pedido principal */}
               <div className="space-y-2">
-                    <Label htmlFor="status-pedido-principal" className="text-sm font-medium">Alterar Status do Pedido Principal:</Label>
+                    <Label htmlFor="status-pedido-principal" className="text-sm font-medium text-foreground">Alterar Status do Pedido Principal:</Label>
                 <Select 
                   value={currentPedidoStatus} 
                   onValueChange={setCurrentPedidoStatus}
@@ -1388,7 +1388,7 @@ function AdminDashboardPage() {
               </div>
               {currentPedidoStatus === PEDIDO_STATUS.CANCELADO && (
                 <div className="space-y-2 mt-4">
-                  <Label htmlFor="admin-cancel-reason" className="text-sm font-medium">
+                  <Label htmlFor="admin-cancel-reason" className="text-sm font-medium text-foreground">
                     Justificativa do Cancelamento <span className="text-destructive">*</span>
                   </Label>
                   <Textarea
@@ -1399,6 +1399,7 @@ function AdminDashboardPage() {
                     rows={3}
                     required
                     disabled={isUpdatingPedido}
+                    className="text-foreground placeholder:text-muted-foreground"
                   />
                   <p className="text-xs text-muted-foreground">
                     Esta justificativa será registrada e visível no histórico do pedido.
@@ -1406,13 +1407,13 @@ function AdminDashboardPage() {
                 </div>
               )}
               <div className="space-y-2">
-                    <Label htmlFor="audio-file-principal" className="text-sm font-medium">Enviar Áudio Finalizado (Principal):</Label>
+                    <Label htmlFor="audio-file-principal" className="text-sm font-medium text-foreground">Enviar Áudio Finalizado (Principal):</Label>
                 <Input 
                       id="audio-file-principal" 
                   type="file" 
                   accept=".mp3,.wav,.ogg,.aac" 
                   onChange={handleFileChange} 
-                  className="w-full h-10 px-3 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-500 file:text-white hover:file:bg-amber-500/90" 
+                  className="w-full h-10 px-3 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-500 file:text-white hover:file:bg-amber-500/90 text-foreground placeholder:text-muted-foreground" 
                       disabled={selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado' || isUpdatingPedido}
                 />
                 {selectedFile && <p className="text-xs text-muted-foreground mt-1">Arquivo selecionado: {selectedFile.name}</p>}

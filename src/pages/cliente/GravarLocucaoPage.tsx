@@ -539,8 +539,12 @@ function GravarLocucaoPage() {
 
     // Validação de créditos e roteiro apenas para novos pedidos
     if (!isEditMode) {
-      if ((profile.credits ?? 0) < estimatedCredits) {
-        toast.error("Créditos Insuficientes", { description: `Você precisa de ${estimatedCredits} créditos, mas possui ${profile.credits ?? 0}.` });
+      // LOGS DETALHADOS PARA DIAGNÓSTICO DE CRÉDITOS
+      console.log('[GravarLocucaoPage] DADOS DO PROFILE DO AUTHCONTEXT:', JSON.stringify(profile, null, 2));
+      console.log(`[GravarLocucaoPage] SALDO USADO PARA VALIDAÇÃO: ${profile?.saldoCalculadoCreditos}, CRÉDITOS ESTIMADOS DO PEDIDO: ${estimatedCredits}`);
+      if ((profile.saldoCalculadoCreditos ?? 0) < estimatedCredits) {
+        console.error('[GravarLocucaoPage] VALIDAÇÃO FALHOU: Créditos insuficientes.');
+        toast.error("Créditos Insuficientes", { description: `Você precisa de ${estimatedCredits} créditos, mas seu saldo válido é de ${profile.saldoCalculadoCreditos ?? 0}.` });
         return;
       }
       if (estimatedCredits === 0 && values.scriptText && values.scriptText.trim().length > 0) {
@@ -552,6 +556,7 @@ function GravarLocucaoPage() {
         setFormError("scriptText", { type: "manual", message: "O roteiro deve ter pelo menos 10 caracteres." });
         return;
       }
+      console.log('[GravarLocucaoPage] VALIDAÇÃO OK: Créditos suficientes.');
     }
 
     if (isEditMode && editingPedidoId) {
@@ -799,6 +804,10 @@ function GravarLocucaoPage() {
   const getLocutorDemos = (locutor: Locutor): { url: string; estilo?: string }[] => {
     return Array.isArray((locutor as any).demos) ? (locutor as any).demos as { url: string; estilo?: string }[] : [];
   };
+
+  useEffect(() => {
+    refreshProfile();
+  }, []);
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -1339,7 +1348,7 @@ function GravarLocucaoPage() {
                             </p>
                         </div>
                     </div>
-                     {(profile?.credits ?? 0) < estimatedCredits && estimatedCredits > 0 && (
+                     {(profile?.saldoCalculadoCreditos ?? 0) < estimatedCredits && estimatedCredits > 0 && (
                       <p className="text-sm mt-3 text-destructive text-center">
                         Você não tem créditos suficientes para este pedido.
                       </p>
@@ -1415,7 +1424,7 @@ function GravarLocucaoPage() {
                                 !isFormValid ||
                                 !selectedLocutor || 
                                 estimatedCredits === 0 ||
-                                (profile?.credits ?? 0) < estimatedCredits
+                                (profile?.saldoCalculadoCreditos ?? 0) < estimatedCredits
                             }
                             className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90"
                           >
@@ -1428,12 +1437,12 @@ function GravarLocucaoPage() {
                           </Button>
                         </span>
                       </TooltipTrigger>
-                      {(!isFormValid && selectedLocutor && estimatedCredits > 0 && (profile?.credits ?? 0) >= estimatedCredits) && (
+                      {(!isFormValid && selectedLocutor && estimatedCredits > 0 && (profile?.saldoCalculadoCreditos ?? 0) >= estimatedCredits) && (
                         <TooltipContent side="top" align="center" className="bg-destructive text-destructive-foreground">
                           <p>Corrija os erros no formulário para enviar.</p>
                         </TooltipContent>
                       )}
-                      {(estimatedCredits > 0 && (profile?.credits ?? 0) < estimatedCredits) && (
+                      {(estimatedCredits > 0 && (profile?.saldoCalculadoCreditos ?? 0) < estimatedCredits) && (
                          <TooltipContent side="top" align="center" className="bg-destructive text-destructive-foreground">
                           <p>Você não tem créditos suficientes para este pedido.</p>
                         </TooltipContent>

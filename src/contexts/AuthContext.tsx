@@ -155,10 +155,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           let updatedProfileData: Profile = { ...userData } as Profile;
 
           // Agora, buscar o saldo de créditos válidos
-          console.log('AuthContext: Chamando RPC get_saldo_creditos_validos para userId:', userId);
-          const { data: saldoData, error: saldoError } = await supabase.rpc('get_saldo_creditos_validos', {
-            p_user_id: userId
-          });
+          console.log(`[AuthContext] Chamando RPC get_saldo_creditos_validos para userId: ${userId}`);
+          const { data: saldoData, error: saldoError } = await supabase.rpc('get_saldo_creditos_validos', { p_user_id: userId });
+          console.log(`[AuthContext] Resultado RPC get_saldo_creditos_validos - Saldo:`, saldoData, 'Erro:', saldoError);
 
           if (saldoError) {
             console.error("AuthContext: Erro ao buscar saldo de créditos válidos via RPC:", saldoError);
@@ -170,7 +169,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           }
           
           setProfile(updatedProfileData);
-          console.log('AuthContext: fetchProfile - Perfil atualizado com saldoCalculadoCreditos:', updatedProfileData);
+          console.log(`[AuthContext] Profile após setar saldoCalculadoCreditos:`, updatedProfileData);
           await fetchUnreadNotifications(userId); // BUSCAR CONTAGEM APÓS PERFIL
         } else if (status === 406) {
           console.warn('AuthContext: fetchProfile - Perfil não encontrado (status 406), usuário pode precisar criar um.');
@@ -276,6 +275,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       authListener?.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const interval = setInterval(() => {
+      refreshProfile();
+    }, 60000); // 1 minuto
+    return () => clearInterval(interval);
+  }, [user]);
 
   const signInWithPassword = async ({ identifier, password }: { identifier: string; password: string }) => {
     setIsProcessing(true);
