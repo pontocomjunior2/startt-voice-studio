@@ -41,6 +41,7 @@ import { atualizarPedidoAction } from '@/actions/pedido-actions';
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDropzone } from 'react-dropzone';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
 const estilosLocucaoOpcoes = [
   { id: 'padrao', label: 'Padrão' },
@@ -103,7 +104,7 @@ const multiStepGravarLocucaoFormSchema = z.object({
   }
 });
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 function GravarLocucaoPage() {
   const { user, profile, refreshProfile } = useAuth();
@@ -809,6 +810,75 @@ function GravarLocucaoPage() {
     refreshProfile();
   }, []);
 
+  // [ESTADOS IA]
+  const [iaDialogOpen, setIaDialogOpen] = useState(false);
+  const [iaStep, setIaStep] = useState(0); // 0,1,2,3,4
+  const [iaForm, setIaForm] = useState({
+    // Etapa 1
+    nomeProjetoIA: '',
+    objetivoAudioIA: '',
+    objetivoAudioOutroIA: '',
+    publicoAlvoIA: '',
+    // Etapa 2
+    produtoTemaIA: '',
+    beneficioPrincipalIA: '',
+    pontosChaveIA: '',
+    // Etapa 3
+    estiloLocucaoIA: '',
+    estiloLocucaoOutroIA: '',
+    tomMensagemIA: '',
+    duracaoAlvoIA: '',
+    duracaoAlvoOutraIA: '',
+    callToActionIA: '',
+    // Etapa 4
+    evitarIA: '',
+    destacarIA: '',
+    referenciasIA: '',
+    infoAdicionalIA: '',
+  });
+  const [iaRoteiroGerado, setIaRoteiroGerado] = useState('');
+  const [isGeneratingRoteiro, setIsGeneratingRoteiro] = useState(false);
+  const [iaError, setIaError] = useState<string | null>(null);
+  const [iaEditandoRoteiro, setIaEditandoRoteiro] = useState(false);
+
+  const handleIaInput = (field: keyof typeof iaForm, value: string) => setIaForm(prev => ({ ...prev, [field]: value }));
+  const handleIaNext = () => setIaStep(s => Math.min(s + 1, 3));
+  const handleIaPrev = () => setIaStep(s => Math.max(s - 1, 0));
+  const handleIaReset = () => {
+    setIaStep(0);
+    setIaForm({ nomeProjetoIA: '', objetivoAudioIA: '', objetivoAudioOutroIA: '', publicoAlvoIA: '', produtoTemaIA: '', beneficioPrincipalIA: '', pontosChaveIA: '', estiloLocucaoIA: '', estiloLocucaoOutroIA: '', tomMensagemIA: '', duracaoAlvoIA: '', duracaoAlvoOutraIA: '', callToActionIA: '', evitarIA: '', destacarIA: '', referenciasIA: '', infoAdicionalIA: '' });
+    setIaRoteiroGerado('');
+    setIaError(null);
+    setIaEditandoRoteiro(false);
+  };
+  const handleIaSubmit = async () => {
+    setIsGeneratingRoteiro(true);
+    setIaError(null);
+    try {
+      const response = await fetch(`${API_URL}/api/gerar-roteiro-ia`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(iaForm),
+      });
+      const data = await response.json();
+      if (data.success && data.roteiro) {
+        setIaRoteiroGerado(data.roteiro);
+        setIaStep(3);
+      } else {
+        setIaError(data.error || 'Erro ao gerar roteiro.');
+      }
+    } catch (err: any) {
+      setIaError('Erro ao conectar com a IA. Tente novamente.');
+    } finally {
+      setIsGeneratingRoteiro(false);
+    }
+  };
+  const handleIaUsarRoteiro = () => {
+    setValue('scriptText', iaRoteiroGerado, { shouldValidate: true, shouldDirty: true });
+    setIaDialogOpen(false);
+    handleIaReset();
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
       <audio ref={audioPreviewRef} className="hidden" />
@@ -1245,10 +1315,23 @@ function GravarLocucaoPage() {
                             onBlur={() => trigger("scriptText")}
                           />
                         </FormControl>
-                        <FormMessage /> {/* Restaurado para Etapa 3 */}
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
+                  {currentStep === 3 && selectedLocutor && (
+                    <div className="flex justify-end mt-2">
+                      <Button
+                        type="button"
+                        onClick={() => setIaDialogOpen(true)}
+                        className="bg-gradient-to-r from-startt-blue to-startt-purple text-white font-semibold shadow-lg hover:opacity-90 px-4 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-startt-blue/70 transition-all"
+                        tabIndex={0}
+                        aria-label="Gerar roteiro com IA STARTT"
+                      >
+                        ✨ Gerar Roteiro com IA STARTT
+                      </Button>
+                    </div>
+                  )}
                   
                   <div>
                     <FormLabel className="text-base font-medium mb-2 block">Velocidade da Locução:</FormLabel>
@@ -1373,6 +1456,196 @@ function GravarLocucaoPage() {
                   )}
                 </div>
               )}
+
+              <Dialog open={iaDialogOpen} onOpenChange={open => { setIaDialogOpen(open); if (!open) handleIaReset(); }}>
+                <DialogContent className="max-w-2xl w-full">
+                  <DialogHeader>
+                    <DialogTitle className="bg-clip-text text-transparent bg-gradient-to-r from-startt-blue to-startt-purple">Assistente de Roteiro IA STARTT</DialogTitle>
+                    <DialogDescription>Responda algumas perguntas para nossa IA criar uma sugestão de roteiro.</DialogDescription>
+                  </DialogHeader>
+                  {iaStep < 4 && (
+                    <div className="space-y-6">
+                      {/* Etapa 1 */}
+                      {iaStep === 0 && (
+                        <>
+                          <div>
+                            <Label className="font-semibold">Nome do Projeto/Campanha (opcional)</Label>
+                            <Input value={iaForm.nomeProjetoIA} onChange={e => handleIaInput('nomeProjetoIA', e.target.value)} placeholder="Ex: Lançamento Verão, Spot Institucional Dezembro" className="mt-1" />
+                          </div>
+                          <div>
+                            <Label className="font-semibold mt-4">Qual o principal objetivo deste áudio?</Label>
+                            <Select value={iaForm.objetivoAudioIA} onValueChange={v => handleIaInput('objetivoAudioIA', v)}>
+                              <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o objetivo" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Aumentar vendas de um produto/serviço específico">Aumentar vendas de um produto/serviço específico</SelectItem>
+                                <SelectItem value="Gerar leads / Captar contatos">Gerar leads / Captar contatos</SelectItem>
+                                <SelectItem value="Fortalecer o reconhecimento da marca (Branding)">Fortalecer o reconhecimento da marca (Branding)</SelectItem>
+                                <SelectItem value="Anunciar um evento, promoção ou novidade">Anunciar um evento, promoção ou novidade</SelectItem>
+                                <SelectItem value="Educar ou informar o público sobre um tema">Educar ou informar o público sobre um tema</SelectItem>
+                                <SelectItem value="Criar uma vinheta de identificação">Criar uma vinheta de identificação</SelectItem>
+                                <SelectItem value="Mensagem institucional / Posicionamento">Mensagem institucional / Posicionamento</SelectItem>
+                                <SelectItem value="Outro">Outro</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {iaForm.objetivoAudioIA === 'Outro' && (
+                              <Input value={iaForm.objetivoAudioOutroIA} onChange={e => handleIaInput('objetivoAudioOutroIA', e.target.value)} placeholder="Especifique o objetivo:" className="mt-2" />
+                            )}
+                          </div>
+                          <div>
+                            <Label className="font-semibold mt-4">Descreva seu público-alvo principal:</Label>
+                            <Textarea value={iaForm.publicoAlvoIA} onChange={e => handleIaInput('publicoAlvoIA', e.target.value)} placeholder="Ex: Jovens adultos (18-25 anos) interessados em tecnologia e games; ou Mães (30-45 anos) buscando praticidade para o dia a dia." className="mt-1" />
+                          </div>
+                        </>
+                      )}
+                      {/* Etapa 2 */}
+                      {iaStep === 1 && (
+                        <>
+                          <div>
+                            <Label className="font-semibold">Sobre o que é o áudio? (Detalhe o produto, serviço, evento ou tema)</Label>
+                            <Textarea value={iaForm.produtoTemaIA} onChange={e => handleIaInput('produtoTemaIA', e.target.value)} placeholder="Ex: Nosso novo tênis de corrida 'Velocity X', super leve e com amortecimento responsivo. Ou: Evento de inauguração da loja no dia X às Y horas." className="mt-1" />
+                          </div>
+                          <div>
+                            <Label className="font-semibold mt-4">Qual o MAIOR benefício ou diferencial que você oferece?</Label>
+                            <Input value={iaForm.beneficioPrincipalIA} onChange={e => handleIaInput('beneficioPrincipalIA', e.target.value)} placeholder="Ex: A única solução que economiza seu tempo; O melhor custo-benefício do mercado." className="mt-1" />
+                          </div>
+                          <div>
+                            <Label className="font-semibold mt-4">Informações que DEVEM constar no roteiro:</Label>
+                            <Textarea value={iaForm.pontosChaveIA} onChange={e => handleIaInput('pontosChaveIA', e.target.value)} placeholder="Ex: Telefone: (XX)XXXX-XXXX, Site: www.exemplo.com, Oferta válida até DD/MM, Endereço: Rua X, 123." className="mt-1" />
+                          </div>
+                        </>
+                      )}
+                      {/* Etapa 3 */}
+                      {iaStep === 2 && (
+                        <>
+                          <div>
+                            <Label className="font-semibold">Estilo de Locução (para a voz do locutor):</Label>
+                            <Select value={iaForm.estiloLocucaoIA} onValueChange={v => handleIaInput('estiloLocucaoIA', v)}>
+                              <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o estilo de locução" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="padrao">Padrão</SelectItem>
+                                <SelectItem value="impacto">Impacto</SelectItem>
+                                <SelectItem value="jovem">Jovem</SelectItem>
+                                <SelectItem value="varejo">Varejo</SelectItem>
+                                <SelectItem value="institucional">Institucional</SelectItem>
+                                <SelectItem value="up_festas">Up/Festas</SelectItem>
+                                <SelectItem value="jornalistico">Jornalístico</SelectItem>
+                                <SelectItem value="outro">Outro</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {iaForm.estiloLocucaoIA === 'outro' && (
+                              <Input value={iaForm.estiloLocucaoOutroIA || ''} onChange={e => handleIaInput('estiloLocucaoOutroIA', e.target.value)} placeholder="Especifique o estilo:" className="mt-2" />
+                            )}
+                          </div>
+                          <div>
+                            <Label className="font-semibold mt-4">Tom da Mensagem (como o roteiro deve soar):</Label>
+                            <Select value={iaForm.tomMensagemIA} onValueChange={v => handleIaInput('tomMensagemIA', v)}>
+                              <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o tom da mensagem" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Entusiasmado">Entusiasmado</SelectItem>
+                                <SelectItem value="Confiante">Confiante</SelectItem>
+                                <SelectItem value="Sério">Sério</SelectItem>
+                                <SelectItem value="Informativo">Informativo</SelectItem>
+                                <SelectItem value="Amigável">Amigável</SelectItem>
+                                <SelectItem value="Divertido">Divertido</SelectItem>
+                                <SelectItem value="Urgente">Urgente</SelectItem>
+                                <SelectItem value="Inspirador">Inspirador</SelectItem>
+                                <SelectItem value="Calmo">Calmo</SelectItem>
+                                <SelectItem value="Sofisticado">Sofisticado</SelectItem>
+                                <SelectItem value="Empático">Empático</SelectItem>
+                                <SelectItem value="Direto">Direto</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="font-semibold mt-4">Duração Alvo Aproximada:</Label>
+                            <Select value={iaForm.duracaoAlvoIA} onValueChange={v => handleIaInput('duracaoAlvoIA', v)}>
+                              <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione a duração" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Não importa">Não importa</SelectItem>
+                                <SelectItem value="15 segundos">15 segundos</SelectItem>
+                                <SelectItem value="30 segundos">30 segundos</SelectItem>
+                                <SelectItem value="45 segundos">45 segundos</SelectItem>
+                                <SelectItem value="60 segundos">60 segundos</SelectItem>
+                                <SelectItem value="Outra">Outra (especificar)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {iaForm.duracaoAlvoIA === 'Outra' && (
+                              <Input value={iaForm.duracaoAlvoOutraIA} onChange={e => handleIaInput('duracaoAlvoOutraIA', e.target.value)} placeholder="Especifique a duração:" className="mt-2" />
+                            )}
+                          </div>
+                          <div>
+                            <Label className="font-semibold mt-4">O que você quer que o ouvinte FAÇA após ouvir?</Label>
+                            <Input value={iaForm.callToActionIA} onChange={e => handleIaInput('callToActionIA', e.target.value)} placeholder="Ex: Acesse nosso site agora!; Ligue e agende!; Visite-nos!" className="mt-1" />
+                          </div>
+                        </>
+                      )}
+                      {/* Etapa 4 */}
+                      {iaStep === 3 && (
+                        <>
+                          <div>
+                            <Label className="font-semibold">Palavras, frases ou abordagens a EVITAR (opcional):</Label>
+                            <Textarea value={iaForm.evitarIA} onChange={e => handleIaInput('evitarIA', e.target.value)} placeholder="Ex: Não usar termos técnicos; evitar clichês; não mencionar concorrentes." className="mt-1" />
+                          </div>
+                          <div>
+                            <Label className="font-semibold mt-4">Slogan, URL ou contato a ser REPETIDO ou DESTACADO (opcional):</Label>
+                            <Textarea value={iaForm.destacarIA} onChange={e => handleIaInput('destacarIA', e.target.value)} placeholder="Ex: www.suaempresa.com.br; Ligue: 0800-123-456; Slogan: Sua vida, nosso compromisso." className="mt-1" />
+                          </div>
+                          <div>
+                            <Label className="font-semibold mt-4">Referências de estilo que você gosta (opcional):</Label>
+                            <Textarea value={iaForm.referenciasIA} onChange={e => handleIaInput('referenciasIA', e.target.value)} placeholder="Ex: Gosto do estilo do comercial X da marca Y; ou cole um link de exemplo." className="mt-1" />
+                          </div>
+                          <div>
+                            <Label className="font-semibold mt-4">Algo mais que a IA precise saber? (opcional)</Label>
+                            <Textarea value={iaForm.infoAdicionalIA} onChange={e => handleIaInput('infoAdicionalIA', e.target.value)} placeholder="Conte aqui qualquer detalhe extra, contexto ou pedido especial." className="mt-1" />
+                          </div>
+                        </>
+                      )}
+                      {iaError && <div className="text-destructive text-sm text-center mt-2">{iaError}</div>}
+                    </div>
+                  )}
+                  {iaStep === 4 && (
+                    <div className="space-y-4">
+                      <Label className="font-semibold">Roteiro Gerado pela IA</Label>
+                      <Textarea
+                        value={iaRoteiroGerado}
+                        onChange={e => iaEditandoRoteiro ? setIaRoteiroGerado(e.target.value) : undefined}
+                        readOnly={!iaEditandoRoteiro}
+                        className={cn("min-h-[180px] text-base", iaEditandoRoteiro && "border-primary ring-2 ring-primary")}
+                      />
+                      <div className="flex flex-wrap gap-2 justify-end">
+                        <Button variant="secondary" onClick={() => setIaEditandoRoteiro(e => !e)}>
+                          {iaEditandoRoteiro ? 'Salvar Edição' : '✏️ Editar Roteiro'}
+                        </Button>
+                        <Button variant="outline" onClick={handleIaSubmit} disabled={isGeneratingRoteiro}>
+                          🔄 Gerar Nova Versão
+                        </Button>
+                        <Button onClick={handleIaUsarRoteiro} className="bg-gradient-to-r from-startt-blue to-startt-purple text-white font-semibold shadow hover:opacity-90">
+                          ✅ Usar este Roteiro
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  <DialogFooter className="mt-6">
+                    {iaStep > 0 && iaStep < 4 && (
+                      <Button variant="outline" onClick={handleIaPrev} disabled={isGeneratingRoteiro}>Anterior</Button>
+                    )}
+                    {iaStep < 3 && (
+                      <Button onClick={handleIaNext} disabled={isGeneratingRoteiro ||
+                        (iaStep === 0 && (!iaForm.objetivoAudioIA || !iaForm.publicoAlvoIA)) ||
+                        (iaStep === 1 && (!iaForm.produtoTemaIA || !iaForm.beneficioPrincipalIA)) ||
+                        (iaStep === 2 && (!iaForm.estiloLocucaoIA || !iaForm.tomMensagemIA || !iaForm.duracaoAlvoIA || !iaForm.callToActionIA))
+                      }>
+                        Próximo
+                      </Button>
+                    )}
+                    {iaStep === 3 && (
+                      <Button onClick={handleIaSubmit} disabled={isGeneratingRoteiro}>
+                        {isGeneratingRoteiro ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : 'Gerar Roteiro'}
+                      </Button>
+                    )}
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
 
             </CardContent>
             <CardFooter className="flex justify-between items-center border-t pt-6">

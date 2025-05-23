@@ -7,6 +7,10 @@ export interface Locutor {
   amostra_audio_url: string;
   tipo_voz?: string;
   ativo?: boolean;
+  /**
+   * Lista de demos/áudios do locutor. Opcional, pode ser preenchida dinamicamente.
+   */
+  demos?: { url: string; estilo?: string }[];
 }
 
 export type PedidoStatus = 'pendente' | 'gravando' | 'concluido' | 'cancelado' | 'rejeitado' | 'em_revisao';

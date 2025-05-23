@@ -3,13 +3,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import cors from 'cors';
-import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
-
-// Calcular __dirname em ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Especificar o caminho para o arquivo .env na raiz do projeto
 const envPath = path.resolve(__dirname, '../.env'); 

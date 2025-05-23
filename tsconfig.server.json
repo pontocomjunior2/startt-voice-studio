@@ -3,14 +3,27 @@
   "extends": "./tsconfig.json", // Herda configurações base como paths e moduleResolution
   "compilerOptions": {
     // Garante que estas opções sejam aplicadas especificamente ao servidor
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "CommonJS", // Compatível com Node.js puro
+    "moduleResolution": "node", // Compatível com Node.js puro
     "esModuleInterop": true,
     "isolatedModules": false, // Mantido como false
     "outDir": "./dist-server", // Diretório para arquivos JS compilados
     "noEmit": false, // Garantir que a compilação gere arquivos (padrão, mas explícito)
     "sourceMap": true // Opcional: gerar source maps para debugging
   },
-  "include": ["server/**/*.ts"], // Inclui apenas os arquivos do servidor
-  "exclude": ["node_modules", "src", "dist"] // Exclui outras pastas
+  "include": [
+    "server/**/*.ts",
+    "server/types.d.ts"
+  ], // Inclui apenas os arquivos do backend
+  "exclude": [
+    "node_modules/next",
+    "node_modules/next/**",
+    "src",
+    "dist",
+    ".next",
+    "**/next.config.*",
+    "**/next-env.d.ts",
+    "node_modules/@types/next",
+    "node_modules/@types/next/**"
+  ] // Exclui frontend, build do Next e arquivos de config do Next
 } 
