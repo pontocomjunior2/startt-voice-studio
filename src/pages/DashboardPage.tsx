@@ -452,7 +452,7 @@ function DashboardPage() {
                 ))}
                  <div className="text-center mt-4">
                     <Button variant="link" asChild className="text-amber-400 hover:text-amber-300 dark:text-amber-400 dark:hover:text-amber-300 underline">
-                        <Link to="/gravar-locucao">Explorar todos os locutores</Link>
+                        <Link to="/locutores">Explorar todos os locutores</Link>
                     </Button>
                 </div>
               </div>
@@ -461,7 +461,7 @@ function DashboardPage() {
                 <User className="h-12 w-12 text-muted-foreground mb-3" />
                 <p className="text-muted-foreground mb-2">Você ainda não favoritou locutores.</p>
                 <Button variant="outline" size="sm" asChild>
-                  <Link to="/gravar-locucao">Explorar agora</Link>
+                  <Link to="/locutores">Explorar agora</Link>
                 </Button>
               </Card>
             )}

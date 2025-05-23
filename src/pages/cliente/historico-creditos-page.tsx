@@ -13,6 +13,7 @@ interface EventoTimeline {
   descricao: string;
   detalhes: string;
   saldoApos?: number;
+  saldoAposEvento?: number;
   admin?: boolean;
   diasVencidos?: number;
   creditosVencidos?: number;
@@ -32,207 +33,177 @@ const HistoricoCreditosPage: React.FC = () => {
   const [eventosTimeline, setEventosTimeline] = useState<EventoTimeline[]>([]);
   const [loadingTimeline, setLoadingTimeline] = useState(true);
 
+  if (!profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <span className="text-muted-foreground text-lg">Carregando perfil...</span>
+      </div>
+    );
+  }
+
   useEffect(() => {
-    const fetchEventosTimeline = async () => {
-      if (!profile?.id) return;
+    const fetchEventosTimelineComSaldoCorrigido = async () => {
+      if (!profile?.id) {
+        console.log('[TimelineV3] Perfil não carregado.');
+        setLoadingTimeline(false); setEventosTimeline([]); return;
+      }
       setLoadingTimeline(true);
+      console.log('[TimelineV3] Iniciando para user:', profile.id);
       try {
         const userId = profile.id;
-        let eventos: EventoTimeline[] = [];
+        let eventosBrutosParaTimeline: any[] = [];
 
-        // Buscar todos os lotes de créditos do usuário
+        // 1. Buscar TODOS os Lotes de Créditos Adicionados
+        console.log('[TimelineV3] Buscando lotes...');
         const { data: lotesData, error: lotesError } = await supabase
           .from('lotes_creditos')
-          .select('id, quantidade_adicionada, quantidade_usada, data_adicao, data_validade, observacao_admin')
-          .eq('user_id', userId)
-          .order('data_adicao', { ascending: true });
+          .select('id, quantidade_adicionada, data_adicao, data_validade')
+          .eq('user_id', userId);
         if (lotesError) throw lotesError;
-        const lotes = (lotesData || []).map((lote: any) => ({
-          ...lote,
-          quantidade_restante: lote.quantidade_adicionada - (lote.quantidade_usada || 0),
-          consumos: [], // Para rastrear usos por lote
-          vencido: false,
-        }));
+        console.log('[TimelineV3] Lotes recebidos:', lotesData);
 
-        // Buscar todos os pedidos (usos e estornos)
+        lotesData?.forEach(lote => {
+          eventosBrutosParaTimeline.push({
+            tipo: 'ADICAO_LOTE',
+            data: new Date(lote.data_adicao).toISOString(),
+            lote_id: lote.id,
+            quantidade: lote.quantidade_adicionada,
+            data_validade_lote: lote.data_validade,
+            descricao: `${lote.quantidade_adicionada} créditos adicionados.`,
+            detalhes: lote.data_validade ? `Validade: ${new Date(lote.data_validade).toLocaleDateString('pt-BR')}` : 'Sem prazo de validade.',
+          });
+        });
+
+        // 2. Buscar TODOS os Pedidos (Uso de Créditos)
+        console.log('[TimelineV3] Buscando pedidos...');
         const { data: pedidosData, error: pedidosError } = await supabase
           .from('pedidos')
-          .select('id, id_pedido_serial, titulo, created_at, creditos_debitados, status, creditos_estornados')
+          .select('id, id_pedido_serial, titulo, created_at, creditos_debitados, status')
           .eq('user_id', userId)
-          .order('created_at', { ascending: true });
+          .neq('status', 'cancelado')
+          .neq('status', 'rejeitado');
         if (pedidosError) throw pedidosError;
-        const pedidos = pedidosData || [];
+        console.log('[TimelineV3] Pedidos recebidos:', pedidosData);
 
-        // Montar lista de eventos brutos (adição, ajuste, uso, estorno)
-        let eventosBrutos: any[] = [];
-        lotes.forEach((lote) => {
-          const isAjusteManual = lote.observacao_admin && /ajuste|erro|estorno|manual|correção|admin|subtra/i.test(lote.observacao_admin);
-          const isNegativo = lote.quantidade_adicionada < 0;
-          if (isAjusteManual || isNegativo) {
-            eventosBrutos.push({
-              tipo: 'AJUSTE_MANUAL',
-              data: lote.data_adicao,
-              quantidade: lote.quantidade_adicionada,
-              detalhes: lote.observacao_admin || 'Ajuste manual',
-            });
-          } else {
-            eventosBrutos.push({
-              tipo: 'ADICAO_CREDITO',
-              data: lote.data_adicao,
-              quantidade: lote.quantidade_adicionada,
-              validade: lote.data_validade,
-              detalhes: `${lote.data_validade ? `Validade: ${new Date(lote.data_validade).toLocaleDateString('pt-BR')}` : 'Sem prazo de validade.'}${lote.observacao_admin ? `\nMotivo: ${lote.observacao_admin}` : ''}`,
-              loteId: lote.id,
-            });
-          }
-        });
-        pedidos.forEach((pedido: any) => {
-          if (pedido.creditos_debitados > 0 && !['cancelado', 'rejeitado'].includes(pedido.status)) {
-            eventosBrutos.push({
+        pedidosData?.forEach(pedido => {
+          if (pedido.creditos_debitados > 0) {
+            eventosBrutosParaTimeline.push({
               tipo: 'USO_CREDITO',
-              data: pedido.created_at,
+              data: new Date(pedido.created_at).toISOString(),
+              pedido_id: pedido.id,
               quantidade: pedido.creditos_debitados,
-              pedido,
-            });
-          }
-          if ((pedido.status === 'cancelado' || pedido.status === 'rejeitado') && pedido.creditos_estornados > 0) {
-            eventosBrutos.push({
-              tipo: 'ESTORNO_CREDITO',
-              data: pedido.created_at,
-              quantidade: pedido.creditos_estornados,
-              pedido,
+              descricao: `Pedido #${pedido.id_pedido_serial || pedido.id.substring(0,8)} (${pedido.titulo || 'Sem título'})`,
+              detalhes: `- ${pedido.creditos_debitados} créditos utilizados.`,
             });
           }
         });
-        // Ordenar todos os eventos por data ASC
-        eventosBrutos.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
 
-        // Simular FIFO dos lotes e vencimento real
-        let saldo = 0;
-        let lotesAbertos = lotes.map(l => ({ ...l }));
-        let timeline: EventoTimeline[] = [];
-        for (const evento of eventosBrutos) {
-          if (evento.tipo === 'ADICAO_CREDITO') {
-            saldo += evento.quantidade;
-            timeline.push({
-              tipo: 'ADICAO_CREDITO',
-              data: evento.data,
-              descricao: `+${evento.quantidade} crédito${evento.quantidade === 1 ? '' : 's'} adicionados`,
-              detalhes: evento.detalhes,
-              saldoApos: saldo,
-            });
-          } else if (evento.tipo === 'AJUSTE_MANUAL') {
-            saldo += evento.quantidade;
-            timeline.push({
-              tipo: 'AJUSTE_MANUAL',
-              data: evento.data,
-              descricao: `${evento.quantidade > 0 ? '+' : ''}${evento.quantidade} crédito${Math.abs(evento.quantidade) === 1 ? '' : 's'} ${evento.quantidade > 0 ? 'adicionados' : 'subtraídos'} pelo Atendimento`,
-              detalhes: evento.detalhes,
-              saldoApos: saldo,
-              admin: true,
-            });
-          } else if (evento.tipo === 'USO_CREDITO') {
-            let qtdRestante = evento.quantidade;
-            let debitoDetalhe = [];
-            for (const lote of lotesAbertos) {
-              if (qtdRestante <= 0) break;
-              const disponivel = lote.quantidade_adicionada - (lote.quantidade_usada || 0);
-              if (disponivel > 0) {
-                const debitar = Math.min(qtdRestante, disponivel);
-                lote.quantidade_usada = (lote.quantidade_usada || 0) + debitar;
-                qtdRestante -= debitar;
-                debitoDetalhe.push(`-${debitar} do lote de ${new Date(lote.data_adicao).toLocaleDateString('pt-BR')}`);
-              }
-            }
-            saldo -= evento.quantidade;
-            if (saldo < 0) saldo = 0;
-            timeline.push({
-              tipo: 'USO_CREDITO',
-              data: evento.data,
-              descricao: `- ${evento.quantidade} crédito${evento.quantidade === 1 ? '' : 's'} usados no pedido #${evento.pedido.id_pedido_serial || (evento.pedido.id?.substring(0,8))}`,
-              detalhes: `Pedido: ${evento.pedido.titulo || 'Sem título'}\n${debitoDetalhe.join(', ')}`,
-              saldoApos: saldo,
-            });
-          } else if (evento.tipo === 'ESTORNO_CREDITO') {
-            // Estorno: devolve créditos para o lote mais antigo que já venceu ou foi usado
-            let qtdRestante = evento.quantidade;
-            let estornoDetalhe = [];
-            for (const lote of lotesAbertos) {
-              if (qtdRestante <= 0) break;
-              const usado = lote.quantidade_usada || 0;
-              if (usado > 0) {
-                const estornar = Math.min(qtdRestante, usado);
-                lote.quantidade_usada = usado - estornar;
-                qtdRestante -= estornar;
-                estornoDetalhe.push(`+${estornar} ao lote de ${new Date(lote.data_adicao).toLocaleDateString('pt-BR')}`);
-              }
-            }
-            saldo += evento.quantidade;
-            timeline.push({
-              tipo: 'ESTORNO_CREDITO',
-              data: evento.data,
-              descricao: `+${evento.quantidade} crédito${evento.quantidade === 1 ? '' : 's'} estornados (pedido cancelado/rejeitado)`,
-              detalhes: `Pedido #${evento.pedido.id_pedido_serial || (evento.pedido.id?.substring(0,8))} (${evento.pedido.titulo || 'Sem título'})\n${estornoDetalhe.join(', ')}`,
-              saldoApos: saldo,
-            });
+        // 3. Ordenar todos os eventos brutos pela data (MAIS ANTIGO PRIMEIRO para cálculo progressivo)
+        eventosBrutosParaTimeline.sort((a, b) => {
+          const diff = new Date(a.data).getTime() - new Date(b.data).getTime();
+          if (diff === 0) {
+              if (a.tipo === 'ADICAO_LOTE' && b.tipo !== 'ADICAO_LOTE') return -1;
+              if (a.tipo !== 'ADICAO_LOTE' && b.tipo === 'ADICAO_LOTE') return 1;
           }
-        }
-        // Após todos os eventos, processar vencimento real dos lotes
-        const now = new Date();
-        for (const lote of lotesAbertos) {
-          if (lote.data_validade && new Date(lote.data_validade) < now) {
-            const creditosNaoUsados = lote.quantidade_adicionada - (lote.quantidade_usada || 0);
-            if (creditosNaoUsados > 0) {
-              const diasVencidos = Math.floor((now.getTime() - new Date(lote.data_validade).getTime()) / (1000 * 60 * 60 * 24));
-              saldo -= creditosNaoUsados;
-              if (saldo < 0) saldo = 0;
-              timeline.push({
-                tipo: 'CREDITOS_VENCIDOS',
+          return diff;
+        });
+        console.log('[TimelineV3] Eventos Brutos ORDENADOS (antigo->novo):', JSON.stringify(eventosBrutosParaTimeline, null, 2));
+
+        // 4. Iterar para calcular saldo progressivo e gerar eventos de expiração dinamicamente
+        const eventosFinaisParaExibicao: any[] = [];
+        let saldoLinhaDoTempo = 0;
+        let estadoSimuladoDosLotes: Array<{
+          id: string;
+          data_adicao: string;
+          data_validade: string | null;
+          saldoRestanteNoLote: number;
+        }> = [];
+
+        for (const eventoAtual of eventosBrutosParaTimeline) {
+          const dataDoEventoAtual = new Date(eventoAtual.data);
+          console.log(`\n[TimelineV3 Loop] Processando Evento em ${eventoAtual.data}:`, eventoAtual.tipo, eventoAtual.quantidade || '');
+          console.log(`[TimelineV3 Loop] Saldo ANTES das expirações para este evento: ${saldoLinhaDoTempo}`);
+
+          // A. Processar expirações de lotes que venceram ANTES da data deste evento ATUAL
+          let creditosExpiradosAgora = 0;
+          const lotesAindaNaoExpirados = [];
+          for (const lote of estadoSimuladoDosLotes) {
+            if (lote.data_validade && new Date(lote.data_validade) < dataDoEventoAtual && lote.saldoRestanteNoLote > 0) {
+              console.log(`[TimelineV3 Loop] Lote ${lote.id} (saldo ${lote.saldoRestanteNoLote}) expirou em ${lote.data_validade} (ANTES de ${eventoAtual.data}).`);
+              creditosExpiradosAgora += lote.saldoRestanteNoLote;
+              // Adicionar evento de expiração para exibição
+              eventosFinaisParaExibicao.push({
+                tipo: 'EXPIRACAO_CREDITO',
                 data: lote.data_validade,
-                descricao: `Créditos vencidos (${diasVencidos} dia${diasVencidos === 1 ? '' : 's'}): ${creditosNaoUsados}`,
-                detalhes: `Lote adicionado em ${new Date(lote.data_adicao).toLocaleDateString('pt-BR')}. Validade: ${new Date(lote.data_validade).toLocaleDateString('pt-BR')}`,
-                saldoApos: saldo,
-                diasVencidos,
-                creditosVencidos: creditosNaoUsados,
+                descricao: `${lote.saldoRestanteNoLote} créditos expiraram.`,
+                detalhes: `Dos créditos adicionados em ${new Date(lote.data_adicao).toLocaleDateString('pt-BR')}.`,
+                saldoAposEvento: saldoLinhaDoTempo - creditosExpiradosAgora,
               });
+              lote.saldoRestanteNoLote = 0;
+            }
+            if (lote.saldoRestanteNoLote > 0 && (!lote.data_validade || new Date(lote.data_validade) >= dataDoEventoAtual)) {
+              lotesAindaNaoExpirados.push(lote);
             }
           }
-        }
-        // Ordenar timeline por data ASC para exibição cronológica
-        timeline.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+          estadoSimuladoDosLotes = lotesAindaNaoExpirados;
+          saldoLinhaDoTempo -= creditosExpiradosAgora;
+          console.log(`[TimelineV3 Loop] Créditos perdidos por expiração ANTES deste evento: ${creditosExpiradosAgora}. Saldo ATUALIZADO: ${saldoLinhaDoTempo}`);
 
-        // Calcular saldo acumulado fielmente
-        let saldoAcumulado = 0;
-        for (const evento of timeline) {
-          let delta = 0;
-          switch (evento.tipo) {
-            case 'ADICAO_CREDITO':
-            case 'ESTORNO_CREDITO':
-            case 'AJUSTE_MANUAL':
-              delta = parseInt(evento.descricao.match(/([+-]?\d+)/)?.[1] || '0', 10);
-              break;
-            case 'USO_CREDITO':
-            case 'CREDITOS_VENCIDOS':
-            case 'EXPIRACAO_CREDITO':
-              delta = -Math.abs(parseInt(evento.descricao.match(/([+-]?\d+)/)?.[1] || '0', 10));
-              break;
-            default:
-              delta = 0;
+          // B. Aplicar o evento ATUAL
+          let eventoPrincipalParaExibicao = { ...eventoAtual };
+
+          if (eventoAtual.tipo === 'ADICAO_LOTE') {
+            estadoSimuladoDosLotes.push({
+              id: eventoAtual.lote_id,
+              data_adicao: eventoAtual.data,
+              data_validade: eventoAtual.data_validade_lote,
+              saldoRestanteNoLote: eventoAtual.quantidade,
+            });
+            saldoLinhaDoTempo += eventoAtual.quantidade;
+            console.log(`[TimelineV3 Loop] ADICAO: +${eventoAtual.quantidade}. Novo Saldo: ${saldoLinhaDoTempo}`);
+          } else if (eventoAtual.tipo === 'USO_CREDITO') {
+            let creditosADebitar = eventoAtual.quantidade;
+            saldoLinhaDoTempo -= creditosADebitar;
+            estadoSimuladoDosLotes.sort((a,b) => (a.data_validade ? new Date(a.data_validade).getTime() : Infinity) - (b.data_validade ? new Date(b.data_validade).getTime() : Infinity) || new Date(a.data_adicao).getTime() - new Date(b.data_adicao).getTime());
+            for (const lote of estadoSimuladoDosLotes) {
+              if (creditosADebitar <= 0) break;
+              if (lote.saldoRestanteNoLote > 0 && (!lote.data_validade || new Date(lote.data_validade) >= dataDoEventoAtual)) {
+                const debitarDesteLote = Math.min(creditosADebitar, lote.saldoRestanteNoLote);
+                lote.saldoRestanteNoLote -= debitarDesteLote;
+                creditosADebitar -= debitarDesteLote;
+                console.log(`[TimelineV3 Loop] USO: Debitou ${debitarDesteLote} do lote ${lote.id}. Resta no lote: ${lote.saldoRestanteNoLote}.`);
+              }
+            }
+            if (creditosADebitar > 0) {
+              console.warn(`[TimelineV3 Loop] USO: Não foi possível debitar todos os ${eventoAtual.quantidade} créditos. Faltaram ${creditosADebitar}. Isso indica saldo negativo ou problema na lógica.`);
+            }
+            console.log(`[TimelineV3 Loop] USO: -${eventoAtual.quantidade}. Novo Saldo: ${saldoLinhaDoTempo}`);
           }
-          saldoAcumulado += delta;
-          if (saldoAcumulado < 0) saldoAcumulado = 0;
-          evento.saldoApos = saldoAcumulado;
+          eventoPrincipalParaExibicao.saldoAposEvento = Math.max(0, saldoLinhaDoTempo);
+          eventosFinaisParaExibicao.push(eventoPrincipalParaExibicao);
         }
-        setEventosTimeline(timeline);
-      } catch (error: any) {
-        console.error('Erro ao buscar histórico de créditos:', error);
-        toast.error('Erro', { description: 'Não foi possível carregar o histórico.' });
-      } finally {
-        setLoadingTimeline(false);
+        console.log('[TimelineV3] Eventos FINAIS com saldo (antes da ordenação para display):', JSON.stringify(eventosFinaisParaExibicao, null, 2));
+
+        // 5. Re-ordenar para exibição (mais recente primeiro)
+        eventosFinaisParaExibicao.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+        setEventosTimeline(eventosFinaisParaExibicao);
+        console.log('[TimelineV3] Eventos FINAIS para EXIBIÇÃO (recente->antigo):', JSON.stringify(eventosFinaisParaExibicao, null, 2));
+
+      } catch (error) {
+        console.error('[TimelineV3] Erro GERAL:', error);
+        setEventosTimeline([]);
+        toast.error('Erro no Histórico', { description: 'Não foi possível carregar o histórico de créditos.' });
       }
+      finally { setLoadingTimeline(false); }
     };
-    fetchEventosTimeline();
-  }, [profile?.id]);
+
+    if (profile?.id) {
+      fetchEventosTimelineComSaldoCorrigido();
+    } else {
+      setLoadingTimeline(false);
+      setEventosTimeline([]);
+    }
+  }, [profile?.id, supabase, toast]);
 
   return (
     <div className="min-h-screen bg-background text-foreground max-w-2xl mx-auto py-8 px-2 md:px-0">
@@ -252,6 +223,7 @@ const HistoricoCreditosPage: React.FC = () => {
         </div>
       )}
       <Separator className="mb-8" />
+      {/* Timeline dos eventos */}
       {loadingTimeline ? (
         <div className="space-y-4">
           {[1,2,3,4].map((i) => (
@@ -263,7 +235,7 @@ const HistoricoCreditosPage: React.FC = () => {
       ) : (
         <div className="relative border-l border-gray-200 dark:border-gray-700 pl-6">
           <ol className="space-y-8">
-            {eventosTimeline.slice().reverse().map((evento, idx) => {
+            {eventosTimeline.map((evento, idx) => {
               const isAjusteManual = evento.tipo === 'AJUSTE_MANUAL' || evento.admin;
               const isVencido = evento.tipo === 'CREDITOS_VENCIDOS';
               return (
@@ -294,9 +266,9 @@ const HistoricoCreditosPage: React.FC = () => {
                     </div>
                     <h3 className="text-lg font-semibold text-foreground">{evento.descricao}</h3>
                     <p className="text-sm text-muted-foreground whitespace-pre-line">{evento.detalhes}</p>
-                    {typeof evento.saldoApos === 'number' && (
+                    {typeof evento.saldoAposEvento === 'number' && (
                       <div className="mt-2 text-sm font-semibold text-blue-400">
-                        Saldo após este evento: {evento.saldoApos} crédito{evento.saldoApos === 1 ? '' : 's'}
+                        Saldo após este evento: {evento.saldoAposEvento} crédito{evento.saldoAposEvento === 1 ? '' : 's'}
                       </div>
                     )}
                   </Card>

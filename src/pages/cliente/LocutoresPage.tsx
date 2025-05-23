@@ -141,11 +141,11 @@ const LocutoresPage: React.FC = () => {
                     onClick={() => toggleFavorito(locutor.id, isFavorito)}
                     className={cn(
                       "absolute top-3 right-3 z-10 text-muted-foreground hover:text-startt-purple bg-background/80 backdrop-blur-sm",
-                      isFavorito && "text-startt-purple fill-current"
+                      isFavorito && "text-pink-500 drop-shadow-lg animate-pulse"
                     )}
                     aria-label={isFavorito ? "Remover dos favoritos" : "Adicionar aos favoritos"}
                   >
-                    <Heart className="h-5 w-5" />
+                    <Heart className={cn("h-7 w-7 transition-all duration-200", isFavorito ? "fill-pink-500" : "")} aria-hidden="true" />
                   </Button>
                   <div className="p-4 flex items-center space-x-4">
                     <Avatar className="h-16 w-16 md:h-20 md:w-20">

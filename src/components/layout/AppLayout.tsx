@@ -121,7 +121,7 @@ const AppLayout: React.FC = () => {
                 )}
                 aria-hidden="true"
               />
-              <span>{item.label}</span>
+              <span className="whitespace-nowrap">{item.label}</span>
             </>
           )}
         </NavLink>
