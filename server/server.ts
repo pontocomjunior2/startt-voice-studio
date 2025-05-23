@@ -163,6 +163,36 @@ app.post('/api/upload-guia', uploadGuia.single('audioGuia'), (req, res) => {
   const filePath = `/uploads/guias/${req.file.filename}`;
   res.status(200).json({ success: true, filePath });
 });
+
+// Upload de Áudio Guia da Revisão do Cliente
+const guiaRevisaoStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadPath = path.join(__dirname, '../public/uploads/revisoes_guias');
+    if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
+    cb(null, uploadPath);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, `audio-guia-revisao-${uniqueSuffix}${ext}`);
+  }
+});
+const uploadGuiaRevisao = multer({
+  storage: guiaRevisaoStorage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('audio/')) cb(null, true);
+    else cb(new Error('Apenas arquivos de áudio são permitidos para áudio guia de revisão!'));
+  }
+});
+
+app.post('/api/upload-guia-revisao', uploadGuiaRevisao.single('audioGuia'), (req, res) => {
+  if (!req.file) {
+    res.status(400).json({ success: false, message: 'Nenhum arquivo enviado.' });
+    return;
+  }
+  const filePath = `/uploads/revisoes_guias/${req.file.filename}`;
+  res.status(200).json({ success: true, filePath });
+});
 // ================= FIM DAS ROTAS DE UPLOAD =================
 
 // Adicionar body parser JSON para rotas de API que recebem JSON

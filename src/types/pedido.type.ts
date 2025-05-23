@@ -92,6 +92,7 @@ export interface SolicitacaoRevisaoDetalhada {
   data_resposta_cliente?: string | null;
   data_conclusao_revisao?: string | null;
   versoes_audio_revisao: VersaoAudioRevisadoDetalhada[];
+  audio_guia_revisao_url?: string | null; // URL do áudio guia da revisão enviado pelo cliente
 }
 
 // Esboço inicial para eventos na linha do tempo do pedido.

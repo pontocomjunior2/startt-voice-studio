@@ -1234,8 +1234,8 @@ function AdminDashboardPage() {
         }}>
           <DialogContent className="sm:max-w-3xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl">
             <DialogHeader className="pb-4">
-              <DialogTitle>Detalhes do Pedido: {selectedPedido.id_pedido_serial}</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-2xl font-bold text-foreground">Detalhes do Pedido: {selectedPedido.id_pedido_serial}</DialogTitle>
+              <DialogDescription className="text-muted-foreground">
                 Visualize e gerencie todos os aspectos do pedido, incluindo solicitações de revisão.
               </DialogDescription>
             </DialogHeader>
@@ -1298,7 +1298,7 @@ function AdminDashboardPage() {
 
               <div>
                 <h4 className="text-sm font-medium text-foreground mb-1">Orientações (Briefing):</h4>
-                <div className="p-3 bg-muted/50 rounded-md max-h-32 overflow-y-auto text-sm whitespace-pre-wrap border text-foreground">
+                <div className="p-3 bg-muted/40 rounded-md max-h-32 overflow-y-auto text-sm whitespace-pre-wrap border border-border text-foreground">
                   {selectedPedido.orientacoes || 'Nenhuma orientação fornecida.'}
                 </div>
               </div>
@@ -1307,7 +1307,7 @@ function AdminDashboardPage() {
 
               <div>
                 <h4 className="text-sm font-medium text-foreground mb-1">Roteiro Completo:</h4>
-                <div className="p-3 bg-muted/50 rounded-md max-h-40 overflow-y-auto text-sm whitespace-pre-wrap border text-foreground">
+                <div className="p-3 bg-muted/40 rounded-md max-h-40 overflow-y-auto text-sm whitespace-pre-wrap border border-border text-foreground">
                   {selectedPedido.texto_roteiro || 'Nenhum roteiro fornecido.'}
                 </div>
               </div>
@@ -1316,7 +1316,7 @@ function AdminDashboardPage() {
               {selectedPedido.audio_guia_url && (
                 <div className="mt-4">
                   <Label className="text-sm font-medium mb-1 flex items-center gap-2">
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-300">Áudio Guia</Badge>
+                    <Badge variant="secondary" className="bg-gradient-to-r from-startt-blue to-startt-purple text-white border-none">Áudio Guia</Badge>
                     <span className="text-muted-foreground">(enviado pelo cliente)</span>
                   </Label>
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-2">
@@ -1333,7 +1333,7 @@ function AdminDashboardPage() {
                       download
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs font-medium transition-colors"
+                      className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-startt-blue to-startt-purple text-white rounded hover:opacity-90 text-xs font-medium transition-colors"
                     >
                       Baixar Áudio Guia
                     </a>
@@ -1413,7 +1413,7 @@ function AdminDashboardPage() {
                   type="file" 
                   accept=".mp3,.wav,.ogg,.aac" 
                   onChange={handleFileChange} 
-                  className="w-full h-10 px-3 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-500 file:text-white hover:file:bg-amber-500/90 text-foreground placeholder:text-muted-foreground" 
+                  className="w-full h-10 px-3 text-foreground placeholder:text-muted-foreground file:bg-gradient-to-r from-startt-blue to-startt-purple file:text-white" 
                       disabled={selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado' || isUpdatingPedido}
                 />
                 {selectedFile && <p className="text-xs text-muted-foreground mt-1">Arquivo selecionado: {selectedFile.name}</p>}
@@ -1487,10 +1487,10 @@ function AdminDashboardPage() {
               {/* Aba 2: Gerenciar Revisão */}
               <TabsContent value="gerenciarRevisao">
                 <div className="space-y-6 py-4 pr-3 overflow-y-auto max-h-[calc(80vh-200px)]">
-                  <Card>
+                  <Card className="bg-card border-none shadow-none">
         <CardHeader>
-                      <CardTitle>Gerenciamento da Solicitação de Revisão</CardTitle>
-                      <CardDescription>
+                      <CardTitle className="text-xl font-bold text-foreground">Gerenciamento da Solicitação de Revisão</CardTitle>
+                      <CardDescription className="text-muted-foreground">
                         Detalhes e ações para a solicitação de revisão ativa deste pedido.
                       </CardDescription>
         </CardHeader>
@@ -1516,7 +1516,7 @@ function AdminDashboardPage() {
                         <div className="space-y-6">
                           <div>
                             <h4 className="text-sm font-semibold text-muted-foreground mb-1">Detalhes da Interação</h4>
-                            <div className="p-3 bg-muted/50 rounded-md border text-sm space-y-3">
+                            <div className="p-3 bg-muted/40 rounded-md border border-border text-sm space-y-3 text-foreground">
                               <p><strong>Data da Solicitação Original:</strong> {format(new Date(activeRevisao.data_solicitacao), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
                               <p><strong>Status Atual da Interação:</strong> <Badge variant="outline" className={cn(
                                 activeRevisao.status_revisao === REVISAO_STATUS_ADMIN.SOLICITADA && "border-orange-500 text-orange-500 bg-orange-50 dark:bg-orange-800",
@@ -1557,9 +1557,36 @@ function AdminDashboardPage() {
                                activeRevisao.descricao && (
                                 <div className="mt-2">
                                   <p className="mb-0.5 font-medium text-gray-700 dark:text-gray-300">Descrição Original do Cliente (para revisão de áudio):</p>
-                                  <div className="p-2 bg-gray-50 dark:bg-gray-700/30 rounded-sm text-xs whitespace-pre-wrap border border-gray-200 dark:border-gray-600 max-h-28 overflow-y-auto min-h-[40px]">
+                                  <div className="p-2 bg-muted/40 rounded-sm text-xs whitespace-pre-wrap border border-border min-h-[40px] text-foreground">
                                     {activeRevisao.descricao}
                                   </div>
+                                  {activeRevisao.audio_guia_revisao_url && (
+                                    <div className="mt-3">
+                                      <Label className="text-xs font-medium mb-1 flex items-center gap-2">
+                                        <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-300">Áudio Guia da Revisão</Badge>
+                                        <span className="text-muted-foreground">(enviado pelo cliente para esta revisão)</span>
+                                      </Label>
+                                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-2">
+                                        <audio
+                                          controls
+                                          src={activeRevisao.audio_guia_revisao_url}
+                                          className="w-full max-w-xs border rounded shadow"
+                                          aria-label="Áudio Guia da Revisão enviado pelo cliente"
+                                        >
+                                          Seu navegador não suporta o elemento de áudio.
+                                        </audio>
+                                        <a
+                                          href={activeRevisao.audio_guia_revisao_url}
+                                          download
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs font-medium transition-colors"
+                                        >
+                                          <DownloadCloud className="h-4 w-4 mr-1" /> Baixar Áudio Guia da Revisão
+                                        </a>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1569,11 +1596,11 @@ function AdminDashboardPage() {
                           {activeRevisao && 
                            activeRevisao.status_revisao !== REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO &&
                            activeRevisao.status_revisao !== REVISAO_STATUS_ADMIN.NEGADA && (
-                            <div className="mt-6 pt-6 border-t">
+                            <div className="mt-6 pt-6 border-t bg-card rounded-b-xl">
                               <h4 className="text-md font-semibold text-foreground mb-3">Processar Solicitação de Revisão</h4>
                               <div className="space-y-4">
                                 <div>
-                                  <Label htmlFor="admin-revisao-acao" className="text-sm font-medium">
+                                  <Label htmlFor="admin-revisao-acao" className="text-sm font-medium text-foreground">
                                     Ação para esta revisão:
                                   </Label>
                                   <Select
@@ -1581,7 +1608,7 @@ function AdminDashboardPage() {
                                     onValueChange={(value) => setCurrentRevisaoModalStatus(value as TipoRevisaoStatusAdmin)}
                                     disabled={processarRevisaoStatus === 'executing'}
                                   >
-                                    <SelectTrigger id="admin-revisao-acao" className="w-full mt-1">
+                                    <SelectTrigger id="admin-revisao-acao" className="w-full mt-1 bg-muted/40 border border-border text-foreground placeholder:text-muted-foreground">
                                       <SelectValue placeholder="Selecione uma ação..." />
                                     </SelectTrigger>
                                     <SelectContent>

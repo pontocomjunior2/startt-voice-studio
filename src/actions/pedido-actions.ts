@@ -40,6 +40,7 @@ export const actionClient = createSafeActionClient({
 export const solicitarRevisaoSchema = z.object({
   pedidoId: z.string().uuid({ message: "ID do pedido inválido." }),
   descricao: z.string().min(1, { message: "A descrição da solicitação de revisão é obrigatória." }),
+  audioGuiaRevisaoUrl: z.string().nullable().optional(),
 });
 
 // Definindo o tipo para o input da action com base no schema
@@ -49,7 +50,7 @@ export const solicitarRevisaoAction = actionClient
   .schema(solicitarRevisaoSchema)
   .action(async ({ parsedInput }) => {
     console.log('[solicitarRevisaoAction] Iniciando execução com input:', parsedInput);
-    const { pedidoId, descricao } = parsedInput;
+    const { pedidoId, descricao, audioGuiaRevisaoUrl } = parsedInput;
     let userId: string;
 
     try {
@@ -103,6 +104,7 @@ export const solicitarRevisaoAction = actionClient
           data_solicitacao: new Date().toISOString(),
           status_revisao: 'solicitada', 
           descricao: descricao,
+          audio_guia_revisao_url: audioGuiaRevisaoUrl ?? null,
         })
         .select(); // Adicionar .select() para obter os dados inseridos ou um erro mais detalhado
       

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext'; // Ajustar caminho se necessário
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'; // Card pode ser útil para a mensagem de "nenhum pedido"
@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { supabase } from '../../lib/supabaseClient'; // Ajustar caminho se necessário
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, Edit3, History, Eye, MoreVertical, Trash2, MessageSquare } from 'lucide-react'; // Ícones necessários, Edit3 ou History para revisão, Adicionado Trash2 e MessageSquare
+import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, Edit3, History, Eye, MoreVertical, Trash2, MessageSquare, FileAudio, XCircle } from 'lucide-react'; // Ícones necessários, Edit3 ou History para revisão, Adicionado Trash2 e MessageSquare
 import { useNavigate, Link } from 'react-router-dom'; // Link para o botão de novo pedido
 import { solicitarRevisaoAction, excluirPedidoAction } from '@/actions/pedido-actions'; // Importar a action
 import {
@@ -58,6 +58,7 @@ import {
 } from '@/components/ui/select';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useDropzone } from 'react-dropzone';
 
 // Componente para o Dialog de Histórico de Revisões
 interface HistoricoRevisoesDialogProps {
@@ -469,6 +470,25 @@ function MeusAudiosPage() {
   const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined);
   const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
 
+  // Dentro do componente MeusAudiosPage:
+  const [audioGuiaRevisaoFile, setAudioGuiaRevisaoFile] = useState<File | null>(null);
+  const [isUploadingGuiaRevisao, setIsUploadingGuiaRevisao] = useState(false);
+
+  const onDropAudioGuiaRevisao = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles && acceptedFiles.length > 0) {
+      setAudioGuiaRevisaoFile(acceptedFiles[0]);
+    }
+  }, []);
+  const {
+    getRootProps: getRootPropsGuiaRevisao,
+    getInputProps: getInputPropsGuiaRevisao,
+    isDragActive: isDragActiveGuiaRevisao
+  } = useDropzone({
+    onDrop: onDropAudioGuiaRevisao,
+    accept: { 'audio/*': [] },
+    multiple: false,
+  });
+
   // Definir handleConfirmarExclusao AQUI, logo após os states e antes de fetchAllPedidos
   const handleConfirmarExclusao = async () => {
     if (!pedidoParaExcluir) return;
@@ -771,10 +791,31 @@ function MeusAudiosPage() {
       return;
     }
     setSubmittingRevisao(true);
+    let uploadedAudioGuiaRevisaoUrl: string | null = null;
     try {
+      if (audioGuiaRevisaoFile) {
+        setIsUploadingGuiaRevisao(true);
+        const uploadFormData = new FormData();
+        uploadFormData.append('audioGuia', audioGuiaRevisaoFile);
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/upload-guia-revisao`, {
+          method: 'POST',
+          body: uploadFormData,
+        });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido ao enviar áudio guia.' }));
+          throw new Error(errorData.message || `Falha no upload do áudio guia: ${response.statusText}`);
+        }
+        const result = await response.json();
+        if (result.success && result.filePath) {
+          uploadedAudioGuiaRevisaoUrl = result.filePath;
+        } else {
+          throw new Error(result.message || "Servidor não retornou o caminho do arquivo após upload do guia.");
+        }
+      }
       const resultado = await solicitarRevisaoAction({ 
         pedidoId: pedidoParaRevisao.id,
         descricao: descricaoRevisao.trim(),
+        audioGuiaRevisaoUrl: uploadedAudioGuiaRevisaoUrl,
       });
 
       console.log('Resultado COMPLETO da action solicitarRevisaoAction:', JSON.stringify(resultado, null, 2));
@@ -811,6 +852,7 @@ function MeusAudiosPage() {
         toast.success("Revisão Solicitada", { description: "Sua solicitação de revisão foi enviada com sucesso." });
         setIsRevisaoModalOpen(false);
         setDescricaoRevisao("");
+        setAudioGuiaRevisaoFile(null);
       } else {
         console.error('Resultado inesperado da action:', resultado);
         toast.error("Erro Desconhecido", { description: "Ocorreu um erro ao processar sua solicitação." });
@@ -820,6 +862,7 @@ function MeusAudiosPage() {
       toast.error("Erro na Solicitação", { description: "Ocorreu um erro inesperado." });
     } finally {
       setSubmittingRevisao(false);
+      setIsUploadingGuiaRevisao(false);
     }
   };
 
@@ -1168,14 +1211,14 @@ function MeusAudiosPage() {
       <Dialog open={isRevisaoModalOpen} onOpenChange={setIsRevisaoModalOpen}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle>Solicitar Revisão do Áudio</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-2xl font-bold text-foreground">Solicitar Revisão do Áudio</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Pedido: #{pedidoParaRevisao?.id_pedido_serial} - {pedidoParaRevisao?.titulo || "Sem título"}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-5 py-4">
             <div className="grid grid-cols-1 items-center gap-2">
-              <Label htmlFor="descricaoRevisaoTextarea" className="text-left">
+              <Label htmlFor="descricaoRevisaoTextarea" className="text-foreground font-medium">
                 Descreva seu problema
               </Label>
               <Textarea
@@ -1184,17 +1227,62 @@ function MeusAudiosPage() {
                 value={descricaoRevisao}
                 onChange={(e) => setDescricaoRevisao(e.target.value)}
                 rows={5}
-                className="min-h-[100px]"
+                className="min-h-[100px] bg-muted/40 border-border text-foreground placeholder:text-muted-foreground"
               />
             </div>
+            {/* Campo de upload de áudio guia da revisão */}
+            <div className="my-1">
+              <Label htmlFor="audio-guia-revisao-dropzone" className="text-foreground font-medium mb-2 block">
+                Áudio Guia para Revisão <span className="text-muted-foreground font-normal">(Opcional)</span>
+              </Label>
+              <div
+                {...getRootPropsGuiaRevisao()}
+                className={cn(
+                  "flex flex-col items-center justify-center p-5 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
+                  isDragActiveGuiaRevisao ? "border-primary bg-muted/60" : "border-border bg-muted/40",
+                  audioGuiaRevisaoFile ? "border-green-500 bg-green-500/5" : "",
+                  "hover:bg-muted/60"
+                )}
+              >
+                <input {...getInputPropsGuiaRevisao()} id="audio-guia-revisao-dropzone" />
+                {audioGuiaRevisaoFile ? (
+                  <div className="text-center">
+                    <FileAudio className="mx-auto h-10 w-10 text-green-600 mb-2" />
+                    <p className="font-medium text-sm text-foreground">{audioGuiaRevisaoFile.name}</p>
+                    <p className="text-xs text-muted-foreground">{(audioGuiaRevisaoFile.size / 1024).toFixed(1)} KB</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2 text-destructive hover:bg-destructive/10"
+                      onClick={e => { e.stopPropagation(); setAudioGuiaRevisaoFile(null); }}
+                    >
+                      <XCircle className="mr-1 h-4 w-4" /> Remover
+                    </Button>
+                  </div>
+                ) : isDragActiveGuiaRevisao ? (
+                  <div className="text-center text-primary">
+                    <FileAudio className="mx-auto h-10 w-10 mb-2 animate-bounce" />
+                    <p className="font-medium">Solte o arquivo aqui...</p>
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground">
+                    <FileAudio className="mx-auto h-10 w-10 mb-2" />
+                    <p className="font-medium">Arraste e solte um arquivo de áudio ou clique para selecionar</p>
+                    <p className="text-xs">Formatos aceitos: mp3, wav, ogg, etc.</p>
+                  </div>
+                )}
+              </div>
+              {isUploadingGuiaRevisao && <p className="text-sm text-primary mt-2 animate-pulse">Enviando áudio guia...</p>}
+            </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 pt-2">
             <DialogClose asChild>
               <Button type="button" variant="outline" onClick={() => setIsRevisaoModalOpen(false)}>Cancelar</Button>
             </DialogClose>
             <Button 
               onClick={handleSolicitarRevisao} 
-              disabled={submittingRevisao || !descricaoRevisao.trim()}
+              disabled={submittingRevisao || !descricaoRevisao.trim() || isUploadingGuiaRevisao}
+              className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90"
             >
               {submittingRevisao ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               Enviar Solicitação
