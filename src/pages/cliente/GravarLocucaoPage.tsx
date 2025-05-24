@@ -414,9 +414,30 @@ function GravarLocucaoPage() {
     const currentScript = getValues("scriptText") || "";
     const segundos = calcularTempoEstimadoSegundos(currentScript, velocidadeSelecionada);
     setTempoEstimadoSegundos(segundos);
-    const credits = estimateCreditsFromText(currentScript);
-    setEstimatedCredits(credits);
-  }, [watchedScriptText, velocidadeSelecionada, getValues]);
+
+    if (segundos === 0 && currentScript.trim() === '') {
+      setEstimatedCredits(0);
+      return;
+    }
+
+    // Blocos de 40 segundos
+    const SECONDS_PER_CREDIT_BLOCK = 40;
+    let blocosDeCreditoBase = Math.max(1, Math.ceil(segundos / SECONDS_PER_CREDIT_BLOCK));
+
+    // Diferenciação por tipo de áudio
+    const tipoAudio = getValues("tipoAudio");
+    let creditosFinais = 0;
+    if (tipoAudio === 'produzido') {
+      creditosFinais = blocosDeCreditoBase * 2;
+    } else if (tipoAudio === 'off') {
+      creditosFinais = blocosDeCreditoBase * 1;
+    } else {
+      creditosFinais = 0; // Não definido ou inválido
+    }
+    setEstimatedCredits(creditosFinais);
+
+    console.log(`[Créditos Calc] Seg: ${segundos}, Blocos Base: ${blocosDeCreditoBase}, Tipo: ${tipoAudio}, Créditos Finais: ${creditosFinais}`);
+  }, [watchedScriptText, velocidadeSelecionada, watch("tipoAudio"), getValues, setTempoEstimadoSegundos, setEstimatedCredits]);
 
   // Funções de navegação para paginação de locutores
   const handleNextLocutoresPage = () => {
@@ -1481,6 +1502,16 @@ function GravarLocucaoPage() {
                             <p className="text-3xl font-bold text-foreground tabular-nums">
                             {estimatedCredits}
                             </p>
+                            {getValues("tipoAudio") === 'produzido' && estimatedCredits > 0 && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                (2 créditos por bloco de 40s para áudio produzido)
+                              </p>
+                            )}
+                            {getValues("tipoAudio") === 'off' && estimatedCredits > 0 && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                (1 crédito por bloco de 40s para áudio em off)
+                              </p>
+                            )}
                         </div>
                     </div>
                      {(profile?.saldoCalculadoCreditos ?? 0) < estimatedCredits && estimatedCredits > 0 && (
