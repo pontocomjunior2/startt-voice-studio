@@ -17,7 +17,7 @@ console.log('[Servidor Express] VITE_SUPABASE_ANON_KEY lido:', process.env.VITE_
 console.log('[Servidor Express] SUPABASE_SERVICE_ROLE_KEY lido:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Definido' : 'NÃO DEFINIDO');
 
 const app = express();
-const PORT = process.env.PORT || 3001; // Porta para o servidor backend
+const PORT = Number(process.env.PORT) || 3001; // Porta para o servidor backend
 
 // Habilitar CORS para todas as origens (em produção, restrinja para o seu domínio frontend)
 app.use(cors({ origin: '*', credentials: true }));
@@ -640,7 +640,7 @@ app.post('/api/admin/delete-user', async (req, res) => {
 // ROTA: Geração de roteiro com IA Gemini
 app.post('/api/gerar-roteiro-ia', gerarRoteiroIAHandler);
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor backend rodando na porta ${PORT}`);
   console.log(`Uploads serão salvos em: ${path.join(__dirname, '../public/uploads')}`);
   console.log(`Arquivos servidos de: /uploads/*`);

@@ -19,7 +19,7 @@ console.log('[Servidor Express] VITE_SUPABASE_URL lido:', process.env.VITE_SUPAB
 console.log('[Servidor Express] VITE_SUPABASE_ANON_KEY lido:', process.env.VITE_SUPABASE_ANON_KEY ? 'Definido' : 'NÃO DEFINIDO');
 console.log('[Servidor Express] SUPABASE_SERVICE_ROLE_KEY lido:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Definido' : 'NÃO DEFINIDO');
 const app = (0, express_1.default)();
-const PORT = process.env.PORT || 3001; // Porta para o servidor backend
+const PORT = Number(process.env.PORT) || 3001; // Porta para o servidor backend
 // Habilitar CORS para todas as origens (em produção, restrinja para o seu domínio frontend)
 app.use((0, cors_1.default)({ origin: '*', credentials: true }));
 // Middleware para servir arquivos estáticos da pasta 'public' (onde os uploads estarão)
@@ -602,7 +602,7 @@ app.post('/api/admin/delete-user', async (req, res) => {
 });
 // ROTA: Geração de roteiro com IA Gemini
 app.post('/api/gerar-roteiro-ia', gerar_roteiro_ia_1.default);
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor backend rodando na porta ${PORT}`);
     console.log(`Uploads serão salvos em: ${path_1.default.join(__dirname, '../public/uploads')}`);
     console.log(`Arquivos servidos de: /uploads/*`);
