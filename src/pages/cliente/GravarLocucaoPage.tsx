@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { estimateCreditsFromText } from '@/utils/creditUtils';
 import { cn } from '@/lib/utils';
-import { PlayCircle, Send, Loader2, UserCircle, Users, ChevronLeft, ChevronRight, Heart, Filter, Star, AlertTriangle, FileAudio, XCircle } from 'lucide-react';
+import { PlayCircle, Send, Loader2, UserCircle, Users, ChevronLeft, ChevronRight, Heart, Filter, Star, AlertTriangle, FileAudio, XCircle, Sparkles, RefreshCw } from 'lucide-react';
 import { Separator } from "@/components/ui/separator";
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -840,6 +840,8 @@ function GravarLocucaoPage() {
   const [isGeneratingRoteiro, setIsGeneratingRoteiro] = useState(false);
   const [iaError, setIaError] = useState<string | null>(null);
   const [iaEditandoRoteiro, setIaEditandoRoteiro] = useState(false);
+  const [ultimosInputsAssistenteIA, setUltimosInputsAssistenteIA] = useState<object | null>(null);
+  const [roteiroSendoRegenerado, setRoteiroSendoRegenerado] = useState(false);
 
   const handleIaInput = (field: keyof typeof iaForm, value: string) => setIaForm(prev => ({ ...prev, [field]: value }));
   const handleIaNext = () => setIaStep(s => Math.min(s + 1, 3));
@@ -855,15 +857,20 @@ function GravarLocucaoPage() {
     setIsGeneratingRoteiro(true);
     setIaError(null);
     try {
+      const payload = { ...iaForm };
       const response = await fetch(`${API_URL}/api/gerar-roteiro-ia`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(iaForm),
+        body: JSON.stringify(payload),
       });
       const data = await response.json();
       if (data.success && data.roteiro) {
-        setIaRoteiroGerado(data.roteiro);
-        setIaStep(3);
+        setValue('scriptText', data.roteiro, { shouldValidate: true, shouldDirty: true });
+        setValue('orientacoes', data.orientacoes || '', { shouldValidate: true, shouldDirty: true });
+        setUltimosInputsAssistenteIA(payload);
+        setIaDialogOpen(false);
+        toast.success('Roteiro Gerado!', { description: 'Sugestões preenchidas. Revise o roteiro e as orientações.' });
+        handleIaReset();
       } else {
         setIaError(data.error || 'Erro ao gerar roteiro.');
       }
@@ -877,6 +884,32 @@ function GravarLocucaoPage() {
     setValue('scriptText', iaRoteiroGerado, { shouldValidate: true, shouldDirty: true });
     setIaDialogOpen(false);
     handleIaReset();
+  };
+  const handleRegenerarRoteiro = async () => {
+    if (!ultimosInputsAssistenteIA) {
+      toast.info('Atenção', { description: 'Use o assistente para gerar o primeiro roteiro antes de regenerar.' });
+      return;
+    }
+    setRoteiroSendoRegenerado(true);
+    try {
+      const response = await fetch(`${API_URL}/api/gerar-roteiro-ia`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ultimosInputsAssistenteIA),
+      });
+      const data = await response.json();
+      if (data.success && data.roteiro) {
+        setValue('scriptText', data.roteiro, { shouldValidate: true, shouldDirty: true });
+        setValue('orientacoes', data.orientacoes || '', { shouldValidate: true, shouldDirty: true });
+        toast.success('Nova Versão Gerada!', { description: 'Sugestões preenchidas. Revise o roteiro e as orientações.' });
+      } else {
+        throw new Error(data.message || 'Não foi possível obter uma nova versão do roteiro.');
+      }
+    } catch (error: any) {
+      toast.error('Erro ao Regenerar', { description: error.message });
+    } finally {
+      setRoteiroSendoRegenerado(false);
+    }
   };
 
   return (
@@ -1313,6 +1346,10 @@ function GravarLocucaoPage() {
                             className="min-h-[150px] resize-y"
                             {...field}
                             onBlur={() => trigger("scriptText")}
+                            onChange={e => {
+                              field.onChange(e);
+                              if (!e.target.value.trim()) setUltimosInputsAssistenteIA(null);
+                            }}
                           />
                         </FormControl>
                         <FormMessage />
@@ -1321,15 +1358,30 @@ function GravarLocucaoPage() {
                   />
                   {currentStep === 3 && selectedLocutor && (
                     <div className="flex justify-end mt-2">
-                      <Button
-                        type="button"
-                        onClick={() => setIaDialogOpen(true)}
-                        className="bg-gradient-to-r from-startt-blue to-startt-purple text-white font-semibold shadow-lg hover:opacity-90 px-4 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-startt-blue/70 transition-all"
-                        tabIndex={0}
-                        aria-label="Gerar roteiro com IA STARTT"
-                      >
-                        ✨ Gerar Roteiro com IA STARTT
-                      </Button>
+                      {ultimosInputsAssistenteIA === null ? (
+                        <Button
+                          type="button"
+                          onClick={() => setIaDialogOpen(true)}
+                          className="bg-gradient-to-r from-startt-blue to-startt-purple text-white font-semibold shadow-lg hover:opacity-90 px-4 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-startt-blue/70 transition-all"
+                          tabIndex={0}
+                          aria-label="Gerar roteiro com IA STARTT"
+                        >
+                          <Sparkles className="mr-2 h-4 w-4" /> Gerar Roteiro com IA STARTT
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          onClick={handleRegenerarRoteiro}
+                          variant="outline"
+                          disabled={roteiroSendoRegenerado}
+                          className="border-startt-blue text-startt-blue hover:bg-startt-blue/10 hover:text-startt-blue font-semibold px-4 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-startt-blue/70 transition-all"
+                          tabIndex={0}
+                          aria-label="Tentar outra versão do roteiro com IA"
+                        >
+                          {roteiroSendoRegenerado ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                          Tentar Outra Versão (IA)
+                        </Button>
+                      )}
                     </div>
                   )}
                   

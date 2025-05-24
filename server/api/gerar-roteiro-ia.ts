@@ -1,13 +1,14 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
-
 // Para configurar o modelo Gemini, adicione no seu .env:
 // GEMINI_MODEL=gemini-2.5-flash-preview-05-20
 // GEMINI_API_KEY=xxxx
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+const gerarRoteiroIAHandler = async (req, res) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Método não permitido' });
   }
+  // LOGAR VARIÁVEIS DE AMBIENTE CRÍTICAS
+  console.log('[IA] GEMINI_API_KEY está definida?', !!process.env.GEMINI_API_KEY);
+  console.log('[IA] GEMINI_MODEL:', process.env.GEMINI_MODEL);
   const {
     nomeProjetoIA,
     objetivoAudioIA,
@@ -34,29 +35,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Montar prompt detalhado para Gemini
-  let prompt = `Você é um redator publicitário especialista em áudio. Crie um roteiro de locução para o seguinte briefing, considerando todas as informações fornecidas. Seja criativo, objetivo e siga as instruções do cliente.\n\n`;
-
-  if (nomeProjetoIA) prompt += `Nome do Projeto/Campanha: ${nomeProjetoIA}\n`;
-  prompt += `Objetivo: ${objetivoAudioIA}${objetivoAudioIA === 'Outro' && objetivoAudioOutroIA ? ` (${objetivoAudioOutroIA})` : ''}\n`;
-  prompt += `Público-alvo: ${publicoAlvoIA}\n`;
-  prompt += `Produto/Serviço/Evento/Tema: ${produtoTemaIA}\n`;
-  prompt += `Benefício Principal/Diferencial: ${beneficioPrincipalIA}\n`;
-  prompt += `Informações Essenciais: ${pontosChaveIA}\n`;
-  prompt += `Estilo de Locução: ${estiloLocucaoIA === 'outro' && estiloLocucaoOutroIA ? `Outro (${estiloLocucaoOutroIA})` : estiloLocucaoIA}\n`;
-  prompt += `Tom da Mensagem: ${tomMensagemIA}\n`;
-  prompt += `Duração Alvo: ${duracaoAlvoIA}${duracaoAlvoIA === 'Outra' && duracaoAlvoOutraIA ? ` (${duracaoAlvoOutraIA})` : ''}\n`;
-  prompt += `Call to Action: ${callToActionIA}\n`;
-  if (evitarIA) prompt += `Evitar: ${evitarIA}\n`;
-  if (destacarIA) prompt += `Slogan/URL/Contato a destacar: ${destacarIA}\n`;
-  if (referenciasIA) prompt += `Referências de estilo: ${referenciasIA}\n`;
-  if (infoAdicionalIA) prompt += `Informações adicionais: ${infoAdicionalIA}\n`;
-
-  prompt += `\nO roteiro deve ser direto, criativo, adequado ao público e ao objetivo, e conter a chamada para ação no final.\n\nRoteiro:`;
+  let prompt = `\nVocê é um redator publicitário especialista em áudio. Siga estas instruções OBRIGATÓRIAS:\n\n1. O roteiro deve ser escrito para ser interpretado por UM ÚNICO LOCUTOR.\n2. A resposta deve ser dividida em DUAS SEÇÕES, com estes títulos EXATOS e em CAIXA ALTA:\n---\nROTEIRO PARA LOCUÇÃO:\n[APENAS o texto puro a ser falado pelo locutor. NÃO coloque SFX, trilha, instruções técnicas, marcações de emoção, tom, ritmo, pausas, colchetes, parênteses, nem nada além do texto da fala.]\n---\nORIENTAÇÕES DE PRODUÇÃO E INTERPRETAÇÃO:\n[Aqui sim coloque TODAS as instruções de produção, SFX, trilha, tom, ritmo, pausas, ênfases, sugestões de interpretação, etc.]\n---\nEXEMPLO DE FORMATO CORRETO:\nROTEIRO PARA LOCUÇÃO:\nVenha conhecer a nova loja Startt! Aproveite as ofertas exclusivas. Esperamos por você!\n\nORIENTAÇÕES DE PRODUÇÃO E INTERPRETAÇÃO:\n- Trilha animada, SFX de loja abrindo, tom entusiasmado, ênfase em "ofertas exclusivas".\n\nNÃO coloque instruções de produção, SFX, trilha, tom, ritmo, etc., na SEÇÃO \"ROTEIRO PARA LOCUÇÃO\". Apenas na SEÇÃO \"ORIENTAÇÕES DE PRODUÇÃO E INTERPRETAÇÃO\".\n\nBriefing do cliente:`;
+  if (nomeProjetoIA) prompt += `\nProjeto/Campanha: ${nomeProjetoIA}`;
+  prompt += `\nObjetivo: ${objetivoAudioIA === 'Outro' ? objetivoAudioOutroIA : objetivoAudioIA}`;
+  prompt += `\nPúblico-alvo: ${publicoAlvoIA}`;
+  prompt += `\nProduto/Serviço/Evento/Tema: ${produtoTemaIA}`;
+  if (beneficioPrincipalIA) prompt += `\nBenefício principal: ${beneficioPrincipalIA}`;
+  if (pontosChaveIA) prompt += `\nInformações obrigatórias: ${pontosChaveIA}`;
+  if (estiloLocucaoIA) prompt += `\nEstilo de locução: ${estiloLocucaoIA === 'Outro' ? estiloLocucaoOutroIA : estiloLocucaoIA}`;
+  if (tomMensagemIA) prompt += `\nTom da mensagem: ${tomMensagemIA}`;
+  if (duracaoAlvoIA) prompt += `\nDuração desejada: ${duracaoAlvoIA === 'Outro' ? duracaoAlvoOutraIA : duracaoAlvoIA}`;
+  if (callToActionIA) prompt += `\nCall to action: ${callToActionIA}`;
+  if (evitarIA) prompt += `\nEvitar: ${evitarIA}`;
+  if (destacarIA) prompt += `\nDestacar: ${destacarIA}`;
+  if (referenciasIA) prompt += `\nReferências: ${referenciasIA}`;
+  if (infoAdicionalIA) prompt += `\nInformações adicionais: ${infoAdicionalIA}`;
+  prompt += `\n\nRoteiro sugerido:`;
 
   try {
+    console.log('[IA] Payload recebido:', req.body);
+    console.log('[IA] Prompt enviado:', prompt);
+
     const geminiApiKey = process.env.GEMINI_API_KEY;
     const geminiModel = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
     if (!geminiApiKey) {
+      console.error('[IA] ERRO: GEMINI_API_KEY não está definida!');
       return res.status(500).json({ success: false, error: 'Chave da API Gemini não configurada.' });
     }
     const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`, {
@@ -64,17 +67,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
+        generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
       }),
     });
+    console.log('[IA] Status HTTP da resposta Gemini:', geminiRes.status);
     const geminiData = await geminiRes.json();
-    const roteiro = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (roteiro) {
-      return res.status(200).json({ success: true, roteiro });
+    console.log('[IA] Corpo completo da resposta Gemini:', JSON.stringify(geminiData, null, 2));
+    const resposta = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    console.log('[IA] Resposta bruta Gemini:', resposta);
+
+    // Parse robusto das duas seções
+    let roteiro = '';
+    let orientacoes = '';
+    const match = resposta.match(/ROTEIRO PARA LOCUÇÃO:(.*?)(?:\n+|\r+|\s+)*ORIENTAÇÕES DE PRODUÇÃO E INTERPRETAÇÃO:(.*)/is);
+    if (match) {
+      roteiro = match[1].replace(/^\s+|\s+$/g, '');
+      orientacoes = match[2].replace(/^\s+|\s+$/g, '');
     } else {
+      // fallback: se não encontrar as seções, retorna tudo como roteiro
+      roteiro = resposta.trim();
+      orientacoes = '';
+    }
+    console.log('[IA] Roteiro extraído:', roteiro);
+    console.log('[IA] Orientações extraídas:', orientacoes);
+
+    if (roteiro) {
+      return res.status(200).json({ success: true, roteiro, orientacoes });
+    } else {
+      console.error('[IA] ERRO: Não foi possível extrair o roteiro da resposta da Gemini.');
       return res.status(500).json({ success: false, error: 'Não foi possível gerar o roteiro.' });
     }
-  } catch (error: any) {
+  } catch (error) {
+    console.error('[IA] Erro inesperado:', error);
     return res.status(500).json({ success: false, error: error.message || 'Erro ao chamar a IA.' });
   }
-} 
+};
+
+export default gerarRoteiroIAHandler; 

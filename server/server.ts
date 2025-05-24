@@ -5,6 +5,7 @@ import fs from 'fs';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import gerarRoteiroIAHandler from './api/gerar-roteiro-ia';
 
 // Especificar o caminho para o arquivo .env na raiz do projeto
 const envPath = path.resolve(__dirname, '../.env'); 
@@ -635,6 +636,9 @@ app.post('/api/admin/delete-user', async (req, res) => {
 
   res.json({ success: true });
 });
+
+// ROTA: Geração de roteiro com IA Gemini
+app.post('/api/gerar-roteiro-ia', gerarRoteiroIAHandler);
 
 app.listen(PORT, () => {
   console.log(`Servidor backend rodando na porta ${PORT}`);

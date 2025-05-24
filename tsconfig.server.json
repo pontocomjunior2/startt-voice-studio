@@ -9,7 +9,8 @@
     "isolatedModules": false, // Mantido como false
     "outDir": "./dist-server", // Diretório para arquivos JS compilados
     "noEmit": false, // Garantir que a compilação gere arquivos (padrão, mas explícito)
-    "sourceMap": true // Opcional: gerar source maps para debugging
+    "sourceMap": true, // Opcional: gerar source maps para debugging
+    "target": "es2018"
   },
   "include": [
     "server/**/*.ts",
