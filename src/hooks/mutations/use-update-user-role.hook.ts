@@ -27,7 +27,7 @@ export const useUpdateUserRole = () => {
 
   return useMutation<UpdateUserRoleParams, Error, UpdateUserRoleParams>({
     mutationFn: updateUserRole,
-    onSuccess: (data, variables) => {
+    onSuccess: (variables) => {
       toast.success("Role Atualizada", { 
         description: `Role de ${variables.userNameOrFullName || 'usuário'} atualizada para ${variables.newRole}.` 
       });

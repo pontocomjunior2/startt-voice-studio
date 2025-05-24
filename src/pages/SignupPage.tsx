@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { LoginForm } from './LoginPage';
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Controller, type ControllerRenderProps } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import {
   Form,
@@ -237,7 +237,7 @@ function SignupPage() {
                         <Controller
                           name="whatsapp"
                           control={form.control}
-                          render={({ field, fieldState }) => (
+                          render={({ field }) => (
                             <FormItem>
                               <FormLabel className="text-xs">WhatsApp</FormLabel>
                               <FormControl>

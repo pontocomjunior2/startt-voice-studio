@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 // import { supabase } from '../../lib/supabaseClient'; // Não mais necessário diretamente aqui
 import { toast } from "sonner";
 import { Button } from '@/components/ui/button';
@@ -52,7 +52,7 @@ import { useUpdateUserRole } from '../../hooks/mutations/use-update-user-role.ho
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabaseClient'; // Usar o cliente supabase global
 import { useQueryClient } from '@tanstack/react-query'; // Adicionar se não estiver lá
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 function AdminUsuariosPage() {
   const { profile: adminProfile } = useAuth(); // Para admin_id_que_adicionou
@@ -76,7 +76,7 @@ function AdminUsuariosPage() {
 
   const [userFilter, setUserFilter] = useState('');
 
-  const { data: initialUsers = [], isLoading: isLoadingInitialUsers, isError: isFetchUsersError, error: fetchUsersError, refetch: refetchAdminUsers } = useFetchAdminUsers();
+  const { data: initialUsers = [], isLoading: isLoadingInitialUsers, isError: isFetchUsersError, error: fetchUsersError } = useFetchAdminUsers();
   
   // const { mutate: updateUserCredits, isPending: isUpdatingCreditsHook } = useUpdateUserCredits(); // REMOVIDO - O isPending será do isAddingCredits local
   const { mutate: updateUserRole, isPending: isUpdatingRole } = useUpdateUserRole();

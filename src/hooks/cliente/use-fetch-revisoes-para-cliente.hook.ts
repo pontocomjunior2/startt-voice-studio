@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
-import { REVISAO_STATUS_ADMIN, type SolicitacaoRevisaoParaCliente, type VersaoAudioRevisadoCliente } from '@/types/revisao.type';
+import { type SolicitacaoRevisaoParaCliente, type VersaoAudioRevisadoCliente } from '@/types/revisao.type';
 
 const fetchRevisoesParaCliente = async (pedidoId: string): Promise<SolicitacaoRevisaoParaCliente[]> => {
   if (!pedidoId) {

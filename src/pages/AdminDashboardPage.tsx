@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Link } from 'react-router-dom';
 // Importar componentes do Dialog
 import {
@@ -46,7 +45,7 @@ interface AdminPedido {
 }
 
 function AdminDashboardPage() {
-  const { signOut, user, profile } = useAuth(); // Pegar dados do admin logado
+  const { signOut } = useAuth(); // Pegar dados do admin logado
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [pendingPedidos, setPendingPedidos] = useState<AdminPedido[]>([]);
   const [loadingPending, setLoadingPending] = useState(true);

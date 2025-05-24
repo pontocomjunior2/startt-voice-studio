@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import DashboardPage from './pages/DashboardPage';
@@ -8,7 +8,6 @@ import AdminUsuariosPage from './pages/admin/AdminUsuariosPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import AuthRedirector from './components/AuthRedirector';
 import AppLayout from './components/layout/AppLayout';
-import { useAuth } from './contexts/AuthContext';
 import NotFoundPage from './pages/NotFoundPage';
 
 // Novas páginas do cliente

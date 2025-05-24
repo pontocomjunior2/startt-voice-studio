@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase/client'; // Presume-se que este caminho está correto
+import { supabase } from '@/lib/supabaseClient'; // Corrigir import do supabase para '@/lib/supabaseClient'
 import type { Pedido, Locutor } from '@/types'; // Presume-se que este caminho está correto
-import { useUser } from '@clerk/nextjs'; // Presume-se que este é o hook de autenticação
 
 // Interface para os dados do pedido completo com locutor, para edição
 export interface PedidoParaEdicao extends Pedido {
+  user_id: string;
   locutores: Locutor; // Supabase aninha o locutor aqui se a query estiver correta
 }
 
@@ -15,12 +15,11 @@ export interface UsePedidoParaEdicaoResult {
   isAllowedToEdit: boolean;
 }
 
-export const usePedidoParaEdicao = (pedidoId: string | null | undefined): UsePedidoParaEdicaoResult => {
+export const usePedidoParaEdicao = (pedidoId: string | null | undefined, userId: string | null | undefined): UsePedidoParaEdicaoResult => {
   const [pedido, setPedido] = useState<PedidoParaEdicao | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAllowedToEdit, setIsAllowedToEdit] = useState(false);
-  const { user, isSignedIn } = useUser(); // isSignedIn pode ser útil para verificar o estado de autenticação
 
   useEffect(() => {
     if (!pedidoId) {
@@ -29,19 +28,6 @@ export const usePedidoParaEdicao = (pedidoId: string | null | undefined): UsePed
       return;
     }
 
-    // Se temos um pedidoId, mas o usuário não está logado (após a verificação inicial do useUser)
-    // ou se o estado do usuário ainda não está definido (isSignedIn === undefined/false e user === null)
-    // podemos tratar como um estado de carregamento ou erro leve até que o user esteja definido.
-    if (isSignedIn === false || !user) {
-       // Se isSignedIn for explicitamente false, o usuário não está logado.
-       // Se user for null e isSignedIn não for true, também indica que não podemos prosseguir.
-      if (isSignedIn === false) {
-        setError("Usuário não autenticado para carregar o pedido.");
-      }
-      setIsLoading(false);
-      return;
-    }
-    
     const fetchPedido = async () => {
       setIsLoading(true);
       setError(null);
@@ -81,11 +67,11 @@ export const usePedidoParaEdicao = (pedidoId: string | null | undefined): UsePed
         
         const pedidoCompleto = pedidoData as PedidoParaEdicao;
 
-        if (pedidoCompleto.user_id !== user.id) {
+        if (pedidoCompleto.user_id !== userId) {
           setError("Você não tem permissão para editar este pedido.");
           setIsAllowedToEdit(false);
-        } else if (pedidoCompleto.status_pedido !== 'PENDENTE') {
-          setError(`Este pedido não pode mais ser editado (status: ${pedidoCompleto.status_pedido}). Somente pedidos PENDENTES são editáveis.`);
+        } else if (String(pedidoCompleto.status) !== 'PENDENTE') {
+          setError(`Este pedido não pode mais ser editado (status: ${pedidoCompleto.status}). Somente pedidos PENDENTES são editáveis.`);
           setIsAllowedToEdit(false);
         } else {
           setPedido(pedidoCompleto);
@@ -102,7 +88,7 @@ export const usePedidoParaEdicao = (pedidoId: string | null | undefined): UsePed
     };
 
     fetchPedido();
-  }, [pedidoId, user, isSignedIn]); // Adicionado isSignedIn às dependências
+  }, [pedidoId, userId]);
 
   return { pedido, isLoading, error, isAllowedToEdit };
 };

@@ -33,7 +33,6 @@ export const PedidoTableRow: React.FC<PedidoTableRowProps> = ({
   // ou detalhes, então simplifiquei aqui.
   // A lógica exata do que é "isEmRevisaoComAudio" pode precisar de ajuste fino se o comportamento for diferente do original.
   const isEmRevisao = pedido.status === PEDIDO_STATUS.EM_REVISAO;
-  const podeSolicitarRevisao = isConcluido; // Regra original era apenas para isConcluido
   
   const podeVerDetalhesGeral = 
     pedido.status !== PEDIDO_STATUS.PENDENTE &&

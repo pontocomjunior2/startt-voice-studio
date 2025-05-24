@@ -11,7 +11,7 @@
         "./src/*"
       ]
     },
-    "module": "ESNext",
+    "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "esModuleInterop": true
   }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import type { Pedido } from '@/types/pedido.type';
-import type { SolicitacaoRevisaoParaCliente, VersaoAudioRevisadoCliente } from '@/types/revisao.type'; // Tipos corretos
+import type { SolicitacaoRevisaoParaCliente } from '@/types/revisao.type'; // Tipos corretos
 import { useQueryClient } from '@tanstack/react-query';
 
 export interface PedidoComRevisoesRealtimeData {

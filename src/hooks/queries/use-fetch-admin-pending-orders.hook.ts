@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabaseClient';
 import { toast } from 'sonner';
 import type { AdminPedido, ProfileInPedido } from '../../types/pedido.type';

@@ -18,8 +18,7 @@ interface ResponderInfoSolicitadaDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   solicitacao: SolicitacaoRevisaoParaCliente | null;
-  // A função onSubmit agora pode retornar o resultado da action para tratamento de toast, etc.
-  onSubmit: (solicitacaoRevisaoId: string, respostaCliente: string) => Promise<any>; 
+  onSubmit: (solicitacaoRevisaoId: string, respostaCliente: string) => Promise<any>;
   referenciaPedido?: { idPedidoSerial?: string, titulo?: string | null };
 }
 
@@ -36,7 +35,7 @@ export const ResponderInfoSolicitadaDialog: React.FC<ResponderInfoSolicitadaDial
 
   useEffect(() => {
     if (isOpen) {
-      setRespostaCliente(''); // Limpa a resposta ao abrir o modal
+      setRespostaCliente('');
       setIsSubmitting(false);
       setError(null);
     }
@@ -53,7 +52,6 @@ export const ResponderInfoSolicitadaDialog: React.FC<ResponderInfoSolicitadaDial
     setIsSubmitting(true);
     try {
       await onSubmit(solicitacao.id, respostaCliente.trim());
-      // O fechamento do modal e toasts são tratados pelo componente pai após o sucesso do onSubmit
     } catch (e: any) {
       console.error("Erro ao submeter resposta:", e);
       setError(e.message || "Ocorreu um erro ao enviar sua resposta.");
@@ -64,7 +62,7 @@ export const ResponderInfoSolicitadaDialog: React.FC<ResponderInfoSolicitadaDial
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
-      if (!isSubmitting) onOpenChange(open); // Previne fechar durante submit
+      if (!isSubmitting) onOpenChange(open);
     }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
@@ -86,7 +84,7 @@ export const ResponderInfoSolicitadaDialog: React.FC<ResponderInfoSolicitadaDial
               id="respostaClienteTextarea"
               placeholder="Forneça os detalhes solicitados ou informações adicionais aqui..."
               value={respostaCliente}
-              onChange={(e) => setRespostaCliente(e.target.value)}
+              onChange={e => setRespostaCliente(e.target.value)}
               rows={5}
               className="min-h-[100px]"
               disabled={isSubmitting}

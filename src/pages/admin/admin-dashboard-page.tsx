@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, CreditCard, ListChecks, AlertTriangle, Loader2, FileText, CalendarDays, UserCircle, Eye, UploadCloud, Save, RotateCcw, RefreshCw, MessageSquare, DownloadCloud, PlayCircle } from 'lucide-react';
+import { Users, CreditCard, ListChecks, Loader2, FileText, Eye, Save, RotateCcw, RefreshCw, MessageSquare, DownloadCloud } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   Table,
@@ -21,7 +21,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogClose
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -39,8 +38,6 @@ import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
 
 // Importações para filtros
-import { type DateRange } from "react-day-picker";
-import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { DatePickerSingle } from '@/components/ui/date-picker-single';
 import { supabase } from '@/lib/supabaseClient'; // Para a query direta
 
@@ -49,7 +46,7 @@ import { useFetchAdminDashboardStats } from '../../hooks/queries/use-fetch-admin
 import type { AdminDashboardStats } from '../../hooks/queries/use-fetch-admin-dashboard-stats.hook';
 
 // Tipos atualizados
-import type { AdminPedido, SolicitacaoRevisaoDetalhada, VersaoAudioRevisadoDetalhada, PedidoStatus, TipoStatusPedido } from '../../types/pedido.type';
+import type { AdminPedido, SolicitacaoRevisaoDetalhada } from '../../types/pedido.type';
 import { PEDIDO_STATUS } from '../../types/pedido.type'; // Importação crucial
 import { useUpdatePedidoStatus } from '../../hooks/mutations/use-update-pedido-status.hook';
 
@@ -61,7 +58,7 @@ import {
 
 // REMOVER HOOK PARA SOLICITAÇÕES DE REVISÃO
 // import { useFetchAdminSolicitacoesRevisao } from '../../hooks/admin/use-fetch-admin-solicitacoes-revisao.hook';
-import type { SolicitacaoRevisaoAdmin, TipoRevisaoStatusAdmin } from '../../types/revisao.type';
+import type { TipoRevisaoStatusAdmin } from '../../types/revisao.type';
 import { REVISAO_STATUS_ADMIN } from '../../types/revisao.type';
 
 // Novo Hook para o histórico detalhado de revisões de um pedido
@@ -103,7 +100,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Trash2 } from 'lucide-react'; // Loader2 já importado
 
@@ -132,11 +128,6 @@ function AdminDashboardPage() {
     error: fetchStatsError 
   } = useFetchAdminDashboardStats();
 
-  // Estados para os filtros
-  const [filtroStatus, setFiltroStatus] = useState<string>('todos');
-  const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined);
-  const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
-  
   // Estados para os pedidos paginados e loading (substituindo pedidosAdmin)
   const [pedidosExibidos, setPedidosExibidos] = useState<AdminPedido[]>([]);
   const [loadingPedidos, setLoadingPedidos] = useState(true);
@@ -145,9 +136,6 @@ function AdminDashboardPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10); 
   const [totalPedidosCount, setTotalPedidosCount] = useState(0);
-
-  // const isLoading = isLoadingStats || loadingPedidos || isLoadingSolicitacoesRevisao; // isLoadingSolicitacoesRevisao removido
-  const isLoadingGlobal = isLoadingStats || loadingPedidos;
 
   const [selectedPedido, setSelectedPedido] = useState<AdminPedido | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false); // Modal principal do pedido
@@ -171,7 +159,6 @@ function AdminDashboardPage() {
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
 
   // Estados para as novas actions de status
-  const [isMarkingEmAnalise, setIsMarkingEmAnalise] = useState(false);
   const [adminAguardandoClienteMessage, setAdminAguardandoClienteMessage] = useState<string>(""); // <<< NOVO ESTADO
 
   // 1. Estado para filtro de título
@@ -179,6 +166,11 @@ function AdminDashboardPage() {
 
   // 1. Adicionar estado para justificativa de cancelamento
   const [adminCancelReason, setAdminCancelReason] = useState("");
+
+  // Estados para os filtros
+  const [filtroStatus, setFiltroStatus] = useState<string>('todos');
+  const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined);
+  const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
 
   const { // Este hook busca o histórico para o modal do pedido, deve ser mantido
     // data: historicoRevisoesPedido,
@@ -202,7 +194,7 @@ function AdminDashboardPage() {
   const fetchCreditosAtivos = async () => {
     setLoadingCreditosAtivos(true);
     try {
-      const { data, error } = await supabase.rpc('get_total_creditos_ativos');
+      const { data } = await supabase.rpc('get_total_creditos_ativos');
       let total = 0;
       if (Array.isArray(data) && data.length > 0) {
         total = data[0].get_total_creditos_ativos ?? data[0].total_creditos_ativos ?? data[0].sum ?? 0;
@@ -228,7 +220,6 @@ function AdminDashboardPage() {
   const { 
     execute: executeProcessarRevisao, 
     status: processarRevisaoStatus,
-    result: processarRevisaoResult,
     reset: resetProcessarRevisaoAction,
   } = useAction(processarRevisaoAdminAction, {
     onExecute: () => {
@@ -791,41 +782,6 @@ function AdminDashboardPage() {
     } finally {
       setIsUpdatingPedido(false);
       console.log('[handleDeletePedido] Finalizada.'); // Log adicionado
-    }
-  };
-
-  // Handler para marcar pedido como EM ANÁLISE
-  const handleMarcarEmAnalise = async () => {
-    if (!selectedPedido) return;
-
-    console.log(`[AdminDashboardPage] Tentando marcar pedido ${selectedPedido.id} como EM ANÁLISE.`);
-    setIsMarkingEmAnalise(true);
-    try {
-      const result = await adminMarcarPedidoEmAnaliseAction({ pedidoId: selectedPedido.id });
-
-      if (result?.data?.success) {
-        toast.success(result.data.message || "Pedido marcado como EM ANÁLISE.");
-        // Atualizar o estado local do pedido selecionado
-        setSelectedPedido(prev => prev ? { ...prev, status: PEDIDO_STATUS.EM_ANALISE } : null);
-        // Atualizar a lista de pedidos (fetchPedidosAdmin) e invalidar queries relevantes
-        fetchPedidosAdmin(); 
-        queryClient.invalidateQueries({ queryKey: ['adminDashboardStats'] });
-        // Poderia fechar o modal ou mudar de aba se necessário
-        // setIsViewModalOpen(false); 
-      } else if (result?.data?.failure) {
-        toast.error(`Falha: ${result.data.failure}`);
-      } else if (result?.serverError) {
-        toast.error(`Erro do servidor: ${result.serverError}`);
-      } else if (result?.validationErrors) { // Adicionado "?" para result
-        toast.error("Erro de validação ao marcar em análise.");
-      } else {
-        toast.error("Resposta inesperada ao marcar pedido em análise.");
-      }
-    } catch (error) {
-      console.error("[AdminDashboardPage] Erro ao chamar adminMarcarPedidoEmAnaliseAction:", error);
-      toast.error("Erro crítico ao tentar marcar pedido em análise.");
-    } finally {
-      setIsMarkingEmAnalise(false);
     }
   };
 
@@ -1451,18 +1407,17 @@ function AdminDashboardPage() {
                   console.log('[AlertDialog Excluir] onOpenChange. Novo estado:', open);
                   setIsDeleteAlertOpen(open);
                 }}>
-                  <AlertDialogTrigger asChild>
-                <Button 
-                      variant="destructive" 
-                      className="w-full sm:w-auto disabled:opacity-50"
-                      disabled={isUpdatingPedido}
-                      onClick={() => {
-                        console.log('[Excluir Pedido BUTTON] Clicado!'); // Log de clique direto no botão
-                      }}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" /> Excluir Pedido e Estornar Créditos
-                </Button>
-                  </AlertDialogTrigger>
+                  <Button 
+                    variant="destructive" 
+                    className="w-full sm:w-auto disabled:opacity-50"
+                    disabled={isUpdatingPedido}
+                    onClick={() => {
+                      console.log('[Excluir Pedido BUTTON] Clicado!');
+                      setIsDeleteAlertOpen(true);
+                    }}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Excluir Pedido e Estornar Créditos
+                  </Button>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>

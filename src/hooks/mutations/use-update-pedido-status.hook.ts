@@ -25,7 +25,7 @@ export const useUpdatePedidoStatus = () => {
 
   return useMutation<null, Error, UpdatePedidoStatusVariables>({
     mutationFn: updatePedidoStatus,
-    onSuccess: (_data, variables) => {
+    onSuccess: () => {
       toast.success('Status do pedido atualizado com sucesso!');
       queryClient.invalidateQueries({ queryKey: ['adminActiveOrders'] });
       queryClient.invalidateQueries({ queryKey: ['adminFinalizedOrders'] });

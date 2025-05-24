@@ -8,13 +8,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertTriangle, History, DownloadCloud, Download, Info, Paperclip, ThumbsUp, Clock, MessageSquareWarning, XCircle, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader2, AlertTriangle, History, Download, Info, Paperclip, ThumbsUp, Clock, MessageSquareWarning, XCircle, CheckCircle, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-import type { Pedido, TipoStatusPedido } from '@/types/pedido.type';
+import type { Pedido } from '@/types/pedido.type';
 import { usePedidoComRevisoesRealtime } from "@/hooks/realtime/use-pedido-com-revisoes-realtime.hook";
 import type { SolicitacaoRevisaoParaCliente, VersaoAudioRevisadoCliente, RevisaoStatusAdmin } from "@/types/revisao.type";
 import { PEDIDO_STATUS } from "@/types/pedido.type";
@@ -93,7 +93,7 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
     try {
       const link = document.createElement('a');
       link.href = url;
-      const fileName = url.substring(url.lastIndexOf('/') + 1) || `${nomeBase}_${pedidoDisplay.id_pedido_serial}.mp3`;
+      const fileName = url.substring(url.lastIndexOf('/') + 1) || `${nomeBase}_${pedidoDisplay?.id_pedido_serial || 'pedido'}.mp3`;
       link.setAttribute('download', fileName);
       document.body.appendChild(link);
       link.click();

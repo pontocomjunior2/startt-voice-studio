@@ -1,12 +1,11 @@
 import React from 'react';
-import { Link, Outlet, useNavigate, useLocation, NavLink } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation, NavLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { 
   Bell,
-  Home, 
   LayoutDashboard, 
   Users, 
   LogOut, 
@@ -16,20 +15,16 @@ import {
   PlusCircle,
   ListMusic,
   User as UserIcon,
-  Info,
-  Twitter,
-  Linkedin,
   Youtube,
   Instagram,
   ArrowRight,
   Clock
 } from 'lucide-react';
-import { ThemeToggle } from '../theme-toggle';
-import { cn } from '@/lib/utils';
 import Footer from './Footer'; // Garantir que esta importação existe
 import { Badge } from "@/components/ui/badge";
 import { TextShimmer } from '@/components/ui/text-shimmer';
 import WhatsappFloatingButton from './WhatsappFloatingButton';
+import { cn } from '@/lib/utils';
 
 // Tipo para os itens de navegação
 interface NavItem {
@@ -47,7 +42,7 @@ interface SocialLinkItem {
 }
 
 const AppLayout: React.FC = () => {
-  const { profile, signOut, user, unreadNotificationsCount, refreshNotifications } = useAuth();
+  const { profile, signOut, user, unreadNotificationsCount } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
@@ -101,31 +96,23 @@ const AppLayout: React.FC = () => {
 
   const SidebarNav: React.FC = () => (
     <nav className="flex flex-col gap-1 mt-10">
-      {navItems.map((item) => (
-        <NavLink
-          key={item.href}
-          to={item.href}
-          className={({ isActive }) =>
-            cn(
+      {navItems.map((item) => {
+        const isActive = location.pathname === item.href;
+        return (
+          <NavLink
+            key={item.href}
+            to={item.href}
+            className={cn(
               "flex items-center w-full gap-2 rounded-md px-2 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-200 dark:hover:bg-neutral-800 transition-all duration-200",
               isActive && "bg-neutral-100 dark:bg-neutral-900 shadow-lg text-gray-800 dark:text-gray-100 font-medium"
-            )
-          }
-          end={item.href.indexOf('#') === -1}
-        >
-          {({ isActive }) => (
-            <>
-              <item.icon
-                className={cn(
-                  "h-4 w-4 flex-shrink-0 text-startt-blue"
-                )}
-                aria-hidden="true"
-              />
-              <span className="whitespace-nowrap">{item.label}</span>
-            </>
-          )}
-        </NavLink>
-      ))}
+            )}
+            end={item.href.indexOf('#') === -1}
+          >
+            <item.icon className={cn("h-4 w-4 flex-shrink-0 text-startt-blue")} aria-hidden="true" />
+            <span className="whitespace-nowrap">{item.label}</span>
+          </NavLink>
+        );
+      })}
     </nav>
   );
 
@@ -165,21 +152,13 @@ const AppLayout: React.FC = () => {
         <div className="mt-auto pt-10"> {/* mt-auto para empurrar para baixo, pt-10 para espaço acima */}
           <NavLink
             to="/informacoes"
-            className={({ isActive }) => // Manter isActive para consistência, embora possa não ser necessário destaque especial
-              cn(
-                "flex items-center justify-center gap-2 w-full rounded-lg bg-gray-800 dark:bg-neutral-800 px-4 py-3 text-sm font-medium text-gray-100 dark:text-gray-100 hover:bg-gray-700 dark:hover:bg-neutral-700 transition-colors",
-                isActive && "bg-gray-900 dark:bg-neutral-900" // Leve destaque se ativo, opcional
-              )
-            }
-          >
-            {({ isActive }) => (
-            <>
-              {/* Pode-se remover o ícone Info se o design for minimalista como "Read Resume" */}
-              {/* <Info className="h-4 w-4" /> */}
-              <span>Informações</span>
-              <ArrowRight className="h-4 w-4 ml-1" />
-            </>
+            className={cn(
+              "flex items-center justify-center gap-2 w-full rounded-lg bg-gray-800 dark:bg-neutral-800 px-4 py-3 text-sm font-medium text-gray-100 dark:text-gray-100 hover:bg-gray-700 dark:hover:bg-neutral-700 transition-colors",
+              location.pathname === '/informacoes' && "bg-gray-900 dark:bg-neutral-900"
             )}
+          >
+            <span>Informações</span>
+            <ArrowRight className="h-4 w-4 ml-1" />
           </NavLink>
         </div>
       </aside>
@@ -234,18 +213,13 @@ const AppLayout: React.FC = () => {
                       <SheetClose asChild>
                         <NavLink
                           to="/informacoes"
-                          className={({ isActive }) =>
-                            cn(
-                              "flex items-center gap-3 rounded-md px-4 py-3 text-base font-semibold transition-all",
-                              isActive
-                                ? "bg-primary text-primary-foreground"
-                                : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                            )
-                          }
-                          end={location.pathname === '/informacoes'}
+                          className={cn(
+                            "flex items-center justify-center gap-2 w-full rounded-lg bg-gray-800 dark:bg-neutral-800 px-4 py-3 text-sm font-medium text-gray-100 dark:text-gray-100 hover:bg-gray-700 dark:hover:bg-neutral-700 transition-colors",
+                            location.pathname === '/informacoes' && "bg-gray-900 dark:bg-neutral-900"
+                          )}
                         >
-                          <Info className="h-5 w-5" />
                           <span>Informações</span>
+                          <ArrowRight className="h-4 w-4 ml-1" />
                         </NavLink>
                       </SheetClose>
                     </div>

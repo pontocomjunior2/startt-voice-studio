@@ -35,7 +35,7 @@ const fetchSolicitacoesRevisaoDetalhadasPorPedido = async (pedidoId: string | nu
   // O Supabase já deve retornar 'versoes_audio_revisao' como um array aninhado.
   // Se 'descricao' foi renomeada para 'descricao_cliente' na query, o mapeamento é direto.
   // É importante que os nomes das colunas no select string correspondam aos campos de SolicitacaoRevisaoDetalhada e VersaoAudioRevisadoDetalhada
-  return data || [];
+  return (data || []).map(item => ({ ...item, descricao: item.descricao_cliente ?? '' }));
 };
 
 interface UseFetchSolicitacoesRevisaoDetalhadasPorPedidoOptions {

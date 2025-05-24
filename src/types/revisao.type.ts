@@ -1,4 +1,4 @@
-import type { Pedido, TipoStatusPedido } from './pedido.type';
+import type { TipoStatusPedido } from './pedido.type';
 
 export interface RevisaoStatusAdmin {
   SOLICITADA: 'solicitada';

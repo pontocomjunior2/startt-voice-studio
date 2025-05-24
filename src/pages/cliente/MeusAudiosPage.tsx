@@ -8,7 +8,7 @@ import { supabase } from '../../lib/supabaseClient'; // Ajustar caminho se neces
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, Edit3, History, Eye, MoreVertical, Trash2, MessageSquare, FileAudio, XCircle } from 'lucide-react'; // Ícones necessários, Edit3 ou History para revisão, Adicionado Trash2 e MessageSquare
-import { useNavigate, Link } from 'react-router-dom'; // Link para o botão de novo pedido
+import { useNavigate } from 'react-router-dom'; // Link para o botão de novo pedido
 import { solicitarRevisaoAction, excluirPedidoAction } from '@/actions/pedido-actions'; // Importar a action
 import {
   Dialog,
@@ -17,14 +17,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogClose, // Para o botão de fechar/cancelar
 } from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -34,19 +32,15 @@ import { Send } from "lucide-react"
 import { PEDIDO_STATUS } from '@/types/pedido.type'; // Manter PEDIDO_STATUS aqui
 import { REVISAO_STATUS_ADMIN } from '@/types/revisao.type'; // Garantir que esta importação esteja correta
 import type { Pedido, TipoStatusPedido } from '@/types/pedido.type'; // Importar tipos com type
+import { startOfDay, endOfDay } from 'date-fns';
+import { DetalhesPedidoDownloadDialog } from '@/components/cliente/detalhes-pedido-download-dialog';
+import type { SolicitacaoRevisaoParaCliente } from '@/types/revisao.type';
 
 // Importações para o histórico de revisões
 import { useFetchRevisoesParaCliente } from '@/hooks/cliente/use-fetch-revisoes-para-cliente.hook';
-import type { SolicitacaoRevisaoParaCliente, VersaoAudioRevisadoCliente } from '@/types/revisao.type';
-
-// Importar o novo Dialog
-import { DetalhesPedidoDownloadDialog } from '@/components/cliente/detalhes-pedido-download-dialog'; // Ajuste o caminho se necessário
 import { ResponderInfoModal } from '@/components/cliente/responder-info-modal'; // <<< ADICIONAR IMPORT
 import { clienteResponderInfoAction } from '@/actions/cliente-actions'; // <<< IMPORTAR A NOVA ACTION
 import { useAction } from 'next-safe-action/hooks'; // <<< Corrigir import para useAction e remover ActionError
-import type { clienteResponderInfoSchema } from '@/actions/cliente-actions'; // Para tipar o resultado
-import { z } from 'zod'; // Para inferir o tipo do schema
-import { useQueryClient } from '@tanstack/react-query'; // <<< GARANTIR ESTE IMPORT NO TOPO
 import { Input } from '@/components/ui/input';
 import { DatePickerSingle } from '@/components/ui/date-picker-single';
 import {
@@ -56,8 +50,6 @@ import {
   SelectItem,
   SelectValue,
 } from '@/components/ui/select';
-import { format, startOfDay, endOfDay } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { useDropzone } from 'react-dropzone';
 
 // Componente para o Dialog de Histórico de Revisões
@@ -80,9 +72,6 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
   const [solicitacaoParaResponder, setSolicitacaoParaResponder] = useState<SolicitacaoRevisaoParaCliente | null>(null);
   const [textoRespostaCliente, setTextoRespostaCliente] = useState("");
 
-  const queryClient = useQueryClient(); // Para invalidar query de pedidos
-  const { user, profile } = useAuth(); // Para invalidar query de pedidos (se profile.id for parte da queryKey)
-
   const { 
     execute: executarEnviarResposta, 
     status: statusEnvioResposta, 
@@ -97,7 +86,6 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
         toast.success("Resposta Enviada", { description: data.data.success });
         setIsResponderInfoModalOpen(false); 
         refetchHistorico(); 
-        queryClient.invalidateQueries({ queryKey: ['pedidos', profile?.id] }); // Invalidar lista de pedidos principal
       } else if (data?.data?.failure) {
         toast.error("Falha ao Enviar", { description: data.data.failure });
       } else {
@@ -435,14 +423,12 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 function MeusAudiosPage() {
-  const { user, profile, refreshNotifications } = useAuth();
+  const { profile, refreshNotifications } = useAuth();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loadingPedidos, setLoadingPedidos] = useState(true);
   const [errorLoadingPedidos, setErrorLoadingPedidos] = useState<string | null>(null);
-  const [loadingRevisao, setLoadingRevisao] = useState<string | null>(null); // Para feedback no botão de revisão
 
   // Estados para o modal de revisão
   const [isRevisaoModalOpen, setIsRevisaoModalOpen] = useState(false);
@@ -959,7 +945,7 @@ function MeusAudiosPage() {
               type="text"
               placeholder="Digite parte do título..."
               value={filtroTitulo}
-              onChange={e => setFiltroTitulo(e.target.value)}
+              onChange={(e) => setFiltroTitulo(e.target.value)}
               autoComplete="off"
               className=""
             />
@@ -1016,7 +1002,6 @@ function MeusAudiosPage() {
                 const isPendente = pedido.status === PEDIDO_STATUS.PENDENTE;
                 const isConcluido = pedido.status === PEDIDO_STATUS.CONCLUIDO;
                 const isEmRevisaoComAudio = pedido.status === PEDIDO_STATUS.EM_REVISAO && pedido.audio_final_url;
-                const podeVerDetalhesGeral = pedido.status !== PEDIDO_STATUS.PENDENTE;
 
                 return (
                   <TableRow key={pedido.id} className={cn(
@@ -1152,7 +1137,7 @@ function MeusAudiosPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleOpenRevisaoModal(pedido)} disabled={loadingRevisao === pedido.id}>
+                                <DropdownMenuItem onClick={() => handleOpenRevisaoModal(pedido)}>
                                   <Edit3 className="mr-2 h-4 w-4" />
                                   Solicitar Revisão
                                 </DropdownMenuItem>
@@ -1300,12 +1285,12 @@ function MeusAudiosPage() {
       {isHistoricoRevisoesModalOpen && (
         <HistoricoRevisoesDialog 
           isOpen={isHistoricoRevisoesModalOpen}
-          onOpenChange={setIsHistoricoRevisoesModalOpen}
+          onOpenChange={(isOpen) => setIsHistoricoRevisoesModalOpen(isOpen)}
           pedido={pedidoParaHistoricoRevisoes}
         />
       )}
 
-      <Dialog open={isConfirmarExclusaoModalOpen} onOpenChange={setIsConfirmarExclusaoModalOpen}>
+      <Dialog open={isConfirmarExclusaoModalOpen} onOpenChange={(isOpen) => setIsConfirmarExclusaoModalOpen(isOpen)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Confirmar Exclusão do Pedido</DialogTitle>

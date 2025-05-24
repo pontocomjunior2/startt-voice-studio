@@ -1,18 +1,14 @@
-import React from 'react';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Send, Info } from 'lucide-react';
-import type { Pedido } from '@/types/pedido.type';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Loader2, Info, Send } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ResponderInfoModalProps {
   isOpen: boolean;
-  onOpenChange: (isOpen: boolean) => void;
-  pedido: Pedido | null;
-  solicitacao: { id: string; adminFeedback: string; } | null; // Detalhes da solicitação do admin
+  onOpenChange: (open: boolean) => void;
+  pedido: { id_pedido_serial: string; titulo?: string | null } | null;
+  solicitacao: { id: string; adminFeedback: string } | null;
   textoResposta: string;
   onTextoRespostaChange: (value: string) => void;
   onSubmit: () => void;

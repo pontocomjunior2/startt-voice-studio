@@ -8,7 +8,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { estimateCreditsFromText } from '@/utils/creditUtils';
 import { cn } from '@/lib/utils';
 import { PlayCircle, Send, Loader2, UserCircle, Users, ChevronLeft, ChevronRight, Heart, Filter, Star, AlertTriangle, FileAudio, XCircle, Sparkles, RefreshCw } from 'lucide-react';
 import { Separator } from "@/components/ui/separator";
@@ -17,7 +16,6 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { Form, FormControl, FormField, FormItem, FormMessage, FormLabel } from '@/components/ui/form';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -33,7 +31,6 @@ import {
 } from "@/utils/locutionTimeUtils";
 import { type Locutor } from '@/types';
 import { useSpring, animated } from 'react-spring';
-import { gerarIdReferenciaUnico } from '@/utils/pedidoUtils';
 import { obterMensagemSucessoAleatoria } from '@/utils/messageUtils';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PEDIDO_STATUS } from '@/types/pedido.type';
@@ -41,7 +38,7 @@ import { atualizarPedidoAction } from '@/actions/pedido-actions';
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDropzone } from 'react-dropzone';
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 const estilosLocucaoOpcoes = [
   { id: 'padrao', label: 'Padrão' },
@@ -123,18 +120,11 @@ function GravarLocucaoPage() {
   const [errorLocutores, setErrorLocutores] = useState<string | null>(null);
   const [selectedLocutor, setSelectedLocutor] = useState<Locutor | null>(null);
   const [estimatedCredits, setEstimatedCredits] = useState(0);
-  const [isPlayingPreview, setIsPlayingPreview] = useState<string | null>(null);
-  const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
-  const [velocidadeSelecionada, setVelocidadeSelecionada] = useState<VelocidadeLocucaoTipo>(VELOCIDADE_LOCUCAO.NORMAL);
   const [tempoEstimadoSegundos, setTempoEstimadoSegundos] = useState(0);
-
-  // Estados para paginação de locutores
-  const [currentPageLocutores, setCurrentPageLocutores] = useState(1);
-  const LOCUTORES_PER_PAGE = 4;
+  const [velocidadeSelecionada, setVelocidadeSelecionada] = useState<VelocidadeLocucaoTipo>(VELOCIDADE_LOCUCAO.NORMAL);
+  const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
 
   // Estados para modo de edição
-  const [isEditMode, setIsEditMode] = useState(!!editingPedidoIdParam);
-  const [editingPedidoId, setEditingPedidoId] = useState<string | null>(editingPedidoIdParam);
   const [loadingPedidoParaEdicao, setLoadingPedidoParaEdicao] = useState(false);
   const [preSelectedLocutorId, setPreSelectedLocutorId] = useState<string | null>(null);
   // console.log('[GravarLocucaoPage] Estado preSelectedLocutorId inicial:', preSelectedLocutorId);
@@ -319,7 +309,6 @@ function GravarLocucaoPage() {
     }
   }, [errors]);
 
-  const watchedTipoAudio = watch("tipoAudio");
   const watchedLocutorId = watch("locutorId");
   const watchedEstiloLocucao = watch("estiloLocucao");
   const watchedScriptText = watch("scriptText");
@@ -327,12 +316,12 @@ function GravarLocucaoPage() {
   // Efeito para carregar dados para edição OU aplicar pré-seleção
   useEffect(() => {
     // console.log('[GravarLocucaoPage] useEffect principal - isEditMode State:', isEditMode, 'preSelectedLocutorId State:', preSelectedLocutorId, 'Locutores Carregados:', locutores.length, 'Etapa Atual:', currentStep);
-    if (isEditMode && editingPedidoId) {
-      // console.log('[GravarLocucaoPage] Modo Edição ATIVO, buscando pedido:', editingPedidoId);
-      if (!loadingPedidoParaEdicao && (!getValues("tituloPedido") || searchParams.get('pedidoId') !== editingPedidoId)) {
-         fetchPedidoParaEdicao(editingPedidoId);
+    if (!!editingPedidoIdParam && editingPedidoIdParam) {
+      // console.log('[GravarLocucaoPage] Modo Edição ATIVO, buscando pedido:', editingPedidoIdParam);
+      if (!loadingPedidoParaEdicao && (!getValues("tituloPedido") || searchParams.get('pedidoId') !== editingPedidoIdParam)) {
+         fetchPedidoParaEdicao(editingPedidoIdParam);
       }
-    } else if (preSelectedLocutorId && !isEditMode) {
+    } else if (preSelectedLocutorId && !editingPedidoIdParam) {
       // console.log('[GravarLocucaoPage] Modo Novo Pedido com preSelectedLocutorId:', preSelectedLocutorId);
       
       const currentFormValues = getValues();
@@ -372,7 +361,7 @@ function GravarLocucaoPage() {
       } else {
         // console.log('[GravarLocucaoPage] Lista de locutores ainda vazia ou não contém o ID. Aguardando carregamento/atualização para definir selectedLocutor.');
       }
-    } else if (!isEditMode && !preSelectedLocutorId) {
+    } else if (!editingPedidoIdParam && !preSelectedLocutorId) {
       // console.log('[GravarLocucaoPage] Modo Novo Pedido SEM pré-seleção.');
       const currentFormValues = getValues();
 
@@ -397,13 +386,14 @@ function GravarLocucaoPage() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, editingPedidoId, preSelectedLocutorId, locutores, currentStep, searchParams, loadingPedidoParaEdicao, fetchPedidoParaEdicao, getValues, setValue, reset, setSelectedLocutor]);
+  }, [editingPedidoIdParam, preSelectedLocutorId, locutores, currentStep, searchParams, loadingPedidoParaEdicao, fetchPedidoParaEdicao, getValues, setValue, reset, setSelectedLocutor]);
 
   // Calcular locutores para a página atual - RESTAURADO AQUI
+  const [currentPageLocutores, setCurrentPageLocutores] = useState(1);
+  const LOCUTORES_PER_PAGE = 4;
   const indexOfLastLocutor = currentPageLocutores * LOCUTORES_PER_PAGE;
   const indexOfFirstLocutor = indexOfLastLocutor - LOCUTORES_PER_PAGE;
   // currentLocutoresToDisplay é calculado depois, com base nos locutores filtrados.
-  const totalLocutoresPages = Math.ceil(locutores.length / LOCUTORES_PER_PAGE); // Baseado no total de locutores, não filtrados ainda.
 
   // Este useEffect deve vir DEPOIS da definição de fetchLocutores
   useEffect(() => {
@@ -440,29 +430,9 @@ function GravarLocucaoPage() {
   }, [watchedScriptText, velocidadeSelecionada, watch("tipoAudio"), getValues, setTempoEstimadoSegundos, setEstimatedCredits]);
 
   // Funções de navegação para paginação de locutores
-  const handleNextLocutoresPage = () => {
-    setCurrentPageLocutores((prevPage) => Math.min(prevPage + 1, totalLocutoresPages));
-  };
-
-  const handlePreviousLocutoresPage = () => {
-    setCurrentPageLocutores((prevPage) => Math.max(prevPage - 1, 1));
-  };
-
-  const handlePlayPreview = (locutor: Locutor) => {
-    if (audioPreviewRef.current) {
-      if (isPlayingPreview === locutor.id) {
-        audioPreviewRef.current.pause();
-        setIsPlayingPreview(null);
-      } else {
-        audioPreviewRef.current.pause();
-        audioPreviewRef.current.currentTime = 0;
-        audioPreviewRef.current.src = locutor.amostra_audio_url;
-        audioPreviewRef.current.play().catch(error => console.error("Erro ao tocar áudio:", error));
-        setIsPlayingPreview(locutor.id);
-        audioPreviewRef.current.onended = () => setIsPlayingPreview(null);
-      }
-    }
-  };
+  // Remover: const handleNextLocutoresPage = () => { ... }
+  // Remover: const handlePreviousLocutoresPage = () => { ... }
+  // Remover: const handlePlayPreview = (locutor: Locutor) => { ... }
 
   const toggleFavorito = async (locutorId: string, isFavoritoAtual: boolean) => {
     if (!user?.id) {
@@ -560,7 +530,7 @@ function GravarLocucaoPage() {
     }
 
     // Validação de créditos e roteiro apenas para novos pedidos
-    if (!isEditMode) {
+    if (!editingPedidoIdParam) {
       // LOGS DETALHADOS PARA DIAGNÓSTICO DE CRÉDITOS
       console.log('[GravarLocucaoPage] DADOS DO PROFILE DO AUTHCONTEXT:', JSON.stringify(profile, null, 2));
       console.log(`[GravarLocucaoPage] SALDO USADO PARA VALIDAÇÃO: ${profile?.saldoCalculadoCreditos}, CRÉDITOS ESTIMADOS DO PEDIDO: ${estimatedCredits}`);
@@ -581,7 +551,7 @@ function GravarLocucaoPage() {
       console.log('[GravarLocucaoPage] VALIDAÇÃO OK: Créditos suficientes.');
     }
 
-    if (isEditMode && editingPedidoId) {
+    if (editingPedidoIdParam) {
       // Lógica para ATUALIZAR pedido
       // console.log("MODO EDIÇÃO - Atualizando pedido:", editingPedidoId, values);
       
@@ -605,7 +575,7 @@ function GravarLocucaoPage() {
           : values.estiloLocucao || '';
 
       const resultadoUpdate = await atualizarPedidoAction({
-        pedidoId: editingPedidoId,
+        pedidoId: editingPedidoIdParam,
         titulo: values.tituloPedido || undefined, 
         tipoAudio: values.tipoAudio, 
         locutorId: locutorParaSubmissao.id, // USAR locutorParaSubmissao.id
@@ -649,11 +619,11 @@ function GravarLocucaoPage() {
 
       try {
         // Validação de créditos continua importante antes de chamar a RPC
-        if (!isEditMode && (profile.saldoCalculadoCreditos ?? 0) < estimatedCredits) {
+        if (!editingPedidoIdParam && (profile.saldoCalculadoCreditos ?? 0) < estimatedCredits) {
           toast.error("Créditos Insuficientes", { description: `Você precisa de ${estimatedCredits} créditos, mas seu saldo válido é de ${profile.saldoCalculadoCreditos ?? 0}.` });
           return;
         }
-        if (!isEditMode && estimatedCredits === 0 && values.scriptText && values.scriptText.trim().length > 0) {
+        if (!editingPedidoIdParam && estimatedCredits === 0 && values.scriptText && values.scriptText.trim().length > 0) {
           toast.error("Erro no Pedido", { description: "O roteiro parece válido, mas não foram calculados créditos. Verifique o texto." });
           return;
         }
@@ -1789,7 +1759,7 @@ function GravarLocucaoPage() {
                             ) : (
                               <Send className="mr-2 h-5 w-5" />
                             )}
-                            {isEditMode ? `Enviar Alteração (${estimatedCredits} créditos)` : `Enviar Pedido (${estimatedCredits} créditos)`}
+                            {editingPedidoIdParam ? `Enviar Alteração (${estimatedCredits} créditos)` : `Enviar Pedido (${estimatedCredits} créditos)`}
                           </Button>
                         </span>
                       </TooltipTrigger>

@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { type ControllerRenderProps, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -17,9 +17,8 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardHeader,
-  CardTitle,
-  CardFooter
+  CardFooter,
+  CardHeader
 } from "@/components/ui/card";
 import { useAuth } from "../contexts/AuthContext";
 import { useState } from "react";

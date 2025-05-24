@@ -1,17 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from '../lib/supabaseClient';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn } from '@/lib/utils';
-import { Separator } from "@/components/ui/separator";
-import { CreditCard, Wallet, User, ListMusic, ClipboardList, Loader2, CheckCircle2, Hourglass, PlusCircle, RefreshCw } from 'lucide-react';
-import { useLocation, Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Loader2, RefreshCw, PlusCircle, Wallet, ClipboardList, Hourglass, CheckCircle2, ListMusic, User } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 // Definir um tipo para Pedido
 interface Pedido {
@@ -46,13 +45,11 @@ interface LocutorExibicao {
 }
 
 function DashboardPage() {
-  const { signOut, user, profile, isLoading, isFetchingProfile, refreshProfile, refreshNotifications } = useAuth();
+  const { user, profile, isLoading, isFetchingProfile, refreshProfile, refreshNotifications } = useAuth();
   const navigate = useNavigate();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loadingPedidos, setLoadingPedidos] = useState(true);
-  const location = useLocation();
 
   // Stats do Dashboard
   const [totalPedidos, setTotalPedidos] = useState(0);
@@ -230,27 +227,6 @@ function DashboardPage() {
     }
   }, [profile?.id, fetchDadosAdicionaisDashboard]); // Adicionar fetchDadosAdicionaisDashboard às dependências
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      await signOut();
-    } catch (error) {
-      console.error("Erro ao fazer logout:", error);
-      toast.error("Erro ao Sair");
-      setIsLoggingOut(false);
-    }
-  };
-
-  useEffect(() => {
-    if (location.hash) {
-      const id = location.hash.replace('#', '');
-      const el = document.getElementById(id);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }
-  }, [location]);
-
   if (isLoading || isFetchingProfile) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -267,26 +243,7 @@ function DashboardPage() {
     );
   }
 
-  const userEmail = user.email;
   const userSaldoCreditosCalculado = profile?.saldoCalculadoCreditos ?? 0;
-
-  const handleDownload = async (pedido: Pedido) => {
-    if (!pedido.audio_final_url) {
-      toast.error("Download Indisponível");
-      return;
-    }
-    try {
-      window.open(pedido.audio_final_url, '_blank');
-      toast.success("Download Iniciado");
-      if (!pedido.downloaded_at) {
-        await supabase.from('pedidos').update({ downloaded_at: new Date().toISOString() }).eq('id', pedido.id);
-        setPedidos(prev => prev.map(p => p.id === pedido.id ? {...p, downloaded_at: new Date().toISOString()} : p));
-      }
-    } catch (error) {
-      console.error("Erro ao baixar áudio:", error);
-      toast.error("Erro no Download");
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background text-foreground space-y-10 p-4 md:p-6">

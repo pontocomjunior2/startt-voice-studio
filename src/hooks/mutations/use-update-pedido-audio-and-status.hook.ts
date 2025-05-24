@@ -75,7 +75,7 @@ export const useUpdatePedidoAudioAndStatus = () => {
 
   return useMutation<null, Error, UpdatePedidoAudioAndStatusVariables>({
     mutationFn: updatePedidoAudioAndStatus,
-    onSuccess: (_data, variables) => {
+    onSuccess: () => {
       toast.success('Pedido atualizado com sucesso!');
       queryClient.invalidateQueries({ queryKey: ['adminActiveOrders'] });
       queryClient.invalidateQueries({ queryKey: ['adminDashboardStats'] });

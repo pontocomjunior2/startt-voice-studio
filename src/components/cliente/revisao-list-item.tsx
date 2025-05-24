@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SolicitacaoRevisaoParaCliente, VersaoAudioRevisadoCliente } from '@/types/revisao.type';
 import { REVISAO_STATUS_ADMIN } from '@/types/revisao.type'; // Assumindo que está definido aqui
-import { cn } from '@/lib/utils'; // Adicionado cn para classes condicionais
 
 // Função para formatar data/hora - idealmente viria de um utilitário
 // Se for usada apenas aqui, pode ser mantida localmente.
@@ -29,7 +28,7 @@ export const RevisaoListItem: React.FC<RevisaoListItemProps> = ({
   idPedidoSerial,
   onAbrirResponderInfoModal,
 }) => {
-  const isInfoSolicitada = solicitacao.statusRevisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_PELO_ADMIN;
+  const isInfoSolicitada = solicitacao.statusRevisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE;
 
   return (
     <li className="p-4 rounded-lg shadow-sm bg-card">
@@ -65,7 +64,7 @@ export const RevisaoListItem: React.FC<RevisaoListItemProps> = ({
       </div>
 
       {/* Se informações foram solicitadas pelo admin */} 
-      {isInfoSolicitada && solicitacao.adminInfoRequestDetails && (
+      {isInfoSolicitada && (
         <Card className="mb-3 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700">
           <CardHeader className="pb-2 pt-3">
             <CardTitle className="text-sm flex items-center font-semibold text-blue-700 dark:text-blue-300">
@@ -74,9 +73,7 @@ export const RevisaoListItem: React.FC<RevisaoListItemProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-3">
-            <p className="text-sm text-blue-600 dark:text-blue-400 whitespace-pre-wrap">
-              {solicitacao.adminInfoRequestDetails}
-            </p>
+            {/* Remover o bloco que exibe {solicitacao.adminInfoRequestDetails} */}
           </CardContent>
         </Card>
       )}
@@ -157,7 +154,7 @@ export const RevisaoListItem: React.FC<RevisaoListItemProps> = ({
       {/* Mensagem de "Em processamento" (apenas se não estiver aguardando info e não for negada/concluída) */} 
       {!isInfoSolicitada && 
        solicitacao.statusRevisao !== REVISAO_STATUS_ADMIN.NEGADA &&
-       solicitacao.statusRevisao !== REVISAO_STATUS_ADMIN.CONCLUIDA_PELO_ADMIN && 
+       solicitacao.statusRevisao !== REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO && 
        (!solicitacao.versoesAudio || solicitacao.versoesAudio.length === 0) && (
           <div className="mt-3 text-sm text-muted-foreground italic pt-3">
             Revisão em processamento pelo atendimento.

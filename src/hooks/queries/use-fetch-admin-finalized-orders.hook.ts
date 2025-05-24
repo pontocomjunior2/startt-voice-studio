@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabaseClient';
 import { toast } from 'sonner';
-import type { AdminPedido } from './use-fetch-admin-pending-orders.hook'; // Reutilizar a interface AdminPedido
+import type { AdminPedido } from '../../types/pedido.type';
 
 const fetchAdminFinalizedOrders = async (): Promise<AdminPedido[]> => {
   const { data, error } = await supabase

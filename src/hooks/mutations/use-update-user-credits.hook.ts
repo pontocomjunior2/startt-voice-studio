@@ -27,7 +27,7 @@ export const useUpdateUserCredits = () => {
 
   return useMutation<UpdateUserCreditsParams, Error, UpdateUserCreditsParams>({ 
     mutationFn: updateUserCredits,
-    onSuccess: (data, variables) => {
+    onSuccess: (variables) => {
       toast.success("Créditos Atualizados", { 
         description: `Créditos de ${variables.userNameOrFullName || 'usuário'} atualizados para ${variables.newCredits}.` 
       });
