@@ -16,6 +16,8 @@ export interface Profile {
   credits: number | null; // Esta coluna será mantida, mas o saldo exibido virá de saldoCalculadoCreditos
   package_id: string | null; // ou number, dependendo da sua definição
   saldoCalculadoCreditos?: number; // Novo campo para o saldo calculado
+  cpf?: string | null;
+  cnpj?: string | null;
 }
 
 interface AuthContextProps {

@@ -22,12 +22,16 @@ import {
 
 // Validação Zod robusta
 const phoneRegex = /^\(\d{2}\)\s?\d{4,5}-\d{4}$/;
+const cpfRegex = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/;
+const cnpjRegex = /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/;
 const signupSchema = z.object({
   fullName: z.string().min(3, { message: "Nome completo deve ter no mínimo 3 caracteres." }),
   companyName: z.string().min(2, { message: "Nome da empresa deve ter no mínimo 2 caracteres." }),
   email: z.string().email({ message: "Por favor, insira um email válido." }),
   username: z.string().min(3, { message: "Nome de usuário deve ter no mínimo 3 caracteres." }),
   whatsapp: z.string().regex(phoneRegex, { message: "Formato de WhatsApp inválido. Use (XX)XXXXX-XXXX ou (XX)XXXX-XXXX." }),
+  cpf: z.string().optional(),
+  cnpj: z.string().optional(),
   password: z.string()
     .min(6, { message: "Senha deve ter no mínimo 6 caracteres." })
     .regex(/[0-9]/, { message: "Senha deve conter pelo menos um número." })
@@ -36,6 +40,12 @@ const signupSchema = z.object({
 }).refine(data => data.password === data.confirmPassword, {
   message: "As senhas não coincidem.",
   path: ["confirmPassword"],
+}).refine(data => (data.cpf && !data.cnpj) || (!data.cpf && data.cnpj), {
+  message: "Informe apenas CPF ou CNPJ.",
+  path: ["cpf", "cnpj"],
+}).refine(data => (data.cpf && cpfRegex.test(data.cpf)) || (data.cnpj && cnpjRegex.test(data.cnpj)), {
+  message: "CPF ou CNPJ inválido.",
+  path: ["cpf", "cnpj"],
 });
 
 type SignupFormData = z.infer<typeof signupSchema>;
@@ -54,6 +64,8 @@ function SignupPage() {
       email: "",
       username: "",
       whatsapp: "",
+      cpf: "",
+      cnpj: "",
       password: "",
       confirmPassword: "",
     },
@@ -69,7 +81,9 @@ function SignupPage() {
           username: values.username, 
           full_name: values.fullName,
           company_name: values.companyName,
-          whatsapp: values.whatsapp
+          whatsapp: values.whatsapp,
+          cpf: values.cpf || null,
+          cnpj: values.cnpj || null
         } 
       }
     });
@@ -256,6 +270,53 @@ function SignupPage() {
                             </FormItem>
                           )}
                         />
+                        {/* CPF ou CNPJ */}
+                        <div className="flex gap-2">
+                          <FormField
+                            control={form.control}
+                            name="cpf"
+                            render={({ field }) => (
+                              <FormItem className="w-1/2">
+                                <FormLabel className="text-xs">CPF</FormLabel>
+                                <FormControl>
+                                  <IMaskInput
+                                    mask="000.000.000-00"
+                                    unmask={false}
+                                    value={field.value}
+                                    onAccept={value => field.onChange(value)}
+                                    disabled={isProcessing}
+                                    placeholder="000.000.000-00"
+                                    className="h-8 rounded text-sm w-full border border-input bg-transparent px-3 py-1 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-gray-200 focus:text-white"
+                                    autoComplete="off"
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="cnpj"
+                            render={({ field }) => (
+                              <FormItem className="w-1/2">
+                                <FormLabel className="text-xs">CNPJ</FormLabel>
+                                <FormControl>
+                                  <IMaskInput
+                                    mask="00.000.000/0000-00"
+                                    unmask={false}
+                                    value={field.value}
+                                    onAccept={value => field.onChange(value)}
+                                    disabled={isProcessing}
+                                    placeholder="00.000.000/0000-00"
+                                    className="h-8 rounded text-sm w-full border border-input bg-transparent px-3 py-1 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-gray-200 focus:text-white"
+                                    autoComplete="off"
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
                         {/* Senha */}
                         <FormField
                           control={form.control}

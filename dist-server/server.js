@@ -11,6 +11,7 @@ const cors_1 = __importDefault(require("cors"));
 const supabase_js_1 = require("@supabase/supabase-js");
 const dotenv_1 = __importDefault(require("dotenv"));
 const gerar_roteiro_ia_1 = __importDefault(require("./api/gerar-roteiro-ia"));
+const gerar_pix_inter_1 = __importDefault(require("./api/gerar-pix-inter"));
 // Especificar o caminho para o arquivo .env na raiz do projeto
 const envPath = path_1.default.resolve(__dirname, '../.env');
 dotenv_1.default.config({ path: envPath });
@@ -602,6 +603,17 @@ app.post('/api/admin/delete-user', async (req, res) => {
 });
 // ROTA: Geração de roteiro com IA Gemini
 app.post('/api/gerar-roteiro-ia', gerar_roteiro_ia_1.default);
+// Rota para geração de QR Code PIX dinâmico via Banco Inter
+app.use('/api/gerar-pix-inter', gerar_pix_inter_1.default);
+app.get('/api/test-env', (req, res) => {
+    res.json({
+        INTER_CLIENT_ID: process.env.INTER_CLIENT_ID,
+        INTER_CERT_PATH: process.env.INTER_CERT_PATH,
+        INTER_KEY_PATH: process.env.INTER_KEY_PATH,
+        INTER_API_URL: process.env.INTER_API_URL,
+        // Não exponha secrets em produção!
+    });
+});
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor backend rodando na porta ${PORT}`);
     console.log(`Uploads serão salvos em: ${path_1.default.join(__dirname, '../public/uploads')}`);

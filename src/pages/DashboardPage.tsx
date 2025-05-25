@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabaseClient';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, RefreshCw, PlusCircle, Wallet, ClipboardList, Hourglass, CheckCircle2, ListMusic, User } from 'lucide-react';
+import { Loader2, RefreshCw, PlusCircle, Wallet, ClipboardList, Hourglass, CheckCircle2, ListMusic, User, CreditCard } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
@@ -427,6 +427,12 @@ function DashboardPage() {
       </div>
 
       <Separator className="my-8" />
+
+      <Button asChild size="lg" className="bg-gradient-to-r from-startt-blue to-startt-purple text-primary-foreground hover:opacity-90 mt-4">
+        <Link to="/comprar-creditos">
+          <CreditCard className="mr-2 h-5 w-5" /> Adquirir Mais Créditos
+        </Link>
+      </Button>
     </div>
   );
 }

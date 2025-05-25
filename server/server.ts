@@ -6,6 +6,7 @@ import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import gerarRoteiroIAHandler from './api/gerar-roteiro-ia';
+import gerarPixInterRouter from './api/gerar-pix-inter';
 
 // Especificar o caminho para o arquivo .env na raiz do projeto
 const envPath = path.resolve(__dirname, '../.env'); 
@@ -639,6 +640,19 @@ app.post('/api/admin/delete-user', async (req, res) => {
 
 // ROTA: Geração de roteiro com IA Gemini
 app.post('/api/gerar-roteiro-ia', gerarRoteiroIAHandler);
+
+// Rota para geração de QR Code PIX dinâmico via Banco Inter
+app.use('/api/gerar-pix-inter', gerarPixInterRouter);
+
+app.get('/api/test-env', (req, res) => {
+  res.json({
+    INTER_CLIENT_ID: process.env.INTER_CLIENT_ID,
+    INTER_CERT_PATH: process.env.INTER_CERT_PATH,
+    INTER_KEY_PATH: process.env.INTER_KEY_PATH,
+    INTER_API_URL: process.env.INTER_API_URL,
+    // Não exponha secrets em produção!
+  });
+});
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor backend rodando na porta ${PORT}`);

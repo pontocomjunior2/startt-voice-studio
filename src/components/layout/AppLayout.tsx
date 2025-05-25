@@ -18,7 +18,8 @@ import {
   Youtube,
   Instagram,
   ArrowRight,
-  Clock
+  Clock,
+  CreditCard
 } from 'lucide-react';
 import Footer from './Footer'; // Garantir que esta importação existe
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +73,7 @@ const AppLayout: React.FC = () => {
       { href: '/gravar-locucao', label: 'Novo Áudio', icon: PlusCircle, roles: ['cliente'] },
       { href: '/meus-audios', label: 'Meus Áudios', icon: ListMusic, roles: ['cliente'] },
       { href: '/locutores', label: 'Locutores', icon: Voicemail, roles: ['cliente'] },
+      { href: '/comprar-creditos', label: 'Comprar Créditos', icon: CreditCard, roles: ['cliente'] },
       { href: '/meu-perfil', label: 'Meu Perfil', icon: UserIcon, roles: ['cliente'] },
       { href: '/historico-creditos', label: 'Histórico de Créditos', icon: Clock, roles: ['cliente'] },
     ];
