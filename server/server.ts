@@ -6,7 +6,7 @@ import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import gerarRoteiroIAHandler from './api/gerar-roteiro-ia';
-import gerarPixInterRouter from './api/gerar-pix-inter';
+import gerarPagamentoPixMpRouter from './api/gerar-pagamento-pix-mp';
 
 // Especificar o caminho para o arquivo .env na raiz do projeto
 const envPath = path.resolve(__dirname, '../.env'); 
@@ -641,8 +641,7 @@ app.post('/api/admin/delete-user', async (req, res) => {
 // ROTA: Geração de roteiro com IA Gemini
 app.post('/api/gerar-roteiro-ia', gerarRoteiroIAHandler);
 
-// Rota para geração de QR Code PIX dinâmico via Banco Inter
-app.use('/api/gerar-pix-inter', gerarPixInterRouter);
+app.use(gerarPagamentoPixMpRouter);
 
 app.get('/api/test-env', (req, res) => {
   res.json({

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { QRCodeCanvas } from "qrcode.react";
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,7 +25,7 @@ const PACOTES: PacoteCredito[] = [
 ];
 
 export default function ComprarCreditosPage() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [pacoteSelecionadoParaCompra, setPacoteSelecionadoParaCompra] = useState<PacoteCredito | null>(null);
   const [isModalPixOpen, setIsModalPixOpen] = useState(false);
   const [isLoadingQrCode, setIsLoadingQrCode] = useState(false);
@@ -33,71 +33,55 @@ export default function ComprarCreditosPage() {
   const [txidPIX, setTxidPIX] = useState<string | null>(null);
   const [tempoRestanteSegundos, setTempoRestanteSegundos] = useState<number | null>(null);
   const [qrCodePayload, setQrCodePayload] = useState<string | null>(null);
+  const [paymentIdMP, setPaymentIdMP] = useState<string | null>(null);
+  const [qrCodeBase64MP, setQrCodeBase64MP] = useState<string | null>(null);
+  const [qrCodePayloadMP, setQrCodePayloadMP] = useState<string | null>(null);
+  const [tempoRestanteSegundosMP, setTempoRestanteSegundosMP] = useState<number | null>(null);
 
   const handleAbrirModalPix = async (pacote: PacoteCredito) => {
     if (!profile) {
       toast("Erro de Autenticação", { description: "Usuário não autenticado. Faça login novamente." });
       return;
     }
-    const cpf = profile.cpf ? profile.cpf.replace(/\D/g, '') : undefined;
-    const cnpj = profile.cnpj ? profile.cnpj.replace(/\D/g, '') : undefined;
-    if (!cpf && !cnpj) {
-      toast("Dados obrigatórios ausentes", { description: "Seu cadastro precisa ter CPF ou CNPJ para gerar cobrança PIX. Atualize seu perfil." });
-      return;
-    }
     setPacoteSelecionadoParaCompra(pacote);
     setIsModalPixOpen(true);
-    setQrCodeDataUrl(null);
-    setQrCodePayload(null);
-    setTxidPIX(null);
-    setTempoRestanteSegundos(null);
+    setPaymentIdMP(null);
+    setQrCodeBase64MP(null);
+    setQrCodePayloadMP(null);
+    setTempoRestanteSegundosMP(null);
     setIsLoadingQrCode(true);
     try {
-      const response = await fetch('/api/gerar-pix-inter', {
+      const response = await fetch('/api/criar-pagamento-pix-mp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          pacoteId: pacote.id,
-          valorCentavos: Math.round(pacote.preco * 100),
-          cpf: cpf || undefined,
-          cnpj: cnpj || undefined,
+          pacoteNome: pacote.nome,
+          valorTotal: pacote.preco,
+          emailCliente: user?.email,
           userIdCliente: profile.id,
         }),
       });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Erro ao comunicar com o servidor para gerar PIX.' }));
-        throw new Error(errorData.message || `Falha ao gerar PIX: ${response.statusText}`);
-      }
       const result = await response.json();
-      if (result.success) {
-        const data = result.data;
-        setTxidPIX(data.txid);
-        if (data.qrCodeImagem) {
-          setQrCodeDataUrl(data.qrCodeImagem);
-        } else if (data.pixCopiaECola) {
-          setQrCodePayload(data.pixCopiaECola);
-        } else if (data.loc?.location) {
-          setQrCodePayload(data.loc.location);
-        } else {
-          throw new Error("Dados do QR Code não recebidos do servidor.");
-        }
-        setTempoRestanteSegundos(data.calendario?.expiracao || 3600);
-      } else {
-        throw new Error(result.message || "Servidor não conseguiu gerar o PIX.");
+      if (!result.success) {
+        throw new Error(result.message || 'Erro ao criar pagamento Pix.');
       }
+      setPaymentIdMP(result.paymentId);
+      setQrCodeBase64MP(result.qrCodeBase64);
+      setQrCodePayloadMP(result.qrCodePayload);
+      setTempoRestanteSegundosMP(result.tempoExpiracaoSegundos);
     } catch (error: any) {
-      console.error("Erro ao obter dados do PIX:", error);
+      console.error("Erro ao criar pagamento Pix MP:", error);
       toast("Erro ao Gerar PIX", { description: error.message });
     } finally {
       setIsLoadingQrCode(false);
     }
   };
 
-  // Contador regressivo
+  // Contador regressivo Mercado Pago
   useEffect(() => {
-    if (isModalPixOpen && tempoRestanteSegundos !== null && tempoRestanteSegundos > 0 && !isLoadingQrCode) {
+    if (isModalPixOpen && tempoRestanteSegundosMP !== null && tempoRestanteSegundosMP > 0 && !isLoadingQrCode) {
       const timer = setInterval(() => {
-        setTempoRestanteSegundos((prev) => {
+        setTempoRestanteSegundosMP((prev) => {
           if (prev === null || prev <= 1) {
             clearInterval(timer);
             toast("PIX Expirado", { description: "O QR Code para pagamento expirou. Por favor, gere um novo." });
@@ -108,7 +92,7 @@ export default function ComprarCreditosPage() {
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [isModalPixOpen, tempoRestanteSegundos, isLoadingQrCode]);
+  }, [isModalPixOpen, tempoRestanteSegundosMP, isLoadingQrCode]);
 
   const formatarTempoRestante = (segundos: number | null): string => {
     if (segundos === null || segundos < 0) return "00:00";
@@ -161,32 +145,25 @@ export default function ComprarCreditosPage() {
               <div className="h-48 w-48 flex items-center justify-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" aria-label="Carregando QR Code" />
               </div>
-            ) : qrCodeDataUrl ? (
-              <img src={qrCodeDataUrl} alt="QR Code PIX" className="h-48 w-48 border rounded-md" width={192} height={192} loading="lazy" />
-            ) : qrCodePayload ? (
-              <QRCodeCanvas value={qrCodePayload} size={192} level="H" includeMargin={false} />
+            ) : qrCodeBase64MP ? (
+              <img src={`data:image/png;base64,${qrCodeBase64MP}`} alt="QR Code PIX" className="h-48 w-48 border rounded-md" width={192} height={192} loading="lazy" />
             ) : (
               <p className="text-destructive">Não foi possível carregar o QR Code.</p>
             )}
 
-            {/* Contador regressivo */}
-            {tempoRestanteSegundos !== null && tempoRestanteSegundos > 0 && !isLoadingQrCode && (
+            {/* Contador regressivo Mercado Pago */}
+            {tempoRestanteSegundosMP !== null && tempoRestanteSegundosMP > 0 && !isLoadingQrCode && (
               <p className="text-center text-lg font-medium mt-3">
-                Este QR Code expira em: <span className="text-primary font-bold">{formatarTempoRestante(tempoRestanteSegundos)}</span>
+                Este QR Code expira em: <span className="text-primary font-bold">{formatarTempoRestante(tempoRestanteSegundosMP)}</span>
               </p>
             )}
-            {tempoRestanteSegundos === 0 && !isLoadingQrCode && (
+            {tempoRestanteSegundosMP === 0 && !isLoadingQrCode && (
               <p className="text-center text-lg font-medium mt-3 text-destructive">
                 QR Code Expirado!
               </p>
             )}
-            {/* Exibir TXID */}
-            {txidPIX && (
-              <p className="text-xs text-center text-muted-foreground mt-2">ID da Transação: {txidPIX}</p>
-            )}
-
-            {/* Campo PIX Copia e Cola */}
-            {qrCodePayload && !isLoadingQrCode && (
+            {/* Campo PIX Copia e Cola Mercado Pago */}
+            {qrCodePayloadMP && !isLoadingQrCode && (
               <div className="w-full flex flex-col items-center mt-2">
                 <label htmlFor="pix-copia-e-cola" className="text-sm font-medium text-muted-foreground mb-1">
                   Código Copia e Cola:
@@ -195,7 +172,7 @@ export default function ComprarCreditosPage() {
                   <input
                     id="pix-copia-e-cola"
                     type="text"
-                    value={qrCodePayload}
+                    value={qrCodePayloadMP}
                     readOnly
                     className="flex-1 rounded-md border px-2 py-1 text-xs bg-muted text-foreground select-all focus:outline-none focus:ring-2 focus:ring-primary"
                     aria-label="Código PIX Copia e Cola"
@@ -206,14 +183,14 @@ export default function ComprarCreditosPage() {
                     size="sm"
                     className="shrink-0"
                     onClick={() => {
-                      if (qrCodePayload) {
-                        navigator.clipboard.writeText(qrCodePayload);
+                      if (qrCodePayloadMP) {
+                        navigator.clipboard.writeText(qrCodePayloadMP);
                         toast("Código copiado!", { description: "O código PIX foi copiado para sua área de transferência." });
                       }
                     }}
                     aria-label="Copiar código PIX Copia e Cola"
                   >
-                    Copiar
+                    <Copy className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
