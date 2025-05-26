@@ -5,8 +5,7 @@ import fs from 'fs';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
-import gerarRoteiroIAHandler from './api/gerar-roteiro-ia';
-import gerarPagamentoPixMpRouter from './api/gerar-pagamento-pix-mp';
+import rateLimit from 'express-rate-limit';
 
 // Especificar o caminho para o arquivo .env na raiz do projeto
 const envPath = path.resolve(__dirname, '../.env'); 
@@ -16,6 +15,11 @@ console.log(`[Servidor Express] Tentando carregar .env de: ${envPath}`);
 console.log('[Servidor Express] VITE_SUPABASE_URL lido:', process.env.VITE_SUPABASE_URL ? 'Definido' : 'NÃO DEFINIDO');
 console.log('[Servidor Express] VITE_SUPABASE_ANON_KEY lido:', process.env.VITE_SUPABASE_ANON_KEY ? 'Definido' : 'NÃO DEFINIDO');
 console.log('[Servidor Express] SUPABASE_SERVICE_ROLE_KEY lido:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Definido' : 'NÃO DEFINIDO');
+
+// IMPORTS DOS HANDLERS/ROUTERS DEVEM VIR APÓS O dotenv.config!
+import gerarRoteiroIAHandler from './api/gerar-roteiro-ia';
+import gerarPagamentoPixMpRouter from './api/gerar-pagamento-pix-mp';
+import webhookMpPagamentosRouter from './api/webhook-mp-pagamentos';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001; // Porta para o servidor backend
@@ -27,6 +31,9 @@ app.use(cors({ origin: '*', credentials: true }));
 // Isso é útil se você acessar o backend diretamente ou se o frontend buscar os arquivos por aqui.
 // O servidor Vite também servirá a pasta 'public' do projeto raiz.
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+
+// Adicione aqui:
+app.use(express.json());
 
 // ================= ROTAS DE UPLOAD DEVEM VIR ANTES DE QUALQUER BODY PARSER =================
 // Upload de avatar do locutor
@@ -642,6 +649,14 @@ app.post('/api/admin/delete-user', async (req, res) => {
 app.post('/api/gerar-roteiro-ia', gerarRoteiroIAHandler);
 
 app.use(gerarPagamentoPixMpRouter);
+
+const webhookLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minuto
+  max: 30, // 30 requests por minuto
+  message: { success: false, message: 'Too many requests' }
+});
+
+app.use('/api/webhook-mp-pagamentos', webhookLimiter);
 
 app.get('/api/test-env', (req, res) => {
   res.json({

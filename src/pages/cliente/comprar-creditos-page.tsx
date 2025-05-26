@@ -19,7 +19,7 @@ interface PacoteCredito {
 
 // Dados estáticos de exemplo (substitua por fetch do backend futuramente)
 const PACOTES: PacoteCredito[] = [
-  { id: "starter", nome: "Starter", creditos: 10, preco: 19.9, precoFormatado: "R$ 19,90" },
+  { id: "starter", nome: "Starter", creditos: 10, preco: 1.99, precoFormatado: "R$ 1,99" },
   { id: "pro", nome: "Pro", creditos: 50, preco: 89.9, precoFormatado: "R$ 89,90" },
   { id: "premium", nome: "Premium", creditos: 150, preco: 249.9, precoFormatado: "R$ 249,90" },
 ];

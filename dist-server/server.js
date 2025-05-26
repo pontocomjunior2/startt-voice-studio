@@ -10,8 +10,6 @@ const fs_1 = __importDefault(require("fs"));
 const cors_1 = __importDefault(require("cors"));
 const supabase_js_1 = require("@supabase/supabase-js");
 const dotenv_1 = __importDefault(require("dotenv"));
-const gerar_roteiro_ia_1 = __importDefault(require("./api/gerar-roteiro-ia"));
-const gerar_pagamento_pix_mp_1 = __importDefault(require("./api/gerar-pagamento-pix-mp"));
 // Especificar o caminho para o arquivo .env na raiz do projeto
 const envPath = path_1.default.resolve(__dirname, '../.env');
 dotenv_1.default.config({ path: envPath });
@@ -19,6 +17,10 @@ console.log(`[Servidor Express] Tentando carregar .env de: ${envPath}`);
 console.log('[Servidor Express] VITE_SUPABASE_URL lido:', process.env.VITE_SUPABASE_URL ? 'Definido' : 'NÃO DEFINIDO');
 console.log('[Servidor Express] VITE_SUPABASE_ANON_KEY lido:', process.env.VITE_SUPABASE_ANON_KEY ? 'Definido' : 'NÃO DEFINIDO');
 console.log('[Servidor Express] SUPABASE_SERVICE_ROLE_KEY lido:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Definido' : 'NÃO DEFINIDO');
+// IMPORTS DOS HANDLERS/ROUTERS DEVEM VIR APÓS O dotenv.config!
+const gerar_roteiro_ia_1 = __importDefault(require("./api/gerar-roteiro-ia"));
+const gerar_pagamento_pix_mp_1 = __importDefault(require("./api/gerar-pagamento-pix-mp"));
+const webhook_mp_pagamentos_1 = __importDefault(require("./api/webhook-mp-pagamentos"));
 const app = (0, express_1.default)();
 const PORT = Number(process.env.PORT) || 3001; // Porta para o servidor backend
 // Habilitar CORS para todas as origens (em produção, restrinja para o seu domínio frontend)
@@ -27,6 +29,8 @@ app.use((0, cors_1.default)({ origin: '*', credentials: true }));
 // Isso é útil se você acessar o backend diretamente ou se o frontend buscar os arquivos por aqui.
 // O servidor Vite também servirá a pasta 'public' do projeto raiz.
 app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '../public/uploads')));
+// Adicione aqui:
+app.use(express_1.default.json());
 // ================= ROTAS DE UPLOAD DEVEM VIR ANTES DE QUALQUER BODY PARSER =================
 // Upload de avatar do locutor
 const avatarStorage = multer_1.default.diskStorage({
@@ -604,6 +608,7 @@ app.post('/api/admin/delete-user', async (req, res) => {
 // ROTA: Geração de roteiro com IA Gemini
 app.post('/api/gerar-roteiro-ia', gerar_roteiro_ia_1.default);
 app.use(gerar_pagamento_pix_mp_1.default);
+app.use(webhook_mp_pagamentos_1.default);
 app.get('/api/test-env', (req, res) => {
     res.json({
         INTER_CLIENT_ID: process.env.INTER_CLIENT_ID,
