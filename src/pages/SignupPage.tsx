@@ -191,16 +191,15 @@ function SignupPage() {
                     loading="lazy"
                   />
                 </div>
-                <Card className="w-full max-w-md shadow-lg rounded-2xl border-none p-2 sm:p-4 max-h-[90vh] overflow-y-auto flex flex-col justify-center">
+                <Card className="w-full max-w-md shadow-lg rounded-2xl border-none p-2 sm:p-4 max-h-[90vh] flex flex-col">
                   <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)}>
-                      <CardHeader className="pb-1">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
+                      <CardHeader className="pt-4 pb-2 flex-shrink-0">
                         <CardTitle className="text-xl font-bold tracking-tight mb-1">Crie sua Conta</CardTitle>
                         <CardDescription className="text-sm text-muted-foreground mb-1">Bem-vindo! Preencha os campos abaixo para começar a usar a plataforma.</CardDescription>
                         <span className="text-xs text-muted-foreground">Todos os campos são obrigatórios.</span>
                       </CardHeader>
-                      <CardContent className="pt-0 pb-0 space-y-1">
-                        {/* Nome Completo */}
+                      <CardContent className="grid gap-4 pt-4 pb-2 overflow-y-auto flex-grow">
                         <FormField
                           control={form.control}
                           name="fullName"
@@ -314,56 +313,58 @@ function SignupPage() {
                             </FormItem>
                           )}
                         />
-                        {/* CPF ou CNPJ */}
-                        <div className="flex gap-2">
-                          <FormField
-                            control={form.control}
-                            name="cpf"
-                            render={({ field }) => (
-                              <FormItem className="w-1/2">
-                                <FormLabel className="text-xs">CPF</FormLabel>
-                                <FormControl>
-                                  <IMaskInput
-                                    mask="000.000.000-00"
-                                    unmask={false}
-                                    value={field.value}
-                                    onAccept={value => field.onChange(value)}
-                                    disabled={isProcessing}
-                                    placeholder={cpfPlaceholder}
-                                    className="h-8 rounded text-sm w-full border border-input bg-transparent px-3 py-1 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-gray-200 focus:text-white"
-                                    autoComplete="off"
-                                    onFocus={() => setCpfPlaceholder("")}
-                                    onBlur={() => setCpfPlaceholder("000.000.000-00")}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="cnpj"
-                            render={({ field }) => (
-                              <FormItem className="w-1/2">
-                                <FormLabel className="text-xs">CNPJ</FormLabel>
-                                <FormControl>
-                                  <IMaskInput
-                                    mask="00.000.000/0000-00"
-                                    unmask={false}
-                                    value={field.value}
-                                    onAccept={value => field.onChange(value)}
-                                    disabled={isProcessing}
-                                    placeholder={cnpjPlaceholder}
-                                    className="h-8 rounded text-sm w-full border border-input bg-transparent px-3 py-1 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-gray-200 focus:text-white"
-                                    autoComplete="off"
-                                    onFocus={() => setCnpjPlaceholder("")}
-                                    onBlur={() => setCnpjPlaceholder("00.000.000/0000-00")}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                        {/* Documento: CPF ou CNPJ */}
+                        <div className="space-y-1 pt-2 pb-1 rounded-md border border-input/40 p-3 bg-background/20">
+                          <div className="flex gap-3">
+                            <FormField
+                              control={form.control}
+                              name="cpf"
+                              render={({ field }) => (
+                                <FormItem className="w-1/2">
+                                  <FormLabel className="text-xs">CPF</FormLabel>
+                                  <FormControl>
+                                    <IMaskInput
+                                      mask="000.000.000-00"
+                                      unmask={false}
+                                      value={field.value}
+                                      onAccept={value => field.onChange(value)}
+                                      disabled={isProcessing}
+                                      placeholder={cpfPlaceholder}
+                                      className="h-8 rounded text-sm w-full border border-input bg-transparent px-3 py-1 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-gray-200 focus:text-white"
+                                      autoComplete="off"
+                                      onFocus={() => setCpfPlaceholder("")}
+                                      onBlur={() => setCpfPlaceholder("000.000.000-00")}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="cnpj"
+                              render={({ field }) => (
+                                <FormItem className="w-1/2">
+                                  <FormLabel className="text-xs">CNPJ</FormLabel>
+                                  <FormControl>
+                                    <IMaskInput
+                                      mask="00.000.000/0000-00"
+                                      unmask={false}
+                                      value={field.value}
+                                      onAccept={value => field.onChange(value)}
+                                      disabled={isProcessing}
+                                      placeholder={cnpjPlaceholder}
+                                      className="h-8 rounded text-sm w-full border border-input bg-transparent px-3 py-1 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-gray-200 focus:text-white"
+                                      autoComplete="off"
+                                      onFocus={() => setCnpjPlaceholder("")}
+                                      onBlur={() => setCnpjPlaceholder("00.000.000/0000-00")}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
                         </div>
                         {/* Senha */}
                         <FormField
@@ -406,19 +407,19 @@ function SignupPage() {
                           )}
                         />
                       </CardContent>
-                      <CardFooter className="flex-col gap-2 pt-1 pb-2">
-                        <Button type="submit" className="w-full h-9 text-sm font-semibold bg-primary hover:bg-primary/90 rounded shadow" disabled={isProcessing || !form.formState.isValid}>
-                          {isProcessing ? 'Criando conta...' : 'Criar Conta'}
+                      <CardFooter className="flex-shrink-0">
+                        <Button type="submit" className="w-full" disabled={isProcessing}>
+                          {isProcessing ? 'Cadastrando...' : 'Cadastrar'}
                         </Button>
-                        <p className="mt-1 text-center text-xs text-muted-foreground">
-                          Já tem uma conta? {" "}
-                          <Link to="/login" className="font-medium text-primary hover:underline">
-                            Faça login
-                          </Link>
-                        </p>
                       </CardFooter>
                     </form>
                   </Form>
+                  <div className="mt-4 text-center text-sm">
+                    Já tem uma conta?{" "}
+                    <Link to="/login" className="underline">
+                      Entrar
+                    </Link>
+                  </div>
                 </Card>
               </>
             )}

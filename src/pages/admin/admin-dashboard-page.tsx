@@ -979,10 +979,10 @@ function AdminDashboardPage() {
             >
               Limpar Filtros
             </Button>
-          </div>
         </div>
+      </div>
 
-        {/* Tabela de Pedidos Unificada */}
+      {/* Tabela de Pedidos Unificada */}
         <Card className="mb-6 admin-table-fix-dark-border border-none">
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -1197,11 +1197,25 @@ function AdminDashboardPage() {
             </DialogHeader>
 
             <Tabs value={modalActiveTab} onValueChange={setModalActiveTab} className="w-full mt-4">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="detalhesPedido">Detalhes do Pedido</TabsTrigger>
-                <TabsTrigger 
-                  value="gerenciarRevisao" 
-                  disabled={(selectedPedido?.status !== 'em_revisao' && !activeRevisao && !loadingRevisao)}
+              <TabsList className="flex w-full rounded-lg overflow-hidden border border-gray-700 bg-gray-900">
+                <TabsTrigger
+                  value="detalhesPedido"
+                  className={`flex-1 h-full px-6 py-3 text-base font-semibold transition-all duration-200 cursor-pointer
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500
+                    ${modalActiveTab === 'detalhesPedido'
+                      ? 'bg-blue-700 text-white border-b-4 border-blue-400 shadow-lg z-10'
+                      : 'bg-gray-800 text-gray-400'}`}
+                >
+                  Detalhes do Pedido
+                </TabsTrigger>
+                <TabsTrigger
+                  value="gerenciarRevisao"
+                  className={`flex-1 h-full px-6 py-3 text-base font-semibold transition-all duration-200 cursor-pointer
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500
+                    ${modalActiveTab === 'gerenciarRevisao'
+                      ? 'bg-blue-700 text-white border-b-4 border-blue-400 shadow-lg z-10'
+                      : 'bg-gray-800 text-gray-400'}`}
+                  disabled={selectedPedido?.status !== 'em_revisao' && !activeRevisao && !loadingRevisao}
                 >
                   Revisão Solicitada
                   {selectedPedido?.status === 'em_revisao' && (
@@ -1723,4 +1737,4 @@ function AdminDashboardPage() {
   );
 }
 
-export default AdminDashboardPage; 
+export default AdminDashboardPage;
