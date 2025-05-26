@@ -106,11 +106,10 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col">
+      <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col bg-neutral-900 text-white">
         <DialogHeader>
-          <DialogTitle>Detalhes e Downloads do Pedido</DialogTitle>
-          <DialogDescription>
-            {/* Tentativa final para resolver o linter: garantir que pedidoInicial e pedidoDisplay sejam verificados */}
+          <DialogTitle className="text-2xl font-bold text-white">Detalhes e Downloads do Pedido</DialogTitle>
+          <DialogDescription className="text-neutral-300">
             {pedidoInicial && pedidoDisplay ? `Acompanhe o histórico e baixe as versões do seu pedido #${pedidoDisplay.id_pedido_serial}.` : "Carregando informações do pedido..."}
           </DialogDescription>
         </DialogHeader>
@@ -118,17 +117,17 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
         <div className="flex-grow overflow-y-auto pr-2 space-y-6 py-4">
           {/* Feedback de Carregamento e Erro do Realtime */}
           {loadingRealtime && !pedidoEmTempoReal && pedidoInicial && (
-            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-              <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
+            <div className="flex flex-col items-center justify-center py-8 text-neutral-400">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-400 mb-3" />
               <p>Carregando detalhes do pedido em tempo real...</p>
             </div>
           )}
           {errorRealtime && (
-            <div className="text-center text-red-600 bg-red-100 dark:bg-red-900/30 p-4 rounded-md my-4">
-              <AlertTriangle className="h-6 w-6 mx-auto mb-2 text-red-500" />
+            <div className="text-center text-red-400 bg-red-900/30 p-4 rounded-md my-4">
+              <AlertTriangle className="h-6 w-6 mx-auto mb-2 text-red-400" />
               <p className="font-semibold">Erro ao carregar dados em tempo real:</p>
               <p className="text-sm">{errorRealtime}</p>
-              <Button onClick={refetchPedidoComRevisoes} variant="outline" size="sm" className="mt-3 border-red-300 hover:bg-red-50 dark:border-red-700 dark:hover:bg-red-800/50">
+              <Button onClick={refetchPedidoComRevisoes} variant="outline" size="sm" className="mt-3 border-red-700 hover:bg-red-800/50 text-white">
                 Tentar Novamente
               </Button>
             </div>
@@ -138,19 +137,19 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
           {pedidoDisplay ? (
             <>
               {/* Detalhes do Pedido Principal - Usa pedidoDisplay */}
-              <Card className="shadow-sm border-none">
-                <CardHeader>
-                  <CardTitle className="text-xl">Informações do Pedido Principal</CardTitle>
+              <Card className="shadow-none border-none bg-transparent">
+                <CardHeader className="bg-transparent p-0">
+                  <CardTitle className="text-xl text-white">Informações do Pedido Principal</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3 text-sm">
+                <CardContent className="space-y-3 text-sm bg-transparent p-0">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
-                    <p><strong className="font-medium text-foreground">Nº Pedido:</strong> {pedidoDisplay.id_pedido_serial}</p>
-                    <p><strong className="font-medium text-foreground">Data Solicitação:</strong> {formatarDataHora(pedidoDisplay.created_at)}</p>
-                    <p className="col-span-1 sm:col-span-2"><strong className="font-medium text-foreground">Título:</strong> {pedidoDisplay.titulo || "Não informado"}</p>
-                    <p><strong className="font-medium text-foreground">Locutor:</strong> {pedidoDisplay.locutores?.nome || "N/A"}</p>
-                    <p><strong className="font-medium text-foreground">Tipo de Áudio:</strong> <span className="capitalize">{pedidoDisplay.tipo_audio || "N/D"}</span></p>
+                    <p><strong className="font-medium text-white">Nº Pedido:</strong> {pedidoDisplay.id_pedido_serial}</p>
+                    <p><strong className="font-medium text-white">Data Solicitação:</strong> {formatarDataHora(pedidoDisplay.created_at)}</p>
+                    <p className="col-span-1 sm:col-span-2"><strong className="font-medium text-white">Título:</strong> {pedidoDisplay.titulo || "Não informado"}</p>
+                    <p><strong className="font-medium text-white">Locutor:</strong> {pedidoDisplay.locutores?.nome || "N/A"}</p>
+                    <p><strong className="font-medium text-white">Tipo de Áudio:</strong> <span className="capitalize">{pedidoDisplay.tipo_audio || "N/D"}</span></p>
                     <p>
-                      <strong className="font-medium text-foreground">Status Atual:</strong>
+                      <strong className="font-medium text-white">Status Atual:</strong>
                       <Badge
                         variant={
                           pedidoDisplay.status === PEDIDO_STATUS.CONCLUIDO ? "default" :
@@ -160,10 +159,10 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
                         }
                         className={cn(
                           "text-sm px-3 py-1",
-                          pedidoDisplay.status === PEDIDO_STATUS.CONCLUIDO && "bg-green-100 text-green-700 border-green-700 dark:bg-green-700/20 dark:text-green-300",
-                          pedidoDisplay.status === PEDIDO_STATUS.EM_REVISAO && "bg-blue-100 text-blue-700 border-blue-700 dark:bg-blue-700/20 dark:text-blue-300",
-                          pedidoDisplay.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && "bg-yellow-100 text-yellow-700 border-yellow-700 dark:bg-yellow-700/20 dark:text-yellow-300",
-                          pedidoDisplay.status === PEDIDO_STATUS.PENDENTE && "bg-orange-100 text-orange-700 border-orange-700 dark:bg-orange-700/20 dark:text-orange-300"
+                          pedidoDisplay.status === PEDIDO_STATUS.CONCLUIDO && "bg-green-800/30 text-green-300 border-green-700",
+                          pedidoDisplay.status === PEDIDO_STATUS.EM_REVISAO && "bg-blue-800/30 text-blue-300 border-blue-700",
+                          pedidoDisplay.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && "bg-yellow-800/30 text-yellow-300 border-yellow-700",
+                          pedidoDisplay.status === PEDIDO_STATUS.PENDENTE && "bg-orange-800/30 text-orange-300 border-orange-700"
                         )}
                       >
                         {pedidoDisplay.status ? pedidoDisplay.status.charAt(0).toUpperCase() + pedidoDisplay.status.slice(1).replace("_", " ") : "N/D"}
@@ -171,22 +170,22 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
                     </p>
                   </div>
                   {pedidoDisplay.status === PEDIDO_STATUS.CONCLUIDO && pedidoDisplay.audio_final_url && (
-                    <div className="mt-4 pt-4 border-t border-border">
-                      <h4 className="text-md font-semibold text-foreground mb-2 flex items-center">
-                        <ThumbsUp className="h-5 w-5 mr-2 text-green-500" />
+                    <div className="mt-4 pt-4 border-t border-neutral-700">
+                      <h4 className="text-md font-semibold text-white mb-2 flex items-center">
+                        <ThumbsUp className="h-5 w-5 mr-2 text-green-400" />
                         Áudio Final Entregue
                       </h4>
-                      <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-800/20 rounded-md">
+                      <div className="flex items-center justify-between p-3 bg-green-900/30 rounded-md">
                         <div className="flex items-center">
-                          <Paperclip className="h-5 w-5 mr-2 text-green-600 dark:text-green-400" />
-                          <span className="text-sm text-green-700 dark:text-green-300">
+                          <Paperclip className="h-5 w-5 mr-2 text-green-400" />
+                          <span className="text-sm text-green-300">
                             {pedidoDisplay.audio_final_url.substring(pedidoDisplay.audio_final_url.lastIndexOf('/') + 1) || `audio_final_${pedidoDisplay.id_pedido_serial}.mp3`}
                           </span>
                         </div>
                         <Button
                           onClick={() => handleDirectDownload(pedidoDisplay.audio_final_url, `audio_final_${pedidoDisplay.id_pedido_serial}`)}
                           size="sm"
-                          className="bg-green-600 hover:bg-green-700 text-white"
+                          className="bg-green-700 hover:bg-green-600 text-white"
                         >
                           <Download className="mr-2 h-4 w-4" />
                           Baixar Áudio Final
@@ -195,12 +194,12 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
                     </div>
                   )}
                   {pedidoDisplay && pedidoDisplay.status === PEDIDO_STATUS.CANCELADO && pedidoDisplay.admin_cancel_reason && (
-                    <div className="mt-4 pt-4 border-t-2 border-destructive bg-destructive/10 rounded-md shadow-sm">
-                      <h4 className="text-lg font-bold text-destructive mb-2 flex items-center">
-                        <AlertTriangle className="h-6 w-6 mr-2 text-destructive" />
+                    <div className="mt-4 pt-4 border-t-2 border-red-700 bg-red-900/20 rounded-md shadow-sm">
+                      <h4 className="text-lg font-bold text-red-400 mb-2 flex items-center">
+                        <AlertTriangle className="h-6 w-6 mr-2 text-red-400" />
                         Pedido Cancelado pelo Atendimento
                       </h4>
-                      <div className="p-4 bg-destructive/20 rounded-md text-base text-destructive whitespace-pre-wrap border border-destructive font-semibold">
+                      <div className="p-4 bg-red-900/30 rounded-md text-base text-red-300 whitespace-pre-wrap border border-red-700 font-semibold">
                         <span className="block font-bold mb-1">Justificativa do Cancelamento:</span>
                         {pedidoDisplay.admin_cancel_reason}
                       </div>
@@ -209,18 +208,18 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
                 </CardContent>
               </Card>
 
-              <Separator />
+              <Separator className="bg-neutral-800" />
 
               {/* Histórico de Revisões e Downloads - Usa historicoRevisoes */}
               <div>
-                <h3 className="text-lg font-semibold text-foreground mb-3 flex items-center">
-                  <History className="h-5 w-5 mr-2 text-primary" />
+                <h3 className="text-lg font-semibold text-white mb-3 flex items-center">
+                  <History className="h-5 w-5 mr-2 text-blue-400" />
                   Histórico de Revisões e Versões Entregues
                 </h3>
                 {!loadingRealtime && !errorRealtime && historicoRevisoes.length === 0 && (
-                  <div className="text-center py-8 border border-dashed rounded-md bg-muted/20">
-                    <Info className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">Nenhuma solicitação de revisão encontrada para este pedido até o momento.</p>
+                  <div className="text-center py-8 border border-dashed rounded-md bg-neutral-800/60">
+                    <Info className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
+                    <p className="text-neutral-400">Nenhuma solicitação de revisão encontrada para este pedido até o momento.</p>
                   </div>
                 )}
 
@@ -231,60 +230,60 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
                       const IconeStatus = statusInfo.icon;
 
                       return (
-                        <li key={solicitacao.id || idxSol} className="border-none p-4 rounded-lg shadow-sm bg-card">
-                          <h4 className="text-md font-semibold text-foreground mb-1 flex justify-between items-center">
+                        <li key={solicitacao.id || idxSol} className="border-none p-4 rounded-lg shadow-sm bg-neutral-800/80">
+                          <h4 className="text-md font-semibold text-white mb-1 flex justify-between items-center">
                             <span>
                               Solicitação de Revisão {historicoRevisoes.length - idxSol}
-                              <span className='text-xs text-muted-foreground ml-1'>(#{solicitacao.id ? solicitacao.id.substring(0, 8) : 'N/A'})</span>
+                              <span className='text-xs text-neutral-400 ml-1'>(#{solicitacao.id ? solicitacao.id.substring(0, 8) : 'N/A'})</span>
                             </span>
                             <Badge variant={statusInfo.label === "Negada" || statusInfo.label === "Cancelada" ? "destructive" : statusInfo.label === "Revisado e Finalizado" ? "default" : "outline"}
-                                   className={cn("text-xs px-2 py-0.5 whitespace-nowrap", statusInfo.color.replace("text-", "border-").replace("500", "500/50"), statusInfo.color.replace("text-", "bg-").replace("500", "500/10"))}
+                                   className={cn("text-xs px-2 py-0.5 whitespace-nowrap", statusInfo.color.replace("text-", "border-").replace("500", "400"), statusInfo.color.replace("text-", "bg-").replace("500", "900/30"))}
                             >
-                               <IconeStatus className={cn("h-3 w-3 mr-1.5", statusInfo.icon === Loader2 && "animate-spin")} /> 
+                               <IconeStatus className={cn("h-3 w-3 mr-1.5", statusInfo.icon === Loader2 && "animate-spin")}/>
                               {statusInfo.label}
                             </Badge>
                           </h4>
-                          <div className="text-xs text-muted-foreground mb-2 space-x-2">
+                          <div className="text-xs text-neutral-400 mb-2 space-x-2">
                             <span>Solicitado em: {formatarDataHora(solicitacao.dataSolicitacao)}</span>
                             {solicitacao.dataConclusaoRevisao && (
                               <span>| Concluída em: {formatarDataHora(solicitacao.dataConclusaoRevisao)}</span>
                             )}
                           </div>
                           
-                          <div className="mb-3 p-3 bg-muted/50 rounded-md">
-                            <p className="text-sm font-medium text-foreground mb-1">Sua solicitação de ajuste:</p>
-                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                          <div className="mb-3 p-3 bg-neutral-900/60 rounded-md">
+                            <p className="text-sm font-medium text-white mb-1">Sua solicitação de ajuste:</p>
+                            <p className="text-sm text-neutral-300 whitespace-pre-wrap">
                               {solicitacao.descricaoCliente || <span className="italic">Não especificado</span>}
                             </p>
                           </div>
 
                           {solicitacao.adminFeedback && (
-                            <div className="mb-3 p-3 bg-primary/10 rounded-md">
-                              <p className="text-sm font-medium text-primary mb-1">Resposta do Atendimento:</p>
-                              <p className="text-sm text-primary/90 whitespace-pre-wrap">
+                            <div className="mb-3 p-3 bg-blue-900/40 rounded-md">
+                              <p className="text-sm font-medium text-blue-300 mb-1">Resposta do Atendimento:</p>
+                              <p className="text-sm text-blue-200 whitespace-pre-wrap">
                                 {solicitacao.adminFeedback}
                               </p>
                             </div>
                           )}
                             
                           {solicitacao.versoesAudio && solicitacao.versoesAudio.length > 0 && (
-                              <div className="mt-4 pt-3 border-t border-border/60">
-                                <h5 className="text-sm font-semibold text-foreground mb-2">Áudios de Revisão Entregues:</h5>
+                              <div className="mt-4 pt-3 border-t border-neutral-700">
+                                <h5 className="text-sm font-semibold text-white mb-2">Áudios de Revisão Entregues:</h5>
                                 <ul className="space-y-2">
                                   {solicitacao.versoesAudio.sort((a: VersaoAudioRevisadoCliente, b: VersaoAudioRevisadoCliente) => (a.numeroVersao || 0) - (b.numeroVersao || 0)).map((versao: VersaoAudioRevisadoCliente, idxVer: number) => (
-                                    <li key={versao.id || idxVer} className="flex items-center justify-between p-2.5 bg-muted/30 dark:bg-muted/10 rounded-md">
+                                    <li key={versao.id || idxVer} className="flex items-center justify-between p-2.5 bg-neutral-900 rounded-md">
                                       <div className="flex items-center">
-                                        <Paperclip className="h-4 w-4 mr-2 text-primary" />
-                                        <span className="text-xs sm:text-sm text-foreground">
+                                        <Paperclip className="h-4 w-4 mr-2 text-blue-400" />
+                                        <span className="text-xs sm:text-sm text-white">
                                           {versao.audioUrl ? versao.audioUrl.substring(versao.audioUrl.lastIndexOf('/') + 1) : `versao_revisada_${versao.numeroVersao || (idxVer + 1)}.mp3`}
-                                          {versao.numeroVersao && <span className="text-muted-foreground text-xs ml-1">(v{versao.numeroVersao})</span>}
+                                          {versao.numeroVersao && <span className="text-neutral-400 text-xs ml-1">(v{versao.numeroVersao})</span>}
                                         </span>
                                       </div>
                                       <Button
                                         onClick={() => handleDirectDownload(versao.audioUrl, `revisao_${solicitacao.id?.substring(0,6)}_${versao.numeroVersao || (idxVer + 1)}`)}
                                         size="sm"
                                         variant="outline"
-                                        className="text-xs sm:text-sm"
+                                        className="text-xs sm:text-sm text-white border-neutral-700 hover:bg-neutral-800"
                                         disabled={!versao.audioUrl}
                                       >
                                         <Download className="mr-1.5 h-3.5 w-3.5" />
@@ -299,8 +298,8 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
                             {(solicitacao.statusRevisao === REVISAO_STATUS_ADMIN.NEGADA || solicitacao.statusRevisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE) && 
                               (!solicitacao.versoesAudio || solicitacao.versoesAudio.length === 0) &&
                               !solicitacao.adminFeedback && (
-                                <div className="mt-3 pt-3 border-t border-border/60">
-                                   <p className="text-sm text-muted-foreground italic">Nenhum áudio foi anexado para esta atualização de status.</p>
+                                <div className="mt-3 pt-3 border-t border-neutral-700">
+                                   <p className="text-sm text-neutral-400 italic">Nenhum áudio foi anexado para esta atualização de status.</p>
                                 </div>
                             )}
                         </li>
@@ -313,7 +312,7 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
           ) : (
             // Fallback se pedidoDisplay for nulo e não estiver carregando (improvável devido à lógica anterior)
             !loadingRealtime && (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-8 text-neutral-400">
                     <Info className="h-10 w-10 mx-auto mb-3" />
                     <p>Não foi possível carregar os detalhes do pedido.</p>
                 </div>
@@ -321,8 +320,8 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
           )}
         </div>
         
-        <DialogFooter className="mt-auto pt-4 border-t border-border">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Fechar</Button>
+        <DialogFooter className="mt-auto pt-4 border-t border-neutral-700">
+          <Button type="button" variant="outline" className="text-white border-neutral-700 hover:bg-neutral-800" onClick={() => onOpenChange(false)}>Fechar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1194,16 +1194,16 @@ function MeusAudiosPage() {
       )}
 
       <Dialog open={isRevisaoModalOpen} onOpenChange={setIsRevisaoModalOpen}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-[480px] bg-neutral-900 text-white">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-foreground">Solicitar Revisão do Áudio</DialogTitle>
-            <DialogDescription className="text-muted-foreground">
+            <DialogTitle className="text-2xl font-bold text-white">Solicitar Revisão do Áudio</DialogTitle>
+            <DialogDescription className="text-neutral-300">
               Pedido: #{pedidoParaRevisao?.id_pedido_serial} - {pedidoParaRevisao?.titulo || "Sem título"}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-5 py-4">
             <div className="grid grid-cols-1 items-center gap-2">
-              <Label htmlFor="descricaoRevisaoTextarea" className="text-foreground font-medium">
+              <Label htmlFor="descricaoRevisaoTextarea" className="text-white font-medium">
                 Descreva seu problema
               </Label>
               <Textarea
@@ -1212,29 +1212,29 @@ function MeusAudiosPage() {
                 value={descricaoRevisao}
                 onChange={(e) => setDescricaoRevisao(e.target.value)}
                 rows={5}
-                className="min-h-[100px] bg-muted/40 border-border text-foreground placeholder:text-muted-foreground"
+                className="min-h-[100px] bg-neutral-800 text-white border border-neutral-700 placeholder:text-neutral-400 focus:bg-neutral-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition-colors"
               />
             </div>
             {/* Campo de upload de áudio guia da revisão */}
             <div className="my-1">
-              <Label htmlFor="audio-guia-revisao-dropzone" className="text-foreground font-medium mb-2 block">
-                Áudio Guia para Revisão <span className="text-muted-foreground font-normal">(Opcional)</span>
+              <Label htmlFor="audio-guia-revisao-dropzone" className="text-white font-medium mb-2 block">
+                Áudio Guia para Revisão <span className="text-neutral-300 font-normal">(Opcional)</span>
               </Label>
               <div
                 {...getRootPropsGuiaRevisao()}
                 className={cn(
                   "flex flex-col items-center justify-center p-5 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
-                  isDragActiveGuiaRevisao ? "border-primary bg-muted/60" : "border-border bg-muted/40",
+                  isDragActiveGuiaRevisao ? "border-blue-500 bg-neutral-800" : "border-neutral-700 bg-neutral-900",
                   audioGuiaRevisaoFile ? "border-green-500 bg-green-500/5" : "",
-                  "hover:bg-muted/60"
+                  "hover:bg-neutral-800 text-white"
                 )}
               >
                 <input {...getInputPropsGuiaRevisao()} id="audio-guia-revisao-dropzone" />
                 {audioGuiaRevisaoFile ? (
                   <div className="text-center">
                     <FileAudio className="mx-auto h-10 w-10 text-green-600 mb-2" />
-                    <p className="font-medium text-sm text-foreground">{audioGuiaRevisaoFile.name}</p>
-                    <p className="text-xs text-muted-foreground">{(audioGuiaRevisaoFile.size / 1024).toFixed(1)} KB</p>
+                    <p className="font-medium text-sm text-white">{audioGuiaRevisaoFile.name}</p>
+                    <p className="text-xs text-neutral-300">{(audioGuiaRevisaoFile.size / 1024).toFixed(1)} KB</p>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1245,19 +1245,19 @@ function MeusAudiosPage() {
                     </Button>
                   </div>
                 ) : isDragActiveGuiaRevisao ? (
-                  <div className="text-center text-primary">
+                  <div className="text-center text-blue-400">
                     <FileAudio className="mx-auto h-10 w-10 mb-2 animate-bounce" />
                     <p className="font-medium">Solte o arquivo aqui...</p>
                   </div>
                 ) : (
-                  <div className="text-center text-muted-foreground">
+                  <div className="text-center text-neutral-400">
                     <FileAudio className="mx-auto h-10 w-10 mb-2" />
                     <p className="font-medium">Arraste e solte um arquivo de áudio ou clique para selecionar</p>
                     <p className="text-xs">Formatos aceitos: mp3, wav, ogg, etc.</p>
                   </div>
                 )}
               </div>
-              {isUploadingGuiaRevisao && <p className="text-sm text-primary mt-2 animate-pulse">Enviando áudio guia...</p>}
+              {isUploadingGuiaRevisao && <p className="text-sm text-blue-400 mt-2 animate-pulse">Enviando áudio guia...</p>}
             </div>
           </div>
           <DialogFooter className="gap-2 pt-2">
