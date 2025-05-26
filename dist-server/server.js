@@ -10,6 +10,7 @@ const fs_1 = __importDefault(require("fs"));
 const cors_1 = __importDefault(require("cors"));
 const supabase_js_1 = require("@supabase/supabase-js");
 const dotenv_1 = __importDefault(require("dotenv"));
+const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 // Especificar o caminho para o arquivo .env na raiz do projeto
 const envPath = path_1.default.resolve(__dirname, '../.env');
 dotenv_1.default.config({ path: envPath });
@@ -20,7 +21,6 @@ console.log('[Servidor Express] SUPABASE_SERVICE_ROLE_KEY lido:', process.env.SU
 // IMPORTS DOS HANDLERS/ROUTERS DEVEM VIR APÓS O dotenv.config!
 const gerar_roteiro_ia_1 = __importDefault(require("./api/gerar-roteiro-ia"));
 const gerar_pagamento_pix_mp_1 = __importDefault(require("./api/gerar-pagamento-pix-mp"));
-const webhook_mp_pagamentos_1 = __importDefault(require("./api/webhook-mp-pagamentos"));
 const app = (0, express_1.default)();
 const PORT = Number(process.env.PORT) || 3001; // Porta para o servidor backend
 // Habilitar CORS para todas as origens (em produção, restrinja para o seu domínio frontend)
@@ -608,7 +608,12 @@ app.post('/api/admin/delete-user', async (req, res) => {
 // ROTA: Geração de roteiro com IA Gemini
 app.post('/api/gerar-roteiro-ia', gerar_roteiro_ia_1.default);
 app.use(gerar_pagamento_pix_mp_1.default);
-app.use(webhook_mp_pagamentos_1.default);
+const webhookLimiter = (0, express_rate_limit_1.default)({
+    windowMs: 1 * 60 * 1000, // 1 minuto
+    max: 30, // 30 requests por minuto
+    message: { success: false, message: 'Too many requests' }
+});
+app.use('/api/webhook-mp-pagamentos', webhookLimiter);
 app.get('/api/test-env', (req, res) => {
     res.json({
         INTER_CLIENT_ID: process.env.INTER_CLIENT_ID,

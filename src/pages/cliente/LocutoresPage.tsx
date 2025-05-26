@@ -33,6 +33,7 @@ const LocutoresPage: React.FC = () => {
   const [idsLocutoresFavoritos, setIdsLocutoresFavoritos] = useState<string[]>([]);
   const [amostrasPorLocutor, setAmostrasPorLocutor] = useState<Record<string, Amostra[]>>({});
   const [modalAmostrasLocutorId, setModalAmostrasLocutorId] = useState<string | null>(null);
+  const [audioPlaying, setAudioPlaying] = useState<HTMLAudioElement | null>(null);
 
   const fetchTodosLocutores = useCallback(async () => {
     setLoadingLocutores(true);
@@ -104,6 +105,14 @@ const LocutoresPage: React.FC = () => {
   const locutoresFiltradosPorNome = todosLocutores.filter(locutor =>
     locutor.nome.toLowerCase().includes(filtroNome.toLowerCase())
   );
+
+  const handlePlayAudio = (event: React.SyntheticEvent<HTMLAudioElement, Event>) => {
+    const currentAudio = event.currentTarget;
+    if (audioPlaying && audioPlaying !== currentAudio) {
+      audioPlaying.pause();
+    }
+    setAudioPlaying(currentAudio);
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -199,7 +208,12 @@ const LocutoresPage: React.FC = () => {
                                 <span className="font-medium text-sm text-startt-blue">
                                   {amostra.estilo || `Amostra ${idx + 1}`}
                                 </span>
-                                <audio controls className="w-full h-10 bg-card" src={amostra.url} aria-label={`Amostra ${amostra.estilo || idx + 1} de ${locutor.nome}`}>
+                                <audio 
+                                  controls 
+                                  className="w-full h-10 bg-card" 
+                                  src={amostra.url} 
+                                  onPlay={handlePlayAudio}
+                                  aria-label={`Amostra ${amostra.estilo || idx + 1} de ${locutor.nome}`}>
                                   Seu navegador não suporta o elemento de áudio.
                                 </audio>
                               </div>
@@ -224,4 +238,4 @@ const LocutoresPage: React.FC = () => {
   );
 };
 
-export default LocutoresPage; 
+export default LocutoresPage;

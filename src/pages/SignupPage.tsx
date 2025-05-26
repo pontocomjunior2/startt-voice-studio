@@ -54,6 +54,15 @@ function SignupPage() {
   const { signUp, isProcessing } = useAuth();
   const navigate = useNavigate();
   const [showConfirmEmailAlert, setShowConfirmEmailAlert] = useState(false);
+  const [fullNamePlaceholder, setFullNamePlaceholder] = useState("Seu Nome Completo");
+  const [companyNamePlaceholder, setCompanyNamePlaceholder] = useState("Nome da Empresa");
+  const [emailPlaceholder, setEmailPlaceholder] = useState("seu@email.com");
+  const [usernamePlaceholder, setUsernamePlaceholder] = useState("seu_usuario");
+  const [whatsappPlaceholder, setWhatsappPlaceholder] = useState("(11) 91234-5678");
+  const [cpfPlaceholder, setCpfPlaceholder] = useState("000.000.000-00");
+  const [cnpjPlaceholder, setCnpjPlaceholder] = useState("00.000.000/0000-00");
+  const [passwordPlaceholder, setPasswordPlaceholder] = useState("******");
+  const [confirmPasswordPlaceholder, setConfirmPasswordPlaceholder] = useState("******");
 
   const form = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
@@ -199,7 +208,15 @@ function SignupPage() {
                             <FormItem>
                               <FormLabel className="text-xs">Nome Completo</FormLabel>
                               <FormControl>
-                                <Input placeholder="Seu Nome Completo" {...field} disabled={isProcessing} autoComplete="name" className="h-8 rounded text-sm text-gray-200 focus:text-white" />
+                                <Input 
+                                  placeholder={fullNamePlaceholder} 
+                                  {...field} 
+                                  disabled={isProcessing} 
+                                  autoComplete="name" 
+                                  className="h-8 rounded text-sm text-gray-200 focus:text-white" 
+                                  onFocus={() => setFullNamePlaceholder("")}
+                                  onBlur={() => setFullNamePlaceholder("Seu Nome Completo")}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -213,7 +230,15 @@ function SignupPage() {
                             <FormItem>
                               <FormLabel className="text-xs">Nome da Empresa</FormLabel>
                               <FormControl>
-                                <Input placeholder="Nome da Empresa" {...field} disabled={isProcessing} autoComplete="organization" className="h-8 rounded text-sm text-gray-200 focus:text-white" />
+                                <Input 
+                                  placeholder={companyNamePlaceholder} 
+                                  {...field} 
+                                  disabled={isProcessing} 
+                                  autoComplete="organization" 
+                                  className="h-8 rounded text-sm text-gray-200 focus:text-white" 
+                                  onFocus={() => setCompanyNamePlaceholder("")}
+                                  onBlur={() => setCompanyNamePlaceholder("Nome da Empresa")}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -227,7 +252,16 @@ function SignupPage() {
                             <FormItem>
                               <FormLabel className="text-xs">Email</FormLabel>
                               <FormControl>
-                                <Input type="email" placeholder="seu@email.com" {...field} disabled={isProcessing} autoComplete="email" className="h-8 rounded text-sm text-gray-200 focus:text-white" />
+                                <Input 
+                                  type="email" 
+                                  placeholder={emailPlaceholder} 
+                                  {...field} 
+                                  disabled={isProcessing} 
+                                  autoComplete="email" 
+                                  className="h-8 rounded text-sm text-gray-200 focus:text-white" 
+                                  onFocus={() => setEmailPlaceholder("")}
+                                  onBlur={() => setEmailPlaceholder("seu@email.com")}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -241,7 +275,15 @@ function SignupPage() {
                             <FormItem>
                               <FormLabel className="text-xs">Nome de Usuário</FormLabel>
                               <FormControl>
-                                <Input placeholder="seu_usuario" {...field} disabled={isProcessing} autoComplete="username" className="h-8 rounded text-sm text-gray-200 focus:text-white" />
+                                <Input 
+                                  placeholder={usernamePlaceholder} 
+                                  {...field} 
+                                  disabled={isProcessing} 
+                                  autoComplete="username" 
+                                  className="h-8 rounded text-sm text-gray-200 focus:text-white" 
+                                  onFocus={() => setUsernamePlaceholder("")}
+                                  onBlur={() => setUsernamePlaceholder("seu_usuario")}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -261,9 +303,11 @@ function SignupPage() {
                                   value={field.value}
                                   onAccept={value => field.onChange(value)}
                                   disabled={isProcessing}
-                                  placeholder="(11) 91234-5678"
+                                  placeholder={whatsappPlaceholder}
                                   className="h-8 rounded text-sm w-full border border-input bg-transparent px-3 py-1 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-gray-200 focus:text-white"
                                   autoComplete="tel"
+                                  onFocus={() => setWhatsappPlaceholder("")}
+                                  onBlur={() => setWhatsappPlaceholder("(11) 91234-5678")}
                                 />
                               </FormControl>
                               <FormMessage />
@@ -285,9 +329,11 @@ function SignupPage() {
                                     value={field.value}
                                     onAccept={value => field.onChange(value)}
                                     disabled={isProcessing}
-                                    placeholder="000.000.000-00"
+                                    placeholder={cpfPlaceholder}
                                     className="h-8 rounded text-sm w-full border border-input bg-transparent px-3 py-1 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-gray-200 focus:text-white"
                                     autoComplete="off"
+                                    onFocus={() => setCpfPlaceholder("")}
+                                    onBlur={() => setCpfPlaceholder("000.000.000-00")}
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -307,9 +353,11 @@ function SignupPage() {
                                     value={field.value}
                                     onAccept={value => field.onChange(value)}
                                     disabled={isProcessing}
-                                    placeholder="00.000.000/0000-00"
+                                    placeholder={cnpjPlaceholder}
                                     className="h-8 rounded text-sm w-full border border-input bg-transparent px-3 py-1 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-gray-200 focus:text-white"
                                     autoComplete="off"
+                                    onFocus={() => setCnpjPlaceholder("")}
+                                    onBlur={() => setCnpjPlaceholder("00.000.000/0000-00")}
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -325,7 +373,16 @@ function SignupPage() {
                             <FormItem>
                               <FormLabel className="text-xs">Senha</FormLabel>
                               <FormControl>
-                                <Input type="password" placeholder="******" {...field} disabled={isProcessing} autoComplete="new-password" className="h-8 rounded text-sm text-gray-200 focus:text-white" />
+                                <Input 
+                                  type="password" 
+                                  placeholder={passwordPlaceholder} 
+                                  {...field} 
+                                  disabled={isProcessing} 
+                                  autoComplete="new-password" 
+                                  className="h-8 rounded text-sm text-gray-200 focus:text-white" 
+                                  onFocus={() => setPasswordPlaceholder("")}
+                                  onBlur={() => setPasswordPlaceholder("******")}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -339,7 +396,10 @@ function SignupPage() {
                             <FormItem>
                               <FormLabel className="text-xs">Confirmar Senha</FormLabel>
                               <FormControl>
-                                <Input type="password" placeholder="******" {...field} disabled={isProcessing} autoComplete="new-password" className="h-8 rounded text-sm text-gray-200 focus:text-white" />
+                                <Input type="password" placeholder={confirmPasswordPlaceholder} {...field} disabled={isProcessing} autoComplete="new-password" className="h-8 rounded text-sm text-gray-200 focus:text-white" 
+                                onFocus={() => setConfirmPasswordPlaceholder("")}
+                                onBlur={() => setConfirmPasswordPlaceholder("******")}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -369,4 +429,4 @@ function SignupPage() {
   );
 }
 
-export default SignupPage; 
+export default SignupPage;

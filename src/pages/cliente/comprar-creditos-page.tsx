@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { Loader2, Copy } from "lucide-react";
 import { toast } from "sonner";
-import { QRCodeCanvas } from "qrcode.react";
 import { useAuth } from '@/contexts/AuthContext';
 
 // Tipos
@@ -29,11 +28,6 @@ export default function ComprarCreditosPage() {
   const [pacoteSelecionadoParaCompra, setPacoteSelecionadoParaCompra] = useState<PacoteCredito | null>(null);
   const [isModalPixOpen, setIsModalPixOpen] = useState(false);
   const [isLoadingQrCode, setIsLoadingQrCode] = useState(false);
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
-  const [txidPIX, setTxidPIX] = useState<string | null>(null);
-  const [tempoRestanteSegundos, setTempoRestanteSegundos] = useState<number | null>(null);
-  const [qrCodePayload, setQrCodePayload] = useState<string | null>(null);
-  const [paymentIdMP, setPaymentIdMP] = useState<string | null>(null);
   const [qrCodeBase64MP, setQrCodeBase64MP] = useState<string | null>(null);
   const [qrCodePayloadMP, setQrCodePayloadMP] = useState<string | null>(null);
   const [tempoRestanteSegundosMP, setTempoRestanteSegundosMP] = useState<number | null>(null);
@@ -45,7 +39,7 @@ export default function ComprarCreditosPage() {
     }
     setPacoteSelecionadoParaCompra(pacote);
     setIsModalPixOpen(true);
-    setPaymentIdMP(null);
+    // setPaymentIdMP(null); // This line was causing the error as paymentIdMP state was removed
     setQrCodeBase64MP(null);
     setQrCodePayloadMP(null);
     setTempoRestanteSegundosMP(null);
@@ -65,7 +59,7 @@ export default function ComprarCreditosPage() {
       if (!result.success) {
         throw new Error(result.message || 'Erro ao criar pagamento Pix.');
       }
-      setPaymentIdMP(result.paymentId);
+      // setPaymentIdMP(result.paymentId); // This was one of the unused variables
       setQrCodeBase64MP(result.qrCodeBase64);
       setQrCodePayloadMP(result.qrCodePayload);
       setTempoRestanteSegundosMP(result.tempoExpiracaoSegundos);
@@ -223,4 +217,4 @@ export default function ComprarCreditosPage() {
       </Dialog>
     </main>
   );
-} 
+}

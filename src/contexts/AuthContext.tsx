@@ -352,7 +352,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setError(null);
     let result = { error: null as AuthError | null }; 
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp(credentials);
+      let signUpPayload: SignUpWithPasswordCredentials;
+      if ('email' in credentials) {
+        signUpPayload = {
+          email: credentials.email,
+          password: credentials.password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/login`,
+            data: credentials.options?.data,
+            captchaToken: credentials.options?.captchaToken,
+          }
+        };
+      } else {
+        // Handle phone-based sign-up if necessary, or throw an error if not supported
+        // For now, assuming phone sign up doesn't need emailRedirectTo or is handled differently
+        signUpPayload = credentials;
+      }
+
+      const { data, error: signUpError } = await supabase.auth.signUp(signUpPayload);
       result.error = signUpError;
       if (signUpError) {
         setError(signUpError);
@@ -416,4 +433,4 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-} 
+}

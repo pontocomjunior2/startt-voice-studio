@@ -43,6 +43,8 @@ export function LoginForm({ onSuccess, showConfirmEmailAlert, confirmEmailMessag
   const { signInWithPassword, isProcessing } = useAuth();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showEmailAlert, setShowEmailAlert] = useState(false);
+  const [identifierPlaceholder, setIdentifierPlaceholder] = useState("seu@email.com ou seu_usuario");
+  const [passwordPlaceholder, setPasswordPlaceholder] = useState("******");
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(formSchema),
@@ -121,7 +123,14 @@ export function LoginForm({ onSuccess, showConfirmEmailAlert, confirmEmailMessag
                   <FormItem>
                     <FormLabel className="text-sm text-muted-foreground">Email ou Nome de Usuário</FormLabel>
                     <FormControl>
-                      <Input placeholder="seu@email.com ou seu_usuario" {...field} autoComplete="username" className="h-9 rounded-md text-base" />
+                      <Input 
+                        placeholder={identifierPlaceholder} 
+                        {...field} 
+                        autoComplete="username" 
+                        className="h-9 rounded-md text-base" 
+                        onFocus={() => setIdentifierPlaceholder("")}
+                        onBlur={() => setIdentifierPlaceholder("seu@email.com ou seu_usuario")}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -134,7 +143,15 @@ export function LoginForm({ onSuccess, showConfirmEmailAlert, confirmEmailMessag
                   <FormItem>
                     <FormLabel className="text-sm text-muted-foreground">Senha</FormLabel>
                     <FormControl>
-                      <Input placeholder="******" {...field} type="password" autoComplete="current-password" className="h-9 rounded-md text-base" />
+                      <Input 
+                        placeholder={passwordPlaceholder} 
+                        {...field} 
+                        type="password" 
+                        autoComplete="current-password" 
+                        className="h-9 rounded-md text-base" 
+                        onFocus={() => setPasswordPlaceholder("")}
+                        onBlur={() => setPasswordPlaceholder("******")}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -208,4 +225,4 @@ export default function LoginPage() {
       </div>
     </div>
   );
-} 
+}

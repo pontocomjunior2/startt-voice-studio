@@ -31,17 +31,23 @@ router.post('/api/webhook-mp-pagamentos', async (req, res) => {
                 const valorPago = payment.transaction_amount;
                 // Parse do userId (ajuste conforme seu padrão)
                 const userId = externalReference.split('_')[0];
-                // Exemplo: adicionar créditos ao usuário
-                // Aqui você pode buscar o pacote pelo nome, valor, etc.
-                // Exemplo simples: adicionar valor em créditos
+                // Defina a quantidade de créditos conforme o pacote (exemplo: 10 créditos para R$1,99)
+                let quantidade = 10;
+                if (valorPago === 1.99)
+                    quantidade = 10;
+                // Adapte para outros pacotes se necessário
+                const validade = new Date();
+                validade.setDate(validade.getDate() + 30);
                 const { error } = await supabase
                     .from('lotes_creditos')
                     .insert({
                     user_id: userId,
-                    valor: valorPago,
+                    quantidade_adicionada: quantidade,
+                    data_adicao: new Date().toISOString(),
+                    data_validade: validade.toISOString(),
                     origem: 'pix_mp',
                     payment_id: paymentId,
-                    data_credito: new Date().toISOString(),
+                    valor: valorPago,
                 });
                 if (error) {
                     console.error('[Webhook MP] Erro ao creditar usuário:', error);
