@@ -172,6 +172,9 @@ function AdminDashboardPage() {
   const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined);
   const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
 
+  // Estado para filtro de texto do roteiro
+  const [filtroTextoRoteiro, setFiltroTextoRoteiro] = useState("");
+
   const { // Este hook busca o histórico para o modal do pedido, deve ser mantido
     // data: historicoRevisoesPedido,
     // isLoading: isLoadingHistoricoRevisoesPedido,
@@ -361,6 +364,11 @@ function AdminDashboardPage() {
         dataQuery = dataQuery.ilike('titulo', `%${filtroTitulo.trim()}%`);
         countQuery = countQuery.ilike('titulo', `%${filtroTitulo.trim()}%`);
       }
+      // Filtro por parte do texto do roteiro
+      if (filtroTextoRoteiro.trim() !== "") {
+        dataQuery = dataQuery.ilike('texto_roteiro', `%${filtroTextoRoteiro.trim()}%`);
+        countQuery = countQuery.ilike('texto_roteiro', `%${filtroTextoRoteiro.trim()}%`);
+      }
       
       const { data, error: dataError } = await dataQuery;
 
@@ -415,7 +423,7 @@ function AdminDashboardPage() {
   // useEffect para buscar pedidos quando os filtros ou paginação mudarem
   useEffect(() => {
     fetchPedidosAdmin();
-  }, [filtroStatus, dataInicio, dataFim, currentPage, itemsPerPage, filtroTitulo]); // Adicionado currentPage e itemsPerPage
+  }, [filtroStatus, dataInicio, dataFim, currentPage, itemsPerPage, filtroTitulo, filtroTextoRoteiro]); // Adicionado filtroTextoRoteiro
 
   const handleOpenViewModal = async (pedido: AdminPedido) => {
     console.log('[AdminDashboardPage] Abrindo modal para pedido:', pedido);
@@ -942,6 +950,18 @@ function AdminDashboardPage() {
                 className="w-full"
               />
             </div>
+            {/* Filtro de Texto do Roteiro */}
+            <div className="flex-1 min-w-[200px] md:min-w-[250px]">
+              <Label htmlFor="filtro-texto-roteiro" className="mb-1 block text-sm font-medium text-gray-700">Texto do Roteiro</Label>
+              <Input
+                id="filtro-texto-roteiro"
+                type="text"
+                placeholder="Buscar por parte do roteiro..."
+                value={filtroTextoRoteiro}
+                onChange={e => setFiltroTextoRoteiro(e.target.value)}
+                className="w-full"
+              />
+            </div>
             {/* Filtro de Data */}
             <div className="flex flex-1 flex-col md:flex-row gap-4 min-w-[280px] md:min-w-[320px]">
               <div className="flex-1">
@@ -973,6 +993,7 @@ function AdminDashboardPage() {
                 setDataInicio(undefined); 
                 setDataFim(undefined); 
                 setFiltroTitulo("");
+                setFiltroTextoRoteiro("");
               }} 
               variant="outline" 
               className="w-full md:w-auto" // Ajuste de largura para responsividade
