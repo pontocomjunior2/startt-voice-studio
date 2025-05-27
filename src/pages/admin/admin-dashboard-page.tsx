@@ -1293,7 +1293,7 @@ function AdminDashboardPage() {
                     <audio
                       controls
                       src={selectedPedido.audio_guia_url}
-                      className="w-full max-w-xs border rounded shadow"
+                      className="w-full max-w-xs bg-neutral-900 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       aria-label="Áudio Guia enviado pelo cliente"
                     >
                       Seu navegador não suporta o elemento de áudio.
@@ -1539,7 +1539,7 @@ function AdminDashboardPage() {
                                         <audio
                                           controls
                                           src={activeRevisao.audio_guia_revisao_url}
-                                          className="w-full max-w-xs border rounded shadow"
+                                          className="w-full max-w-xs bg-neutral-900 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                           aria-label="Áudio Guia da Revisão enviado pelo cliente"
                                         >
                                           Seu navegador não suporta o elemento de áudio.

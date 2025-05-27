@@ -7,7 +7,8 @@ import { toast } from 'sonner';
 import { supabase } from '../../lib/supabaseClient'; // Ajustar caminho se necessário
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, Edit3, History, Eye, MoreVertical, Trash2, MessageSquare, FileAudio, XCircle } from 'lucide-react'; // Ícones necessários, Edit3 ou History para revisão, Adicionado Trash2 e MessageSquare
+import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, Edit3, History, Eye, MoreVertical, Trash2, MessageSquare, FileAudio, XCircle, Paperclip, ThumbsUp } from 'lucide-react'; // Ícones necessários, Edit3 ou History para revisão, Adicionado Trash2 e MessageSquare
+import { Clock, CheckCircle, MessageSquareWarning, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom'; // Link para o botão de novo pedido
 import { solicitarRevisaoAction, excluirPedidoAction } from '@/actions/pedido-actions'; // Importar a action
 import {
@@ -58,6 +59,24 @@ interface HistoricoRevisoesDialogProps {
   onOpenChange: (isOpen: boolean) => void;
   pedido: Pedido | null;
 }
+
+// Função auxiliar para determinar o ícone e a cor do status da revisão
+const getStatusInfo = (status: string | undefined) => {
+  switch (status) {
+    case REVISAO_STATUS_ADMIN.SOLICITADA:
+      return { icon: Clock, color: "text-blue-500", label: "Solicitada" };
+    case REVISAO_STATUS_ADMIN.EM_ANDAMENTO_ADMIN:
+      return { icon: Loader2, color: "text-yellow-500 animate-spin", label: "Em Análise pelo Admin" };
+    case REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO:
+      return { icon: CheckCircle, color: "text-green-500", label: "Revisado e Finalizado" };
+    case REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE:
+      return { icon: MessageSquareWarning, color: "text-orange-500", label: "Informações Solicitadas" };
+    case REVISAO_STATUS_ADMIN.NEGADA:
+      return { icon: XCircle, color: "text-red-500", label: "Negada" };
+    default:
+      return { icon: AlertCircle, color: "text-gray-500", label: status || "Desconhecido" };
+  }
+};
 
 const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpen, onOpenChange, pedido }) => {
   const { 
@@ -147,65 +166,172 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
+      <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col bg-neutral-900 text-white">
         <DialogHeader>
-          <DialogTitle>Detalhes do Pedido e Histórico de Revisões</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-2xl font-bold text-white">Detalhes do Pedido e Histórico de Revisões</DialogTitle>
+          <DialogDescription className="text-neutral-300">
             Acompanhe os detalhes e o histórico de revisões para o pedido: #{pedido.id_pedido_serial} - {pedido.titulo || "Sem título"}
           </DialogDescription>
         </DialogHeader>
         
         <div className="flex-grow overflow-y-auto pr-2 space-y-6 py-4">
-          {/* Destaque para Solicitação de Informação Pendente */}
-          {solicitacaoPendenteInfo && (
-            <Card className="shadow-sm rounded-lg bg-card text-card-foreground border-none">
-              <CardHeader>
-                <CardTitle className="text-lg text-yellow-700 dark:text-yellow-400 flex items-center">
-                  <AlertTriangle className="h-5 w-5 mr-2 shrink-0" />
-                  Aguardando sua Resposta
-                </CardTitle>
-                <CardDescription className="text-yellow-600 dark:text-yellow-500">
-                  O administrador solicitou informações adicionais para prosseguir com seu pedido.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <p className="text-sm font-semibold text-muted-foreground mb-1">Mensagem do Administrador:</p>
-                  <div className="p-3 bg-muted/30 dark:bg-neutral-800 rounded-md text-sm whitespace-pre-wrap border-none">
-                    {solicitacaoPendenteInfo.adminFeedback || "Nenhuma mensagem específica fornecida."}
+          {/* Timeline visual do andamento do pedido */}
+          <div>
+            <h3 className="text-lg font-semibold text-white mb-3 flex items-center">
+              <History className="h-5 w-5 mr-2 text-blue-400" />
+              Andamento do Pedido
+            </h3>
+            <div className="relative pl-6">
+              <div className="absolute top-0 left-2 w-1 bg-neutral-700 h-full rounded" style={{zIndex:0}} />
+              <ul className="space-y-10">
+                {/* Timeline das revisões (mais recente primeiro) */}
+                {historicoRevisoes && historicoRevisoes.slice().reverse().map((revisao, idxSol) => {
+                  const statusInfo = getStatusInfo(revisao.statusRevisao);
+                  const IconeStatus = statusInfo.icon;
+                  return (
+                    <li key={revisao.id || idxSol} className="relative z-10">
+                      <span className="absolute -left-6 top-2 w-4 h-4 rounded-full bg-blue-500 border-4 border-neutral-900 flex items-center justify-center">
+                        <IconeStatus className="h-3 w-3 text-white" />
+                      </span>
+                      <div className="ml-2">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-semibold text-white">Revisão {historicoRevisoes.length - idxSol}</span>
+                          <Badge variant={statusInfo.label === "Negada" || statusInfo.label === "Cancelada" ? "destructive" : statusInfo.label === "Revisado e Finalizado" ? "default" : "outline"}
+                            className={cn("text-xs px-2 py-0.5 whitespace-nowrap", statusInfo.color && statusInfo.color.replace("text-", "border-").replace("500", "400"), statusInfo.color && statusInfo.color.replace("text-", "bg-").replace("500", "900/30"))}
+                          >
+                            {statusInfo.label}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-neutral-400 mb-2">
+                          Solicitado em: {formatarDataHora(revisao.dataSolicitacao)}
+                          {revisao.dataConclusaoRevisao && (
+                            <span> | Concluída em: {formatarDataHora(revisao.dataConclusaoRevisao)}</span>
+                          )}
+                        </div>
+                        <div className="mb-3 p-3 bg-neutral-900/60 rounded-md">
+                          <p className="text-sm font-medium text-white mb-1">Sua solicitação (descrição):</p>
+                          <p className="text-sm text-neutral-300 whitespace-pre-wrap">
+                            {revisao.descricaoCliente || <span className="italic">Não especificado</span>}
+                          </p>
+                        </div>
+                        {revisao.adminFeedback && (
+                          <div className="mb-3 p-3 bg-blue-900/40 rounded-md">
+                            <p className="text-sm font-medium text-blue-300 mb-1">Feedback do Administrador:</p>
+                            <p className="text-sm text-blue-200 whitespace-pre-wrap">
+                              {revisao.adminFeedback}
+                            </p>
+                          </div>
+                        )}
+                        {revisao.versoesAudio && revisao.versoesAudio.length > 0 && (
+                          <div className="mt-4 pt-3 border-t border-neutral-700">
+                            <h5 className="text-sm font-semibold text-white mb-2">Áudios Revisados Entregues:</h5>
+                            <ul className="space-y-2">
+                              {revisao.versoesAudio.sort((a, b) => (a.numeroVersao || 0) - (b.numeroVersao || 0)).map((versao, idxVer) => (
+                                <li key={versao.id || idxVer} className="flex items-center justify-between p-2.5 bg-neutral-900 rounded-md">
+                                  <div className="flex items-center">
+                                    <Paperclip className="h-4 w-4 mr-2 text-blue-400" />
+                                    <span className="text-xs sm:text-sm text-white">
+                                      {versao.audioUrl ? versao.audioUrl.substring(versao.audioUrl.lastIndexOf('/') + 1) : `versao_revisada_${versao.numeroVersao || (idxVer + 1)}.mp3`}
+                                      {versao.numeroVersao && <span className="text-neutral-400 text-xs ml-1">(v{versao.numeroVersao})</span>}
+                                    </span>
+                                  </div>
+                                  <Button
+                                    asChild
+                                    size="sm"
+                                    className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 sm:mt-0"
+                                  >
+                                    <a href={versao.audioUrl} download>
+                                      <DownloadCloud className="mr-2 h-4 w-4" />
+                                      Baixar
+                                    </a>
+                                  </Button>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU && revisao.cliente_info_response_details && (
+                          <div className="mt-3 p-4 bg-green-50 dark:bg-green-900/30 rounded-md shadow-sm">
+                            <p className="text-sm font-semibold text-green-700 dark:text-green-300 mb-1">
+                              Sua Resposta (enviada em: {formatarDataHora(revisao.data_resposta_cliente)})
+                            </p>
+                            <p className="text-sm text-green-600 dark:text-green-400 whitespace-pre-wrap">
+                              {revisao.cliente_info_response_details}
+                            </p>
+                          </div>
+                        )}
+                        {(revisao.statusRevisao === REVISAO_STATUS_ADMIN.NEGADA || revisao.statusRevisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE) && 
+                          (!revisao.versoesAudio || revisao.versoesAudio.length === 0) &&
+                          !revisao.adminFeedback && (
+                            <div className="mt-3 pt-3 border-t border-neutral-700">
+                              <p className="text-sm text-neutral-400 italic">Nenhum áudio foi anexado para esta atualização de status.</p>
+                            </div>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+                {/* Timeline: Áudio Original */}
+                <li className="relative z-10">
+                  <span className="absolute -left-6 top-2 w-4 h-4 rounded-full bg-green-500 border-4 border-neutral-900 flex items-center justify-center">
+                    <ThumbsUp className="h-3 w-3 text-white" />
+                  </span>
+                  <div className="ml-2">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-semibold text-white">Áudio Original</span>
+                    </div>
+                    {pedido.audio_final_url && (
+                      <Card className="shadow-lg border-none bg-card text-card-foreground rounded-2xl mt-2">
+                        <CardHeader className="bg-transparent p-0">
+                          <CardTitle className="text-base text-foreground">Áudio Original Entregue</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3 text-sm bg-transparent p-0">
+                          <div className="flex flex-col sm:flex-row items-center gap-4">
+                            <audio
+                              controls
+                              src={pedido.audio_final_url}
+                              className="w-full max-w-md bg-neutral-900 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              aria-label="Áudio original entregue ao cliente"
+                            >
+                              Seu navegador não suporta o elemento de áudio.
+                            </audio>
+                            <Button
+                              asChild
+                              size="sm"
+                              className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 sm:mt-0"
+                            >
+                              <a href={pedido.audio_final_url} download>
+                                <DownloadCloud className="mr-2 h-4 w-4" />
+                                Baixar Original
+                              </a>
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
                   </div>
-                </div>
-                <Button onClick={() => handleOpenResponderModal(solicitacaoPendenteInfo)} className="w-full sm:w-auto bg-yellow-500 dark:bg-yellow-700 hover:bg-yellow-600 dark:hover:bg-yellow-600 text-white dark:text-yellow-100">
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  Responder à Solicitação
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
+                </li>
+              </ul>
+            </div>
+          </div>
           {/* Nova Seção: Detalhes do Pedido */}
-          <Card className="shadow-sm rounded-lg bg-card text-card-foreground border-none">
+          <Card className="shadow-sm rounded-lg bg-neutral-800 text-white border-none">
             <CardHeader>
-              <CardTitle className="text-xl">Informações do Pedido</CardTitle>
+              <CardTitle className="text-xl text-white">Informações do Pedido</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2">
-                <div className="font-medium text-muted-foreground">Nº Pedido:</div>
+                <div className="font-medium text-neutral-300">Nº Pedido:</div>
                 <div className="md:col-span-2">{pedido.id_pedido_serial}</div>
-
-                <div className="font-medium text-muted-foreground">Data/Hora:</div>
+                <div className="font-medium text-neutral-300">Data/Hora:</div>
                 <div className="md:col-span-2">{formatarDataHora(pedido.created_at)}</div>
-
-                <div className="font-medium text-muted-foreground">Título:</div>
-                <div className="md:col-span-2">{pedido.titulo || <span className="italic text-muted-foreground">N/A</span>}</div>
-
-                <div className="font-medium text-muted-foreground">Locutor:</div>
-                <div className="md:col-span-2">{pedido.locutores?.nome || <span className="italic text-muted-foreground">Não definido</span>}</div>
-
-                <div className="font-medium text-muted-foreground">Estilo de Áudio:</div>
-                <div className="md:col-span-2">{pedido.estilo_locucao || <span className="italic text-muted-foreground">N/A</span>}</div>
-                
-                <div className="font-medium text-muted-foreground self-start">Tipo de Áudio:</div>
+                <div className="font-medium text-neutral-300">Título:</div>
+                <div className="md:col-span-2">{pedido.titulo || <span className="italic text-neutral-400">N/A</span>}</div>
+                <div className="font-medium text-neutral-300">Locutor:</div>
+                <div className="md:col-span-2">{pedido.locutores?.nome || <span className="italic text-neutral-400">Não definido</span>}</div>
+                <div className="font-medium text-neutral-300">Estilo de Áudio:</div>
+                <div className="md:col-span-2">{pedido.estilo_locucao || <span className="italic text-neutral-400">N/A</span>}</div>
+                <div className="font-medium text-neutral-300 self-start">Tipo de Áudio:</div>
                 <div className="md:col-span-2">
                   {pedido.tipo_audio ? (
                     <Badge 
@@ -222,22 +348,20 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
                        : pedido.tipo_audio}
                     </Badge>
                   ) : (
-                    <span className="italic text-muted-foreground">Não especificado</span>
+                    <span className="italic text-neutral-400">Não especificado</span>
                   )}
                 </div>
               </div>
-
               <div className="pt-2">
-                <h4 className="text-sm font-medium text-muted-foreground mb-1">Orientações (Briefing):</h4>
-                <div className="p-3 bg-muted/30 dark:bg-neutral-800 rounded-md max-h-32 overflow-y-auto text-xs whitespace-pre-wrap border-none">
-                  {pedido.orientacoes || <span className="italic text-muted-foreground">Nenhuma orientação fornecida.</span>}
+                <h4 className="text-sm font-medium text-neutral-300 mb-1">Orientações (Briefing):</h4>
+                <div className="p-3 bg-neutral-900 rounded-md max-h-32 overflow-y-auto text-xs whitespace-pre-wrap border-none">
+                  {pedido.orientacoes || <span className="italic text-neutral-400">Nenhuma orientação fornecida.</span>}
                 </div>
               </div>
-
               <div className="pt-2">
-                <h4 className="text-sm font-medium text-muted-foreground mb-1">Roteiro Completo:</h4>
-                <div className="p-3 bg-muted/30 dark:bg-neutral-800 rounded-md max-h-40 overflow-y-auto text-xs whitespace-pre-wrap border-none">
-                  {pedido.texto_roteiro || <span className="italic text-muted-foreground">Nenhum roteiro fornecido.</span>}
+                <h4 className="text-sm font-medium text-neutral-300 mb-1">Roteiro Completo:</h4>
+                <div className="p-3 bg-neutral-900 rounded-md max-h-40 overflow-y-auto text-xs whitespace-pre-wrap border-none">
+                  {pedido.texto_roteiro || <span className="italic text-neutral-400">Nenhum roteiro fornecido.</span>}
                 </div>
               </div>
             </CardContent>
@@ -266,121 +390,6 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
               <History className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">Nenhuma revisão concluída encontrada para este pedido.</p>
             </div>
-          )}
-
-          {historicoRevisoes && historicoRevisoes.length > 0 && (
-            <Card className="shadow-sm rounded-lg bg-card text-card-foreground border-none">
-              <CardHeader>
-                <CardTitle className="text-xl">Histórico de Solicitações de Revisão</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {historicoRevisoes.map((revisao, index) => (
-                  <div key={revisao.id} className={`p-4 rounded-lg shadow-sm bg-card ${index < historicoRevisoes.length - 1 ? 'mb-6' : ''}`}>
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="font-semibold text-md">
-                        Solicitação de Revisão (#{revisao.id.substring(0, 8)})
-                      </h4>
-                      <Badge 
-                        variant={
-                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO ? "default" : // Verde via className
-                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE ? "default" : // Amarelo via className
-                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU ? "default" : // Azul via className
-                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.NEGADA ? "destructive" :
-                          "secondary"
-                        }
-                        className={cn(
-                          "text-xs",
-                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO && "bg-green-500 hover:bg-green-600 text-white",
-                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE && "bg-amber-500 dark:bg-blue-700 hover:bg-amber-600 dark:hover:bg-blue-600 text-white dark:text-blue-100",
-                          revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU && "bg-purple-500 hover:bg-purple-600 text-white"
-                        )}
-                      >
-                        {revisao.statusRevisao.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-1">Solicitado em: {formatarDataHora(revisao.dataSolicitacao)}</p>
-                    {revisao.dataConclusaoRevisao && (
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Concluída em: {formatarDataHora(revisao.dataConclusaoRevisao)}
-                      </p>
-                    )}
-                    
-                    {revisao.descricaoCliente && (
-                      <div className="mt-3">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Sua solicitação (descrição):</p>
-                        <div className="p-3 bg-muted/50 rounded-md text-sm whitespace-pre-wrap border-none">
-                          {revisao.descricaoCliente}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Feedback do Admin OU Resposta do Cliente sobre o Feedback do Admin */}
-                    {revisao.adminFeedback && (revisao.statusRevisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE || revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU) && (
-                      <div className="mt-4 p-4 bg-amber-50 dark:bg-blue-900/30 rounded-lg shadow-sm">
-                        <p className="text-sm font-semibold text-amber-700 dark:text-blue-300 mb-1">
-                          {revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU ? "Contexto (Pergunta original do Administrador):" : "Feedback do Administrador (para esta solicitação):" }
-                        </p>
-                        <p className="text-sm text-amber-600 dark:text-blue-400 whitespace-pre-wrap">
-                          {revisao.adminFeedback}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {revisao.statusRevisao === REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU && revisao.cliente_info_response_details && (
-                      <div className="mt-3 p-4 bg-green-50 dark:bg-green-900/30 rounded-md shadow-sm">
-                        <p className="text-sm font-semibold text-green-700 dark:text-green-300 mb-1">
-                          Sua Resposta (enviada em: {formatarDataHora(revisao.data_resposta_cliente)})
-                        </p>
-                        <p className="text-sm text-green-600 dark:text-green-400 whitespace-pre-wrap">
-                          {revisao.cliente_info_response_details}
-                        </p>
-                      </div>
-                    )}
-
-                    {revisao.versoesAudio && revisao.versoesAudio.length > 0 && (
-                      <div className="mt-4">
-                        <h5 className="text-md font-semibold text-foreground mb-2">Áudios Revisados Entregues:</h5>
-                        <ul className="space-y-3">
-                          {revisao.versoesAudio.map((versao) => (
-                            <li key={versao.id} className="pt-3">
-                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                <div>
-                                  <p className="text-sm font-medium text-foreground">Versão {versao.numeroVersao}</p>
-                                  <p className="text-xs text-muted-foreground">Enviada em: {formatarDataHora(versao.enviadoEm)}</p>
-                                </div>
-                                <Button 
-                                  asChild 
-                                  size="sm" 
-                                  className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 sm:mt-0"
-                                >
-                                  <a 
-                                    href={versao.audioUrl} 
-                                    download 
-                                    // O nome do arquivo poderia ser mais elaborado se tivéssemos mais infos
-                                    // title={`Baixar Versão ${versao.numeroVersao} do pedido ${pedido.id_pedido_serial}`}
-                                  >
-                                    <DownloadCloud className="mr-2 h-4 w-4" />
-                                    Baixar Versão {versao.numeroVersao}
-                                  </a>
-                                </Button>
-                              </div>
-                              {versao.comentariosAdmin && (
-                                <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/30 rounded-md">
-                                  <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-0.5">Comentários do Admin (para esta versão):</p>
-                                  <p className="text-xs text-green-600 dark:text-green-400 whitespace-pre-wrap">
-                                    {versao.comentariosAdmin}
-                                  </p>
-                                </div>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
           )}
         </div>
         
@@ -1055,7 +1064,7 @@ function MeusAudiosPage() {
                           pedido.status === PEDIDO_STATUS.EM_ANALISE && "border-amber-500 bg-amber-100 text-amber-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300",
                           pedido.status === PEDIDO_STATUS.GRAVANDO && "border-purple-500 bg-purple-100 text-purple-700 dark:border-purple-400 dark:bg-purple-900/30 dark:text-purple-300",
                           pedido.status === PEDIDO_STATUS.EM_REVISAO && "border-pink-500 bg-pink-100 text-pink-700 dark:border-pink-400 dark:bg-pink-900/30 dark:text-pink-300",
-                          pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && "border-cyan-500 dark:border-cyan-400 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-200",
+                          pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && "bg-amber-500 text-white hover:bg-amber-600 dark:bg-yellow-500 dark:text-yellow-900",
                           pedido.status === PEDIDO_STATUS.CANCELADO && "bg-red-600 hover:bg-red-700"
                         )}
                       >
