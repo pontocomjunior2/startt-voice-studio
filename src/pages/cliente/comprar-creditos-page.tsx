@@ -120,7 +120,7 @@ export default function ComprarCreditosPage() {
 
       {/* Modal PIX */}
       <Dialog open={isModalPixOpen} onOpenChange={setIsModalPixOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl text-center bg-clip-text text-transparent bg-gradient-to-r from-startt-blue to-startt-purple">
               Pagamento via PIX
@@ -134,13 +134,13 @@ export default function ComprarCreditosPage() {
             )}
           </DialogHeader>
 
-          <div className="py-6 flex flex-col items-center justify-center space-y-4">
+          <div className="py-4 flex flex-col items-center justify-center space-y-3">
             {isLoadingQrCode ? (
-              <div className="h-48 w-48 flex items-center justify-center">
+              <div className="h-40 w-40 flex items-center justify-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" aria-label="Carregando QR Code" />
               </div>
             ) : qrCodeBase64MP ? (
-              <img src={`data:image/png;base64,${qrCodeBase64MP}`} alt="QR Code PIX" className="h-48 w-48 border rounded-md" width={192} height={192} loading="lazy" />
+              <img src={`data:image/png;base64,${qrCodeBase64MP}`} alt="QR Code PIX" className="h-40 w-40 border rounded-md" width={160} height={160} loading="lazy" />
             ) : (
               <p className="text-destructive">Não foi possível carregar o QR Code.</p>
             )}
@@ -168,7 +168,7 @@ export default function ComprarCreditosPage() {
                     type="text"
                     value={qrCodePayloadMP}
                     readOnly
-                    className="flex-1 rounded-md border px-2 py-1 text-xs bg-muted text-foreground select-all focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="flex-1 rounded-md border border-neutral-700 px-2 py-1 text-xs bg-neutral-900 text-white select-all focus:outline-none focus:ring-2 focus:ring-primary"
                     aria-label="Código PIX Copia e Cola"
                   />
                   <Button
