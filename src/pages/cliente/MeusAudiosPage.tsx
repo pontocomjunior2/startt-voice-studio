@@ -176,7 +176,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
         
         <div className="flex-grow overflow-y-auto pr-2 space-y-6 py-4">
           {/* Timeline visual do andamento do pedido */}
-          <div>
+                <div>
             <h3 className="text-lg font-semibold text-white mb-3 flex items-center">
               <History className="h-5 w-5 mr-2 text-blue-400" />
               Andamento do Pedido
@@ -201,13 +201,13 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
                           >
                             {statusInfo.label}
                           </Badge>
-                        </div>
+                  </div>
                         <div className="text-xs text-neutral-400 mb-2">
                           Solicitado em: {formatarDataHora(revisao.dataSolicitacao)}
                           {revisao.dataConclusaoRevisao && (
                             <span> | Concluída em: {formatarDataHora(revisao.dataConclusaoRevisao)}</span>
                           )}
-                        </div>
+                </div>
                         <div className="mb-3 p-3 bg-neutral-900/60 rounded-md">
                           <p className="text-sm font-medium text-white mb-1">Sua solicitação (descrição):</p>
                           <p className="text-sm text-neutral-300 whitespace-pre-wrap">
@@ -244,7 +244,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
                                       <DownloadCloud className="mr-2 h-4 w-4" />
                                       Baixar
                                     </a>
-                                  </Button>
+                </Button>
                                 </li>
                               ))}
                             </ul>
@@ -306,9 +306,9 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
                               </a>
                             </Button>
                           </div>
-                        </CardContent>
-                      </Card>
-                    )}
+              </CardContent>
+            </Card>
+          )}
                   </div>
                 </li>
               </ul>

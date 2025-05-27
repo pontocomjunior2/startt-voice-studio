@@ -21,7 +21,9 @@ console.log('[Servidor Express] SUPABASE_SERVICE_ROLE_KEY lido:', process.env.SU
 // IMPORTS DOS HANDLERS/ROUTERS DEVEM VIR APÓS O dotenv.config!
 const gerar_roteiro_ia_1 = __importDefault(require("./api/gerar-roteiro-ia"));
 const gerar_pagamento_pix_mp_1 = __importDefault(require("./api/gerar-pagamento-pix-mp"));
+const webhook_mp_pagamentos_1 = __importDefault(require("./api/webhook-mp-pagamentos"));
 const app = (0, express_1.default)();
+app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT) || 3001; // Porta para o servidor backend
 // Habilitar CORS para todas as origens (em produção, restrinja para o seu domínio frontend)
 app.use((0, cors_1.default)({ origin: '*', credentials: true }));
@@ -613,7 +615,7 @@ const webhookLimiter = (0, express_rate_limit_1.default)({
     max: 30, // 30 requests por minuto
     message: { success: false, message: 'Too many requests' }
 });
-app.use('/api/webhook-mp-pagamentos', webhookLimiter);
+app.use('/api/webhook-mp-pagamentos', webhookLimiter, webhook_mp_pagamentos_1.default);
 app.get('/api/test-env', (req, res) => {
     res.json({
         INTER_CLIENT_ID: process.env.INTER_CLIENT_ID,

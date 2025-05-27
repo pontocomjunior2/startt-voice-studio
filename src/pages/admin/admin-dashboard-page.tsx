@@ -825,7 +825,7 @@ function AdminDashboardPage() {
   };
 
   return (
-    <div className="space-y-8">
+      <div className="space-y-8">
       <div>
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-semibold text-foreground">Visão Geral</h1>
@@ -918,7 +918,7 @@ function AdminDashboardPage() {
         {/* Seção de Filtros */}
         <div className="mb-6 p-4 border-none rounded-lg shadow-sm bg-card">
           <h2 className="text-xl font-semibold mb-4 text-gray-700">Filtrar Pedidos</h2>
-          <div className="flex flex-col md:flex-row gap-4 items-start md:items-end"> {/* Alterado para items-end para alinhar botão com inputs */}
+          <div className="flex flex-col md:flex-row flex-wrap gap-4 items-start md:items-end"> {/* Alterado para items-end para alinhar botão com inputs */}
             {/* Filtro de Status */}
             <div className="flex-1 min-w-[200px] md:min-w-[250px]">
               <Label htmlFor="filtro-status-pedido" className="mb-1 block text-sm font-medium text-gray-700">Status do Pedido</Label>
@@ -996,7 +996,7 @@ function AdminDashboardPage() {
                 setFiltroTextoRoteiro("");
               }} 
               variant="outline" 
-              className="w-full md:w-auto" // Ajuste de largura para responsividade
+              className="w-full md:w-auto md:ml-auto mt-2 md:mt-0"
             >
               Limpar Filtros
             </Button>
@@ -1230,7 +1230,7 @@ function AdminDashboardPage() {
                   Detalhes do Pedido
                 </TabsTrigger>
                 <TabsTrigger
-                  value="gerenciarRevisao"
+                  value="gerenciarRevisao" 
                   className={`flex-1 h-full px-6 py-3 text-base font-semibold transition-all duration-200 cursor-pointer
                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500
                     ${modalActiveTab === 'gerenciarRevisao'

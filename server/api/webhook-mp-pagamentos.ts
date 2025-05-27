@@ -10,7 +10,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-router.post('/api/webhook-mp-pagamentos', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
+  console.log('[Webhook MP] Recebido:', req.body);
   try {
     // Mercado Pago envia { action, data: { id }, ... }
     const { action, data } = req.body;

@@ -22,6 +22,7 @@ import gerarPagamentoPixMpRouter from './api/gerar-pagamento-pix-mp';
 import webhookMpPagamentosRouter from './api/webhook-mp-pagamentos';
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT) || 3001; // Porta para o servidor backend
 
 // Habilitar CORS para todas as origens (em produção, restrinja para o seu domínio frontend)
@@ -656,7 +657,7 @@ const webhookLimiter = rateLimit({
   message: { success: false, message: 'Too many requests' }
 });
 
-app.use('/api/webhook-mp-pagamentos', webhookLimiter);
+app.use('/api/webhook-mp-pagamentos', webhookLimiter, webhookMpPagamentosRouter);
 
 app.get('/api/test-env', (req, res) => {
   res.json({
