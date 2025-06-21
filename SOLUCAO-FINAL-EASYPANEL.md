@@ -11,16 +11,17 @@
 ```yaml
 Repository: pontocomjunior2/startt
 Branch: feat/visual-template-integration
-Commit: c8d51d7 (mais recente com fix)
+Commit: 9d51170 (mais recente com debug detalhado)
 Build Method: Dockerfile
 Build Context: /
 ```
 
 **🔧 Correções aplicadas:**
-- ✅ Verificação de dependências críticas (vite, @vitejs/plugin-react-swc)
-- ✅ Validação pré-build de arquivos essenciais
-- ✅ Debug melhorado dos node_modules
-- ✅ Ordem correta: build ANTES de limpar devDependencies
+- ✅ Debug detalhado completo do processo de build
+- ✅ Verificação individual de cada arquivo crítico
+- ✅ Teste de existência de dependências específicas
+- ✅ Validação de TypeScript e Vite antes do build
+- ✅ Logs estruturados para identificar falhas precisas
 
 ---
 
@@ -39,7 +40,7 @@ Build Context: /
 ```yaml
 Repository: pontocomjunior2/startt
 Branch: master
-Commit: c8d51d7 (mesmo fix aplicado)
+Commit: 9d51170 (mesmo debug detalhado aplicado)
 Build Method: Dockerfile
 Build Context: /
 ```
@@ -62,8 +63,13 @@ Build Context: /
 Dockerfile Path: Dockerfile
 
 # VERIFICAÇÃO DE SUCESSO:
-# Deve mostrar: transferring dockerfile: 5319B
-# NÃO deve mostrar: transferring dockerfile: 977B
+# Deve mostrar: transferring dockerfile: 5400B+ (tamanho atualizado)
+# Deve aparecer nos logs:
+# ✅ main.tsx exists
+# ✅ index.css exists  
+# ✅ vite.config.ts exists
+# ✅ @vitejs exists
+# ✅ react-swc plugin exists
 ```
 
 ---
