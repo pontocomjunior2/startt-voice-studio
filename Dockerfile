@@ -180,7 +180,7 @@ RUN echo "=== Cleaning Dev Dependencies ===" && \
     npm cache clean --force && \
     echo "=== Dev Dependencies Cleaned ==="
 
-# Criar estrutura de diretórios
+# Criar estrutura de diretórios com permissões corretas
 RUN mkdir -p \
     public/uploads/avatars \
     public/uploads/demos \
@@ -188,10 +188,11 @@ RUN mkdir -p \
     public/uploads/revisoes_guias \
     public/uploads/audios \
     temp/uploads && \
-    echo "Upload directories created"
-
-# Definir permissões
-RUN chown -R nodejs:nodejs /app
+    echo "Upload directories created" && \
+    echo "=== Setting Permissions (Optimized) ===" && \
+    chown -R nodejs:nodejs public/uploads temp/uploads dist dist-server && \
+    chown nodejs:nodejs package*.json *.config.* && \
+    echo "✅ Permissions set for critical directories only"
 
 # Mudar para usuário não-root
 USER nodejs
@@ -212,6 +213,6 @@ RUN echo "=== Final Check ===" && \
 
 # Inicialização
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist-server/server.js"] # Force EasyPanel cache refresh - 06/21/2025 23:37:45
+CMD ["node", "dist-server/server.js"] # Force EasyPanel cache refresh - 06/21/2025 23:45:30
 
-# EasyPanel cache breaker - DevDependencies fix + NODE_ENV dev during build - 2025-06-21-23-38-00
+# EasyPanel cache breaker - Optimized chown performance fix - 2025-06-21-23-45-45
