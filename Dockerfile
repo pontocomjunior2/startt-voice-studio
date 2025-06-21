@@ -56,12 +56,14 @@ RUN if [ -f package-lock.json ]; then \
         npm install --omit=dev; \
     fi && npm cache clean --force
 
-# Copiar arquivos buildados do stage anterior
+# Copiar APENAS os arquivos buildados do stage anterior (não código fonte)
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/dist-server ./dist-server
 
-# Criar diretórios necessários
-RUN mkdir -p public/uploads temp && chown -R nodejs:nodejs public temp
+# Criar estrutura de diretórios para uploads (sem copiar arquivos de desenvolvimento)
+RUN mkdir -p public/uploads/avatars public/uploads/demos public/uploads/guias \
+    public/uploads/revisoes_guias public/uploads/audios temp/uploads \
+    && chown -R nodejs:nodejs public temp
 
 # Mudar para usuário não-root
 USER nodejs
