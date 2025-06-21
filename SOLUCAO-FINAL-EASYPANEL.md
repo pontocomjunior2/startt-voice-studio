@@ -11,17 +11,17 @@
 ```yaml
 Repository: pontocomjunior2/startt
 Branch: feat/visual-template-integration
-Commit: 9d51170 (mais recente com debug detalhado)
+Commit: 909bdfe (com correção de resolução de módulos)
 Build Method: Dockerfile
 Build Context: /
 ```
 
 **🔧 Correções aplicadas:**
 - ✅ Debug detalhado completo do processo de build
-- ✅ Verificação individual de cada arquivo crítico
-- ✅ Teste de existência de dependências específicas
-- ✅ Validação de TypeScript e Vite antes do build
-- ✅ Logs estruturados para identificar falhas precisas
+- ✅ Teste de resolução de módulos Node.js
+- ✅ Reinstalação forçada de dependências críticas
+- ✅ Verificação pré e pós-instalação de pacotes
+- ✅ Detecção específica de problemas com @vitejs/plugin-react-swc
 
 ---
 
@@ -40,7 +40,7 @@ Build Context: /
 ```yaml
 Repository: pontocomjunior2/startt
 Branch: master
-Commit: 9d51170 (mesmo debug detalhado aplicado)
+Commit: 909bdfe (mesma correção de resolução aplicada)
 Build Method: Dockerfile
 Build Context: /
 ```

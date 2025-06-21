@@ -29,6 +29,23 @@ Version 5.8.3
 === VITE CHECK ===
 vite/6.3.5
 
+=== MODULE RESOLUTION DEBUG ===
+✅ vite resolvable
+✅ react-swc resolvable
+
+=== CHECKING INSTALLED VERSIONS ===
+vite@6.3.5
+@vitejs/plugin-react-swc@3.9.0
+typescript@5.8.3
+
+=== REINSTALLING CRITICAL DEPS ===
++ vite@6.3.5
++ @vitejs/plugin-react-swc@3.9.0
++ typescript@5.8.3
+
+=== POST-INSTALL VERIFICATION ===
+✅ All packages verified
+
 === STARTING BUILD ===
 > pontocomaudio@0.0.0 build
 > tsc -b && vite build
@@ -89,7 +106,12 @@ error TS2307: Cannot find module...
 **Causa:** Dependências globais faltando
 **Solução:** Verificar se npx está funcionando
 
-### **Problema 4: Build falha após verificações OK**
+### **Problema 4: Resolução de Módulos Falha**
+**Log:** `❌ vite not resolvable` ou `❌ react-swc not resolvable`
+**Causa:** Módulos instalados mas não resolváveis pelo TypeScript
+**Solução:** Reinstalação forçada de dependências críticas
+
+### **Problema 5: Build falha após verificações OK**
 **Log:** Build starts mas falha no tsc/vite
 **Causa:** Erro de código TypeScript ou configuração
 **Solução:** Verificar mensagens específicas do tsc
@@ -106,6 +128,10 @@ Quando o build falhar, procure por estas seções nos logs:
 - [ ] `✅ @vitejs exists` - plugin presente?
 - [ ] `TypeScript version` - versão mostrada?
 - [ ] `vite version` - versão mostrada?
+- [ ] `✅ vite resolvable` - resolução OK?
+- [ ] `✅ react-swc resolvable` - resolução OK?
+- [ ] `=== REINSTALLING CRITICAL DEPS ===` - reinstalação OK?
+- [ ] `=== POST-INSTALL VERIFICATION ===` - verificação OK?
 - [ ] `npm run build` - comando executado?
 - [ ] `✅ Frontend build successful!` - sucesso final?
 
@@ -116,12 +142,12 @@ Quando o build falhar, procure por estas seções nos logs:
 ```yaml
 Repository: pontocomjunior2/startt
 Branch: feat/visual-template-integration OU master
-Commit: 44e9aa6 (com debug detalhado)
+Commit: 909bdfe (com correção de resolução de módulos)
 Build Method: Dockerfile
 Build Context: /
 ```
 
-**Tamanho esperado do Dockerfile:** ~5.500B+
+**Tamanho esperado do Dockerfile:** ~5.600B+
 
 ---
 
