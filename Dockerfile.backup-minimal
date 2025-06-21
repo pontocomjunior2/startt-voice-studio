@@ -1,4 +1,4 @@
-# Dockerfile mínimo para debugging
+# Dockerfile mínimo para debugging - NÃO USAR NO EASYPANEL
 FROM node:18-alpine
 
 # Instalar apenas o essencial
