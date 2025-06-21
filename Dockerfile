@@ -171,4 +171,4 @@ RUN echo "=== Final Check ===" && \
 
 # Inicialização
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist-server/server.js"] 
+CMD ["node", "dist-server/server.js"] # Force EasyPanel cache refresh - 06/21/2025 19:34:22
