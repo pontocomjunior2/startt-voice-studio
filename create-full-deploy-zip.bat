@@ -47,7 +47,12 @@ if exist deploy-temp\public\uploads (
 
 echo   Copiando arquivos de configuração...
 copy package.json deploy-temp\package.json
-copy package-lock.json deploy-temp\package-lock.json 2>nul
+if exist package-lock.json (
+    copy package-lock.json deploy-temp\package-lock.json
+    echo   ✓ package-lock.json copiado
+) else (
+    echo   ⚠ package-lock.json não encontrado - será gerado no Docker
+)
 copy tsconfig*.json deploy-temp\
 copy vite.config.ts deploy-temp\vite.config.ts
 copy postcss.config.cjs deploy-temp\postcss.config.cjs

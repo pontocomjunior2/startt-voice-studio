@@ -8,7 +8,8 @@ RUN apk add --no-cache python3 make g++
 WORKDIR /app
 
 # Copiar arquivos de configuração primeiro (para cache de dependências)
-COPY package*.json ./
+COPY package.json ./
+COPY package-lock.json* ./
 COPY tsconfig*.json ./
 COPY vite.config.ts ./
 COPY postcss.config.cjs ./
@@ -17,7 +18,12 @@ COPY components.json ./
 COPY deploy-exclude.txt ./
 
 # Instalar TODAS as dependências (incluindo devDependencies para build)
-RUN npm ci
+# Usar npm ci se houver lock file, senão usar npm install
+RUN if [ -f package-lock.json ]; then \
+        npm ci; \
+    else \
+        npm install; \
+    fi
 
 # Copiar código fonte
 COPY src/ ./src/
@@ -40,9 +46,15 @@ RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 # Definir diretório de trabalho
 WORKDIR /app
 
-# Copiar package.json e instalar apenas dependências de produção
-COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+# Copiar package.json e package-lock.json (se existir)
+COPY package.json ./
+COPY package-lock.json* ./
+# Usar npm ci se houver lock file, senão usar npm install
+RUN if [ -f package-lock.json ]; then \
+        npm ci --omit=dev; \
+    else \
+        npm install --omit=dev; \
+    fi && npm cache clean --force
 
 # Copiar arquivos buildados do stage anterior
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
