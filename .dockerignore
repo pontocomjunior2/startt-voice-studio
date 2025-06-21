@@ -48,6 +48,11 @@ coverage/
 dist/
 build/
 
+# Uploads (nunca incluir no Docker)
+uploads/
+public/uploads/
+*/uploads/
+
 # Documentation
 *.md
 README.md

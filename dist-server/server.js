@@ -30,10 +30,29 @@ app.use(express_1.default.json({ limit: '150mb' }));
 app.use(express_1.default.urlencoded({ limit: '150mb', extended: true }));
 // Habilitar CORS para todas as origens (em produção, restrinja para o seu domínio frontend)
 app.use((0, cors_1.default)({ origin: '*', credentials: true }));
-// Middleware para servir arquivos estáticos da pasta 'public' (onde os uploads estarão)
-// Isso é útil se você acessar o backend diretamente ou se o frontend buscar os arquivos por aqui.
-// O servidor Vite também servirá a pasta 'public' do projeto raiz.
-app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '../public/uploads')));
+// Middleware personalizado para uploads com melhor tratamento de erros
+app.use('/uploads', (req, res, next) => {
+    const filePath = path_1.default.join(__dirname, '../public/uploads', req.path);
+    // Verificar se o caminho existe
+    if (!fs_1.default.existsSync(filePath)) {
+        console.log(`[Uploads Middleware] Arquivo não encontrado: ${filePath}`);
+        return res.status(404).json({ error: 'Arquivo não encontrado' });
+    }
+    // Verificar se é um diretório (evitar erro EISDIR)
+    const stats = fs_1.default.statSync(filePath);
+    if (stats.isDirectory()) {
+        console.log(`[Uploads Middleware] Tentativa de acesso a diretório: ${filePath}`);
+        return res.status(403).json({ error: 'Acesso a diretório não permitido' });
+    }
+    // Se chegou aqui, é um arquivo válido - usar o middleware padrão
+    express_1.default.static(path_1.default.join(__dirname, '../public/uploads'))(req, res, next);
+});
+// Middleware para servir arquivos estáticos do frontend compilado
+// Excluir diretório uploads do middleware genérico para evitar conflitos
+app.use(express_1.default.static(path_1.default.join(__dirname, '../dist'), {
+    index: false, // Não servir index.html automaticamente aqui
+    fallthrough: true // Permitir que outras rotas sejam processadas
+}));
 // Middleware para detectar requisições muito grandes antes do multer
 app.use('/api/upload', (req, res, next) => {
     const contentLength = parseInt(req.headers['content-length'] || '0');
@@ -417,6 +436,36 @@ if (!supabaseUrl || !supabaseServiceKey) {
 }
 // @ts-ignore TODO: Add proper Supabase client initialization for server-side
 const supabase = supabaseUrl && supabaseServiceKey ? (0, supabase_js_1.createClient)(supabaseUrl, supabaseServiceKey) : null;
+// Função para garantir que todos os diretórios necessários existam
+function ensureDirectoriesExist() {
+    const dirs = [
+        path_1.default.join(__dirname, '../public'),
+        path_1.default.join(__dirname, '../public/uploads'),
+        path_1.default.join(__dirname, '../public/uploads/avatars'),
+        path_1.default.join(__dirname, '../public/uploads/demos'),
+        path_1.default.join(__dirname, '../public/uploads/guias'),
+        path_1.default.join(__dirname, '../public/uploads/revisoes_guias'),
+        path_1.default.join(__dirname, '../public/uploads/audios'),
+        path_1.default.join(__dirname, '../temp'),
+        path_1.default.join(__dirname, '../temp/uploads')
+    ];
+    dirs.forEach(dir => {
+        if (!fs_1.default.existsSync(dir)) {
+            fs_1.default.mkdirSync(dir, { recursive: true });
+            console.log(`[Server Init] Diretório criado: ${dir}`);
+        }
+    });
+    // Verificar se o diretório dist existe
+    const distPath = path_1.default.join(__dirname, '../dist');
+    if (!fs_1.default.existsSync(distPath)) {
+        console.warn(`[Server Init] AVISO: Diretório do frontend não encontrado: ${distPath}`);
+    }
+    else {
+        console.log(`[Server Init] Diretório do frontend encontrado: ${distPath}`);
+    }
+}
+// Executar a verificação de diretórios na inicialização
+ensureDirectoriesExist();
 // --- INÍCIO NOVA ROTA PARA UPLOAD DE REVISÕES ---
 const revisaoStorage = multer_1.default.diskStorage({
     destination: function (req, file, cb) {
@@ -750,8 +799,27 @@ app.get('/api/test-env', (req, res) => {
         // Não exponha secrets em produção!
     });
 });
+// Rota catch-all para servir o frontend React (SPA)
+// DEVE vir depois de todas as rotas da API
+app.get('*', (req, res) => {
+    // Não interceptar rotas da API ou uploads
+    if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
+        return res.status(404).json({ error: 'Rota não encontrada' });
+    }
+    // Verificar se o arquivo index.html existe antes de tentar servir
+    const indexPath = path_1.default.join(__dirname, '../dist/index.html');
+    if (fs_1.default.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    }
+    else {
+        console.error('[Catch-all Route] index.html não encontrado em:', indexPath);
+        res.status(500).json({ error: 'Frontend não está disponível' });
+    }
+});
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor backend rodando na porta ${PORT}`);
+    console.log(`Frontend será servido em: http://localhost:${PORT}/`);
+    console.log(`API disponível em: http://localhost:${PORT}/api/*`);
     console.log(`Uploads serão salvos em: ${path_1.default.join(__dirname, '../public/uploads')}`);
     console.log(`Arquivos servidos de: /uploads/*`);
 });

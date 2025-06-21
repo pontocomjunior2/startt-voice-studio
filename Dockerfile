@@ -1,58 +1,33 @@
-# Dockerfile para deploy no EasyPanel
-FROM node:18-alpine
+# Build stage - usando Node.js 18 Alpine para menor tamanho
+FROM node:18-alpine AS builder
 
-# Instalar dependências do sistema necessárias
+# Instalar dumb-init para gerenciamento de processo
 RUN apk add --no-cache dumb-init
 
 # Definir diretório de trabalho
 WORKDIR /app
 
-# Aceitar todos os build args do EasyPanel
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_ANON_KEY
-ARG SUPABASE_SERVICE_ROLE_KEY
-ARG VITE_DOWNLOAD_PROXY_URL
-ARG VITE_API_URL
-ARG VITE_ADMIN_SECRET
-ARG GEMINI_API_KEY
-ARG GEMINI_MODEL
-ARG MP_ACCESS_TOKEN
-ARG MP_NOTIFICATION_URL
-ARG MAX_UPLOAD_SIZE_MB=200
-ARG NODE_OPTIONS=--max-old-space-size=4096
-ARG GIT_SHA
-ARG PORT=3001
+# Copiar package.json e instalar dependências
+COPY package.json ./
+RUN npm install --omit=dev
 
-# Definir como variáveis de ambiente
-ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
-ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
-ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
-ENV VITE_DOWNLOAD_PROXY_URL=$VITE_DOWNLOAD_PROXY_URL
-ENV VITE_API_URL=$VITE_API_URL
-ENV VITE_ADMIN_SECRET=$VITE_ADMIN_SECRET
-ENV GEMINI_API_KEY=$GEMINI_API_KEY
-ENV GEMINI_MODEL=$GEMINI_MODEL
-ENV MP_ACCESS_TOKEN=$MP_ACCESS_TOKEN
-ENV MP_NOTIFICATION_URL=$MP_NOTIFICATION_URL
-ENV MAX_UPLOAD_SIZE_MB=$MAX_UPLOAD_SIZE_MB
-ENV NODE_OPTIONS=$NODE_OPTIONS
-ENV GIT_SHA=$GIT_SHA
-ENV PORT=$PORT
+# Copiar arquivos compilados
+COPY dist/ ./dist/
+COPY dist-server/ ./dist-server/
+
+# Criar diretórios necessários para uploads
+RUN mkdir -p public/uploads temp
+
+# Definir variáveis de ambiente
 ENV NODE_ENV=production
-
-# Copiar package.json e package-lock.json primeiro (para cache layers)
-COPY package.json package-lock.json ./
-
-# Instalar dependências de produção
-RUN npm install --omit=dev && npm cache clean --force
-
-# Copiar código compilado do servidor
-COPY dist-server/ ./
+ENV PORT=3000
+ENV MAX_UPLOAD_SIZE_MB=200
 
 # Expor porta
-EXPOSE $PORT
+EXPOSE 3000
 
-# Comando de inicialização com dumb-init
-# O servidor criará as pastas de upload automaticamente em runtime
+# Usar dumb-init para gerenciar o processo
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "server.js"] 
+
+# Comando para iniciar o servidor (que servirá frontend e backend)
+CMD ["node", "dist-server/server.js"] 

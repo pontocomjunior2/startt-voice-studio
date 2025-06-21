@@ -8,16 +8,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertTriangle, History, Download, Info, Paperclip, ThumbsUp, Clock, MessageSquareWarning, XCircle, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader2, AlertTriangle, History, Download, Paperclip, ThumbsUp, Clock, MessageSquareWarning, XCircle, CheckCircle, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 import type { Pedido } from '@/types/pedido.type';
 import { usePedidoComRevisoesRealtime } from "@/hooks/realtime/use-pedido-com-revisoes-realtime.hook";
 import type { SolicitacaoRevisaoParaCliente, VersaoAudioRevisadoCliente, RevisaoStatusAdmin } from "@/types/revisao.type";
-import { PEDIDO_STATUS } from "@/types/pedido.type";
+
 import { REVISAO_STATUS_ADMIN } from "@/types/revisao.type";
 
 interface DetalhesPedidoDownloadDialogProps {
@@ -224,7 +223,7 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
                     <div className="flex justify-between items-center mb-1">
                       <span className="font-semibold text-white">Áudio Original</span>
                     </div>
-                    {pedidoDisplay.audio_final_url && (
+                    {pedidoDisplay?.audio_final_url && (
                       <Card className="shadow-lg border-none bg-neutral-900 text-white rounded-2xl mt-2">
                         <CardHeader className="bg-transparent p-0">
                           <CardTitle className="text-base text-foreground">Áudio Original Entregue</CardTitle>
@@ -240,7 +239,7 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
                               Seu navegador não suporta o elemento de áudio.
                             </audio>
                             <Button
-                              onClick={() => handleDirectDownload(pedidoDisplay.audio_final_url, `original_${pedidoDisplay.id_pedido_serial}`)}
+                              onClick={() => handleDirectDownload(pedidoDisplay?.audio_final_url, `original_${pedidoDisplay?.id_pedido_serial}`)}
                               size="sm"
                               variant="outline"
                               className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 sm:mt-0"

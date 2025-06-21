@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext'; // Ajustar caminho se necessário
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'; // Card pode ser útil para a mensagem de "nenhum pedido"
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Card pode ser útil para a mensagem de "nenhum pedido"
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabaseClient'; // Ajustar caminho se necessário
@@ -35,13 +35,13 @@ import { REVISAO_STATUS_ADMIN } from '@/types/revisao.type'; // Garantir que est
 import type { Pedido, TipoStatusPedido } from '@/types/pedido.type'; // Importar tipos com type
 import { startOfDay, endOfDay } from 'date-fns';
 import { DetalhesPedidoDownloadDialog } from '@/components/cliente/detalhes-pedido-download-dialog';
-import type { SolicitacaoRevisaoParaCliente } from '@/types/revisao.type';
+
 
 // Importações para o histórico de revisões
 import { useFetchRevisoesParaCliente } from '@/hooks/cliente/use-fetch-revisoes-para-cliente.hook';
-import { ResponderInfoModal } from '@/components/cliente/responder-info-modal'; // <<< ADICIONAR IMPORT
-import { clienteResponderInfoAction } from '@/actions/cliente-actions'; // <<< IMPORTAR A NOVA ACTION
-import { useAction } from 'next-safe-action/hooks'; // <<< Corrigir import para useAction e remover ActionError
+
+// import { clienteResponderInfoAction } from '@/actions/cliente-actions'; // <<< IMPORTAR A NOVA ACTION
+// import { useAction } from 'next-safe-action/hooks'; // <<< Corrigir import para useAction e remover ActionError
 import { Input } from '@/components/ui/input';
 import { DatePickerSingle } from '@/components/ui/date-picker-single';
 import {
@@ -86,68 +86,51 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
     refetch: refetchHistorico
   } = useFetchRevisoesParaCliente(pedido?.id);
 
-  // Estados e handlers para o ResponderInfoModal
-  const [isResponderInfoModalOpen, setIsResponderInfoModalOpen] = useState(false);
-  const [solicitacaoParaResponder, setSolicitacaoParaResponder] = useState<SolicitacaoRevisaoParaCliente | null>(null);
-  const [textoRespostaCliente, setTextoRespostaCliente] = useState("");
+    // Estados e handlers para o ResponderInfoModal (temporariamente desabilitados)
 
-  const { 
-    execute: executarEnviarResposta, 
-    status: statusEnvioResposta, 
-    reset: resetEnvioResposta 
-  } = useAction(clienteResponderInfoAction, {
-    onExecute: () => {
-      toast.loading("Enviando resposta...");
-    },
-    onSuccess: (data) => {
-      toast.dismiss();
-      if (data?.data?.success) { 
-        toast.success("Resposta Enviada", { description: data.data.success });
-        setIsResponderInfoModalOpen(false); 
-        refetchHistorico(); 
-      } else if (data?.data?.failure) {
-        toast.error("Falha ao Enviar", { description: data.data.failure });
-      } else {
-        toast.error("Erro Inesperado", { description: "A resposta do servidor não teve o formato esperado." });
-      }
-    },
-    onError: (error: any) => {
-      toast.dismiss();
-      let errorMsg = "Ocorreu um erro desconhecido ao enviar sua resposta.";
-      if (error.serverError) {
-        errorMsg = error.serverError;
-      } else if (error.validationErrors) {
-        const ve = error.validationErrors;
-        if (ve.respostaCliente && Array.isArray(ve.respostaCliente)) errorMsg = ve.respostaCliente.join(', ');
-        else errorMsg = "Erro de validação nos dados enviados.";
-      }
-      toast.error("Erro ao Enviar", { description: errorMsg });
-    },
-  });
+  // Funcionalidade de resposta temporariamente desabilitada
+  // const {
+  //   execute: executarEnviarResposta,
+  //   status: statusEnvioResposta,
+  //   reset: resetEnvioResposta
+  // } = useAction(clienteResponderInfoAction, {
+  //   onExecute: () => {
+  //     toast.loading("Enviando resposta...");
+  //   },
+  //   onSuccess: (data) => {
+  //     toast.dismiss();
+  //     if (data?.data?.success) { 
+  //       toast.success("Resposta Enviada", { description: data.data.success });
+  //       setIsResponderInfoModalOpen(false); 
+  //       refetchHistorico(); 
+  //     } else if (data?.data?.failure) {
+  //       toast.error("Falha ao Enviar", { description: data.data.failure });
+  //     } else {
+  //       toast.error("Erro Inesperado", { description: "A resposta do servidor não teve o formato esperado." });
+  //     }
+  //   },
+  //   onError: (error: any) => {
+  //     toast.dismiss();
+  //     let errorMsg = "Ocorreu um erro desconhecido ao enviar sua resposta.";
+  //     if (error.serverError) {
+  //       errorMsg = error.serverError;
+  //     } else if (error.validationErrors) {
+  //       const ve = error.validationErrors;
+  //       if (ve.respostaCliente && Array.isArray(ve.respostaCliente)) errorMsg = ve.respostaCliente.join(', ');
+  //       else errorMsg = "Erro de validação nos dados enviados.";
+  //     }
+  //     toast.error("Erro ao Enviar", { description: errorMsg });
+  //   },
+  // });
 
   if (!pedido) return null;
 
-  const solicitacaoPendenteInfo = historicoRevisoes?.find(
-    (sol) => sol.statusRevisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE
-  );
 
-  const handleOpenResponderModal = (solicitacao: SolicitacaoRevisaoParaCliente) => {
-    setSolicitacaoParaResponder(solicitacao);
-    setTextoRespostaCliente("");
-    setIsResponderInfoModalOpen(true);
-  };
 
-  const handleEnviarRespostaCliente = () => {
-    if (!solicitacaoParaResponder || !textoRespostaCliente.trim() || !pedido) {
-      toast.error("Dados incompletos", { description: "Não foi possível identificar a solicitação, a resposta está vazia ou o pedido não foi encontrado." });
-      return;
-    }
-    executarEnviarResposta({
-      solicitacaoId: solicitacaoParaResponder.id,
-      respostaCliente: textoRespostaCliente.trim(),
-      pedidoId: pedido.id, 
-    });
-  };
+  // const handleEnviarRespostaCliente = () => {
+  //   // TODO: Implementar funcionalidade de resposta
+  //   toast.error("Funcionalidade temporariamente desabilitada");
+  // };
 
   const formatarDataHora = (dataString: string | undefined | null) => {
     if (!dataString) return 'Data não disponível';
@@ -394,26 +377,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
         </div>
         
         <DialogFooter className="mt-auto pt-4 border-t border-border">
-          {/* Modal para Responder Informação Solicitada (reutilizado) */}
-          {solicitacaoParaResponder && pedido && (
-            <ResponderInfoModal
-              isOpen={isResponderInfoModalOpen}
-              onOpenChange={(isOpen) => {
-                setIsResponderInfoModalOpen(isOpen);
-                if (!isOpen) resetEnvioResposta(); 
-              }}
-              pedido={pedido} 
-              solicitacao={{
-                id: solicitacaoParaResponder.id,
-                adminFeedback: solicitacaoParaResponder.adminFeedback || ''
-              }}
-              textoResposta={textoRespostaCliente}
-              onTextoRespostaChange={setTextoRespostaCliente}
-              onSubmit={handleEnviarRespostaCliente} 
-              isSubmitting={statusEnvioResposta === 'executing'}
-              isLoadingDetails={false} 
-            />
-          )}
+          {/* Modal para Responder Informação Solicitada (temporariamente desabilitado) */}
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Fechar</Button>
         </DialogFooter>
       </DialogContent>
