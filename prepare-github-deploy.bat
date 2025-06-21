@@ -9,16 +9,13 @@ echo.
 
 echo [1/4] Verificando status do repositorio...
 git status --porcelain > temp_status.txt
-if exist temp_status.txt (
-    for /f %%i in ('type temp_status.txt ^| find /c /v ""') do set file_count=%%i
-    del temp_status.txt
-) else (
-    set file_count=0
-)
+for /f %%i in ('type temp_status.txt 2^>nul ^| find /c /v ""') do set file_count=%%i
+if exist temp_status.txt del temp_status.txt
 
 if !file_count! gtr 0 (
     echo ❌ Há arquivos não commitados!
     echo    Execute: git add -A && git commit -m "feat: prepare for github deploy"
+    git status
     pause
     exit /b 1
 ) else (
