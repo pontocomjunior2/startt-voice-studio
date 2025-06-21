@@ -29,7 +29,7 @@ ARG MP_NOTIFICATION_URL
 ARG MAX_UPLOAD_SIZE_MB=200
 ARG NODE_OPTIONS=--max-old-space-size=4096
 
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 ENV PORT=3000
 ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
@@ -62,17 +62,18 @@ RUN echo "=== Package Files ===" && \
 
 # Instalar dependências com handling de erros
 RUN echo "=== Installing Dependencies ===" && \
+    echo "Environment: NODE_ENV=${NODE_ENV}" && \
     if [ -f package-lock.json ]; then \
-        echo "Using npm ci..." && \
-        npm ci --verbose --no-audit --no-fund || \
-        (echo "npm ci failed, trying npm install..." && npm install --verbose); \
+        echo "Using npm ci with --include=dev..." && \
+        npm ci --include=dev --verbose --no-audit --no-fund || \
+        (echo "npm ci failed, trying npm install..." && npm install --include=dev --verbose); \
     else \
-        echo "Using npm install..." && \
-        npm install --verbose; \
+        echo "Using npm install with --include=dev..." && \
+        npm install --include=dev --verbose; \
     fi && \
     echo "=== Dependencies Installed ===" && \
     echo "=== Verifying Critical Dependencies ===" && \
-    npm list vite @vitejs/plugin-react-swc typescript || echo "Some critical deps missing" && \
+    npm list vite @vitejs/plugin-react-swc typescript --depth=0 || echo "Some critical deps missing" && \
     echo "=== End Dependency Verification ==="
 
 # Copiar arquivos de configuração
@@ -139,11 +140,12 @@ RUN echo "=== Building Frontend ===" && \
     node -e "try { require.resolve('vite'); console.log('✅ vite resolvable'); } catch(e) { console.log('❌ vite not resolvable'); }" && \
     node -e "try { require.resolve('@vitejs/plugin-react-swc'); console.log('✅ react-swc resolvable'); } catch(e) { console.log('❌ react-swc not resolvable'); }" && \
     echo "=== CHECKING INSTALLED VERSIONS ===" && \
-    npm list vite @vitejs/plugin-react-swc typescript react react-dom || echo "Some packages not found in npm list" && \
-    echo "=== REINSTALLING CRITICAL DEPS ===" && \
-    npm install vite @vitejs/plugin-react-swc typescript --no-save && \
-    echo "=== POST-INSTALL VERIFICATION ===" && \
-    npm list vite @vitejs/plugin-react-swc typescript || echo "Post-install verification failed" && \
+    npm list vite @vitejs/plugin-react-swc typescript react react-dom --depth=0 || echo "Some packages not found in npm list" && \
+    echo "=== CHECKING DEVDEPENDENCIES ===" && \
+    npm list --only=dev --depth=0 || echo "DevDependencies check failed" && \
+    echo "=== VERIFYING CORE PACKAGES ===" && \
+    test -d node_modules/vite && echo "✅ vite directory exists" || echo "❌ vite directory missing" && \
+    test -d node_modules/@vitejs/plugin-react-swc && echo "✅ react-swc directory exists" || echo "❌ react-swc directory missing" && \
     echo "=== STARTING BUILD ===" && \
     npm run build && \
     echo "=== BUILD COMPLETED ===" && \
@@ -153,7 +155,10 @@ RUN echo "=== Building Frontend ===" && \
     fi && \
     echo "✅ Frontend build successful!" && \
     ls -la dist/ && \
-    echo "=== End Frontend Build ==="
+    echo "=== End Frontend Build ===" && \
+    echo "=== Setting Production Environment ===" && \
+    export NODE_ENV=production && \
+    echo "NODE_ENV set to: $NODE_ENV"
 
 # Build backend com tratamento de erro
 RUN echo "=== Building Backend ===" && \
@@ -167,9 +172,11 @@ RUN echo "=== Building Backend ===" && \
     ls -la dist-server/ && \
     echo "=== End Backend Build ==="
 
-# Limpar dependências de desenvolvimento APÓS o build
+# Configurar ambiente de produção e limpar dependências desnecessárias
+ENV NODE_ENV=production
 RUN echo "=== Cleaning Dev Dependencies ===" && \
-    npm prune --production && \
+    echo "Final NODE_ENV: ${NODE_ENV}" && \
+    npm prune --production --no-save && \
     npm cache clean --force && \
     echo "=== Dev Dependencies Cleaned ==="
 
@@ -205,6 +212,6 @@ RUN echo "=== Final Check ===" && \
 
 # Inicialização
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist-server/server.js"] # Force EasyPanel cache refresh - 06/21/2025 23:22:15
+CMD ["node", "dist-server/server.js"] # Force EasyPanel cache refresh - 06/21/2025 23:37:45
 
-# EasyPanel cache breaker - Module resolution fix + deps reinstall - 2025-06-21-23-22-30
+# EasyPanel cache breaker - DevDependencies fix + NODE_ENV dev during build - 2025-06-21-23-38-00
