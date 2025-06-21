@@ -5,7 +5,7 @@ echo ==============================================
 
 REM Compilar o projeto primeiro
 echo 1. Compilando servidor TypeScript...
-npx tsc --project tsconfig.server.json
+call npx tsc --project tsconfig.server.json
 
 if %errorlevel% neq 0 (
     echo ERRO: Falha na compilacao do servidor
@@ -31,24 +31,24 @@ if not exist "Dockerfile" (
 REM Criar pasta temporária para o ZIP
 echo 3. Criando estrutura para ZIP...
 if exist "easypanel-deploy" (
-    powershell -Command "Remove-Item -Recurse -Force easypanel-deploy"
+    rmdir /s /q "easypanel-deploy"
 )
 mkdir "easypanel-deploy"
 
 REM Copiar arquivos essenciais
 echo 4. Copiando arquivos essenciais...
-copy Dockerfile easypanel-deploy\
-copy .dockerignore easypanel-deploy\
-copy package.json easypanel-deploy\
-copy package-lock.json easypanel-deploy\
+copy "Dockerfile" "easypanel-deploy\"
+copy ".dockerignore" "easypanel-deploy\"
+copy "package.json" "easypanel-deploy\"
+copy "package-lock.json" "easypanel-deploy\"
 
 REM Copiar dist-server
 echo 5. Copiando codigo compilado...
-xcopy dist-server easypanel-deploy\dist-server\ /E /I /Q
+xcopy "dist-server" "easypanel-deploy\dist-server\" /E /I /Q
 
-REM Criar o ZIP
+REM Criar o ZIP usando PowerShell
 echo 6. Criando arquivo ZIP...
-powershell -Command "Compress-Archive -Path 'easypanel-deploy\*' -DestinationPath 'pontocomaudio-easypanel.zip' -Force"
+powershell.exe -Command "Compress-Archive -Path 'easypanel-deploy\*' -DestinationPath 'pontocomaudio-easypanel.zip' -Force"
 
 if %errorlevel% neq 0 (
     echo ERRO: Falha ao criar ZIP
@@ -58,7 +58,7 @@ if %errorlevel% neq 0 (
 
 REM Limpar pasta temporária
 echo 7. Limpando arquivos temporarios...
-powershell -Command "Remove-Item -Recurse -Force easypanel-deploy"
+rmdir /s /q "easypanel-deploy"
 
 echo.
 echo ✅ ZIP criado com sucesso: pontocomaudio-easypanel.zip
@@ -71,7 +71,7 @@ echo - package-lock.json (para npm install)
 echo - dist-server/ (codigo compilado)
 echo.
 echo 📊 Tamanho do arquivo:
-powershell -Command "Get-Item 'pontocomaudio-easypanel.zip' | Select-Object Name, @{Name='Size(KB)';Expression={[math]::Round($_.Length/1KB,2)}}"
+powershell.exe -Command "Get-Item 'pontocomaudio-easypanel.zip' | Select-Object Name, @{Name='Size(KB)';Expression={[math]::Round($_.Length/1KB,2)}}"
 echo.
 echo 🚀 Proximos passos:
 echo 1. Acesse o EasyPanel
