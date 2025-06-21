@@ -43,11 +43,11 @@ ENV GIT_SHA=$GIT_SHA
 ENV PORT=$PORT
 ENV NODE_ENV=production
 
-# Copiar package.json primeiro (para cache layers)
-COPY package.json ./
+# Copiar package.json e package-lock.json primeiro (para cache layers)
+COPY package.json package-lock.json ./
 
 # Instalar dependências de produção
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install --omit=dev && npm cache clean --force
 
 # Copiar código compilado do servidor
 COPY dist-server/ ./

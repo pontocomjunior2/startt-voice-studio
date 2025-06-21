@@ -36,6 +36,7 @@ echo 4. Copiando arquivos essenciais...
 copy Dockerfile easypanel-deploy\
 copy .dockerignore easypanel-deploy\
 copy package.json easypanel-deploy\
+copy package-lock.json easypanel-deploy\
 
 REM Copiar dist-server
 echo 5. Copiando codigo compilado...
@@ -62,6 +63,7 @@ echo 📦 Conteudo do ZIP:
 echo - Dockerfile (pronto para EasyPanel)
 echo - .dockerignore
 echo - package.json
+echo - package-lock.json (para npm install)
 echo - dist-server/ (codigo compilado)
 echo.
 echo 📊 Tamanho do arquivo:
