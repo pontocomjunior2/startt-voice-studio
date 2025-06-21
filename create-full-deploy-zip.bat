@@ -34,20 +34,29 @@ echo.
 echo [4/6] Preparando estrutura de deploy...
 mkdir deploy-temp 2>nul
 
-echo   Copiando frontend (excluindo uploads)...
-xcopy /E /I /Y dist deploy-temp\dist /EXCLUDE:deploy-exclude.txt 2>nul
-if exist deploy-temp\dist\uploads (
-    rmdir /s /q deploy-temp\dist\uploads
-    echo   ✓ Pasta uploads removida do frontend
+echo   Copiando código fonte e configurações...
+xcopy /E /I /Y src deploy-temp\src
+xcopy /E /I /Y server deploy-temp\server
+xcopy /E /I /Y public deploy-temp\public /EXCLUDE:deploy-exclude.txt 2>nul
+
+echo   Removendo uploads da cópia...
+if exist deploy-temp\public\uploads (
+    rmdir /s /q deploy-temp\public\uploads
+    echo   ✓ Pasta uploads removida
 )
 
-echo   Copiando backend...
-xcopy /E /I /Y dist-server deploy-temp\dist-server
-
 echo   Copiando arquivos de configuração...
-copy package-prod.json deploy-temp\package.json
+copy package.json deploy-temp\package.json
+copy package-lock.json deploy-temp\package-lock.json 2>nul
+copy tsconfig*.json deploy-temp\
+copy vite.config.ts deploy-temp\vite.config.ts
+copy postcss.config.cjs deploy-temp\postcss.config.cjs
+copy tailwind.config.cjs deploy-temp\tailwind.config.cjs
+copy components.json deploy-temp\components.json
+copy deploy-exclude.txt deploy-temp\deploy-exclude.txt
+copy index.html deploy-temp\index.html
 copy Dockerfile deploy-temp\Dockerfile
-copy .dockerignore deploy-temp\.dockerignore 2>nul
+copy .dockerignore deploy-temp\.dockerignore
 echo ✓ Estrutura preparada em ./deploy-temp/
 
 echo.
@@ -76,9 +85,13 @@ echo.
 echo 🚀 Pronto para upload no EasyPanel!
 echo.
 echo Conteúdo do ZIP:
-echo   📁 dist/          (Frontend compilado)
-echo   📁 dist-server/   (Backend compilado)
-echo   📄 package.json   (Dependências de produção)
-echo   📄 Dockerfile     (Configuração Docker)
+echo   📁 src/           (Código fonte do frontend)
+echo   📁 server/        (Código fonte do backend)
+echo   📁 public/        (Arquivos públicos - sem uploads)
+echo   📄 package.json   (Dependências)
+echo   📄 Dockerfile     (Multi-stage build)
+echo   📄 E todos os arquivos de configuração necessários
+echo.
+echo O Docker fará o build completo dentro do container!
 echo.
 pause 

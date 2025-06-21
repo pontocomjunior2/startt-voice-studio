@@ -781,6 +781,14 @@ app.post('/api/admin/delete-user', async (req, res) => {
     }
     res.json({ success: true });
 });
+// ROTA: Health Check para Docker
+app.get('/api/health', (req, res) => {
+    res.status(200).json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    });
+});
 // ROTA: Geração de roteiro com IA Gemini
 app.post('/api/gerar-roteiro-ia', gerar_roteiro_ia_1.default);
 app.use(gerar_pagamento_pix_mp_1.default);
