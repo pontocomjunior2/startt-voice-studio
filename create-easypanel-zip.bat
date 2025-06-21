@@ -20,9 +20,13 @@ if not exist "dist-server" (
     exit /b 1
 )
 
-REM Copiar Dockerfile correto
-echo 2. Preparando Dockerfile...
-copy Dockerfile.correto Dockerfile
+REM Verificar se Dockerfile existe
+echo 2. Verificando Dockerfile...
+if not exist "Dockerfile" (
+    echo ERRO: Dockerfile nao encontrado
+    pause
+    exit /b 1
+)
 
 REM Criar pasta temporária para o ZIP
 echo 3. Criando estrutura para ZIP...
@@ -69,11 +73,16 @@ echo.
 echo 📊 Tamanho do arquivo:
 powershell -Command "Get-Item 'pontocomaudio-easypanel.zip' | Select-Object Name, @{Name='Size(KB)';Expression={[math]::Round($_.Length/1KB,2)}}"
 echo.
-echo 🚀 Proximo passo:
+echo 🚀 Proximos passos:
 echo 1. Acesse o EasyPanel
 echo 2. Crie nova aplicacao
 echo 3. Selecione "Enviar" na aba "Origem"
 echo 4. Faca upload do arquivo: pontocomaudio-easypanel.zip
+echo.
+echo ⚠️  IMPORTANTE - Configure volumes persistentes:
+echo    Volume: uploads-storage → /app/public/uploads
+echo    Volume: temp-storage → /app/temp
+echo.
 echo 5. Configure as variaveis de ambiente
 echo 6. Deploy!
 echo.
