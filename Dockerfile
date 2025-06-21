@@ -128,11 +128,22 @@ RUN echo "=== Building Frontend ===" && \
     echo "=== NODE_MODULES CHECK ===" && \
     test -d node_modules && echo "✅ node_modules exists" || echo "❌ node_modules missing" && \
     test -d node_modules/@vitejs && echo "✅ @vitejs exists" || echo "❌ @vitejs missing" && \
-    test -f node_modules/@vitejs/plugin-react-swc/dist/index.js && echo "✅ react-swc plugin exists" || echo "❌ react-swc plugin missing" && \
+    ls -la node_modules/@vitejs/ || echo "No @vitejs directory" && \
+    find node_modules/@vitejs -name "*react-swc*" || echo "react-swc not found anywhere" && \
+    test -d node_modules/@vitejs/plugin-react-swc && echo "✅ react-swc plugin exists" || echo "❌ react-swc plugin missing" && \
     echo "=== TYPESCRIPT CHECK ===" && \
     npx tsc --version || echo "TypeScript not found" && \
     echo "=== VITE CHECK ===" && \
     npx vite --version || echo "Vite not found" && \
+    echo "=== MODULE RESOLUTION DEBUG ===" && \
+    node -e "try { require.resolve('vite'); console.log('✅ vite resolvable'); } catch(e) { console.log('❌ vite not resolvable'); }" && \
+    node -e "try { require.resolve('@vitejs/plugin-react-swc'); console.log('✅ react-swc resolvable'); } catch(e) { console.log('❌ react-swc not resolvable'); }" && \
+    echo "=== CHECKING INSTALLED VERSIONS ===" && \
+    npm list vite @vitejs/plugin-react-swc typescript react react-dom || echo "Some packages not found in npm list" && \
+    echo "=== REINSTALLING CRITICAL DEPS ===" && \
+    npm install vite @vitejs/plugin-react-swc typescript --no-save && \
+    echo "=== POST-INSTALL VERIFICATION ===" && \
+    npm list vite @vitejs/plugin-react-swc typescript || echo "Post-install verification failed" && \
     echo "=== STARTING BUILD ===" && \
     npm run build && \
     echo "=== BUILD COMPLETED ===" && \
@@ -194,6 +205,6 @@ RUN echo "=== Final Check ===" && \
 
 # Inicialização
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist-server/server.js"] # Force EasyPanel cache refresh - 06/21/2025 23:04:30
+CMD ["node", "dist-server/server.js"] # Force EasyPanel cache refresh - 06/21/2025 23:22:15
 
-# EasyPanel cache breaker - Detailed frontend debug - 2025-06-21-23-04-45
+# EasyPanel cache breaker - Module resolution fix + deps reinstall - 2025-06-21-23-22-30
