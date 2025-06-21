@@ -116,19 +116,31 @@ RUN echo "=== Environment Variables ===" && \
     echo "NODE_ENV: $NODE_ENV" && \
     echo "=== End Environment Variables ==="
 
-# Build frontend com tratamento de erro
+# Build frontend com tratamento de erro detalhado
 RUN echo "=== Building Frontend ===" && \
-    echo "Pre-build verification:" && \
-    ls -la src/main.tsx src/index.css vite.config.ts || echo "Some files missing" && \
-    echo "Node modules check:" && \
-    ls node_modules/@vitejs/ || echo "Vite plugin missing" && \
-    npm run build 2>&1 | tee build-frontend.log && \
+    echo "=== DIRECTORY LISTING ===" && \
+    pwd && ls -la && \
+    echo "=== SOURCE FILES CHECK ===" && \
+    ls -la src/ || echo "src/ directory missing" && \
+    test -f src/main.tsx && echo "✅ main.tsx exists" || echo "❌ main.tsx missing" && \
+    test -f src/index.css && echo "✅ index.css exists" || echo "❌ index.css missing" && \
+    test -f vite.config.ts && echo "✅ vite.config.ts exists" || echo "❌ vite.config.ts missing" && \
+    echo "=== NODE_MODULES CHECK ===" && \
+    test -d node_modules && echo "✅ node_modules exists" || echo "❌ node_modules missing" && \
+    test -d node_modules/@vitejs && echo "✅ @vitejs exists" || echo "❌ @vitejs missing" && \
+    test -f node_modules/@vitejs/plugin-react-swc/dist/index.js && echo "✅ react-swc plugin exists" || echo "❌ react-swc plugin missing" && \
+    echo "=== TYPESCRIPT CHECK ===" && \
+    npx tsc --version || echo "TypeScript not found" && \
+    echo "=== VITE CHECK ===" && \
+    npx vite --version || echo "Vite not found" && \
+    echo "=== STARTING BUILD ===" && \
+    npm run build && \
+    echo "=== BUILD COMPLETED ===" && \
     if [ ! -d "dist" ]; then \
-        echo "ERROR: Frontend build failed - dist directory not created" && \
-        cat build-frontend.log && \
+        echo "❌ ERROR: dist directory not created after build" && \
         exit 1; \
     fi && \
-    echo "Frontend build successful" && \
+    echo "✅ Frontend build successful!" && \
     ls -la dist/ && \
     echo "=== End Frontend Build ==="
 
@@ -182,6 +194,6 @@ RUN echo "=== Final Check ===" && \
 
 # Inicialização
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist-server/server.js"] # Force EasyPanel cache refresh - 06/21/2025 22:56:01
+CMD ["node", "dist-server/server.js"] # Force EasyPanel cache refresh - 06/21/2025 23:04:30
 
-# EasyPanel cache breaker - TypeScript deps fix - 2025-06-21-22-56-15
+# EasyPanel cache breaker - Detailed frontend debug - 2025-06-21-23-04-45
