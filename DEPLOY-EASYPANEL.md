@@ -1,157 +1,182 @@
-# Deploy no EasyPanel - PontoComAudio
+# Deploy no EasyPanel - Guia Completo
 
-## 📋 Pré-requisitos
+## ⚠️ IMPORTANTE: O que o script `create-easypanel-zip.bat` faz
 
-- Conta no EasyPanel
-- Arquivo `pontocomaudio-easypanel.zip` gerado pelo script `create-easypanel-zip.bat`
+**O script `create-easypanel-zip.bat` APENAS:**
+- ✅ Compila o código TypeScript do **BACKEND** (`server/` → `dist-server/`)
+- ✅ Cria um ZIP com o backend compilado para deploy no EasyPanel
+- ✅ Inclui Dockerfile, package.json e dependências do servidor
 
-## 🚀 Processo de Deploy
+**O script NÃO:**
+- ❌ **NÃO afeta o frontend em desenvolvimento**
+- ❌ **NÃO compila o frontend (Vite/React)**
+- ❌ **NÃO para o servidor de desenvolvimento**
+- ❌ **NÃO modifica arquivos do frontend**
 
-### 1. Preparar Arquivos de Deploy
-
-Execute o script automatizado:
-```bash
-.\create-easypanel-zip.bat
-```
-
-Este script irá:
-- Compilar o servidor TypeScript
-- Criar o ZIP com todos os arquivos necessários
-- Gerar `pontocomaudio-easypanel.zip` (≈122KB)
-
-### 2. Criar Aplicação no EasyPanel
-
-1. **Acesse o EasyPanel** e crie um novo projeto
-2. **Adicione um novo serviço** do tipo "App Service"
-3. **Selecione "Upload" como fonte**
-4. **Faça upload** do arquivo `pontocomaudio-easypanel.zip`
-
-### 3. ⚠️ **IMPORTANTE: Configurar Volumes Persistentes**
-
-Para manter os arquivos de upload entre deploys, configure volumes persistentes:
-
-#### **Na seção "Mounts" do EasyPanel:**
-
-**Volume para Uploads de Áudio:**
-```
-Tipo: Volume
-Nome: uploads-storage
-Mount Path: /app/public/uploads
-```
-
-**Volume para Arquivos Temporários:**
-```
-Tipo: Volume  
-Nome: temp-storage
-Mount Path: /app/temp
-```
-
-#### **Por que isso é necessário?**
-- ✅ **Sem volumes**: Arquivos são perdidos a cada deploy
-- ✅ **Com volumes**: Arquivos persistem permanentemente
-- ✅ **Armazenamento local**: Como você desejou, sem custos externos
-
-### 4. Configurar Variáveis de Ambiente
-
-Na seção "Environment", adicione todas as variáveis:
-
-#### **Supabase**
-```env
-VITE_SUPABASE_URL=sua_url_supabase
-VITE_SUPABASE_ANON_KEY=sua_chave_anonima
-SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
-```
-
-#### **APIs Externas**
-```env
-GEMINI_API_KEY=sua_gemini_key
-GEMINI_MODEL=gemini-pro
-MP_ACCESS_TOKEN=seu_mercadopago_token
-MP_NOTIFICATION_URL=https://seu-dominio.com/api/webhook-mp-pagamentos
-```
-
-#### **Configurações da Aplicação**
-```env
-VITE_API_URL=https://seu-dominio.com
-VITE_ADMIN_SECRET=seu_admin_secret
-VITE_DOWNLOAD_PROXY_URL=https://sua-edge-function.supabase.co/functions/v1/download-proxy
-```
-
-#### **Configurações do Servidor**
-```env
-PORT=3001
-MAX_UPLOAD_SIZE_MB=200
-NODE_OPTIONS=--max-old-space-size=4096
-NODE_ENV=production
-```
-
-### 5. Configurar Domínio e Proxy
-
-1. **Adicione seu domínio** na seção "Domains & Proxy"
-2. **Configure a porta**: `3001`
-3. **Habilite HTTPS**: O EasyPanel configurará automaticamente
-
-### 6. Deploy
-
-1. **Clique em "Deploy"**
-2. **Aguarde o build** (pode levar alguns minutos)
-3. **Verifique os logs** para confirmar que tudo está funcionando
-
-## 🔄 **Próximos Deploys**
-
-Para atualizações futuras:
-
-1. **Execute**: `.\create-easypanel-zip.bat`
-2. **No EasyPanel**: Vá em "Source" → "Upload new file"
-3. **Faça upload** do novo ZIP
-4. **Deploy automaticamente**
-
-**⚠️ IMPORTANTE**: Os volumes persistentes **mantêm todos os arquivos** entre deploys!
-
-## 📁 **Estrutura de Armazenamento**
-
-Com os volumes configurados:
-
-```
-/app/public/uploads/          ← Volume persistente
-├── audios/                   ← Áudios dos clientes
-│   └── [cliente]/
-│       ├── [arquivo].mp3
-│       └── revisoes/
-├── avatars/                  ← Avatars dos locutores  
-├── demos/                    ← Demos dos locutores
-├── guias/                    ← Áudios guia
-└── revisoes_guias/          ← Revisões de áudios guia
-
-/app/temp/                    ← Volume persistente para temporários
-└── uploads/                  ← Chunks de upload
-```
-
-## 🛠️ **Troubleshooting**
-
-### Problema: Arquivos não são salvos
-**Solução**: Verifique se os volumes estão configurados corretamente
-
-### Problema: Erro de permissão
-**Solução**: Os volumes do EasyPanel gerenciam permissões automaticamente
-
-### Problema: Upload falha
-**Solução**: Verifique a variável `MAX_UPLOAD_SIZE_MB`
-
-## ✅ **Vantagens desta Configuração**
-
-- 🏠 **Armazenamento local**: Como você desejou
-- 💾 **Persistente**: Arquivos nunca são perdidos
-- 💰 **Sem custos extras**: Incluído no EasyPanel
-- 🚀 **Performance**: Acesso direto aos arquivos
-- 🔧 **Simples**: Configuração uma única vez
-
-## 📊 **Monitoramento**
-
-- **Logs**: Disponíveis na interface do EasyPanel
-- **Console**: Acesso terminal direto ao container
-- **Métricas**: Uso de CPU, memória e storage
+**Se o site ficou inacessível após executar o script:**
+- O problema não foi causado pelo script
+- Provavelmente o servidor de desenvolvimento parou por outro motivo
+- **Solução:** Execute `npm run dev` para reiniciar ambos os servidores
 
 ---
 
-**🎯 Resultado**: Sistema totalmente funcional com armazenamento persistente local, exatamente como você queria! 
+## 🚀 Como fazer Deploy no EasyPanel
+
+### Pré-requisitos
+- Conta no EasyPanel
+- Projeto configurado no EasyPanel
+- Variáveis de ambiente preparadas
+
+### Passo 1: Gerar ZIP de Deploy
+
+Execute o script de deploy:
+
+```bash
+# Opção 1: Script .bat (Windows)
+.\create-easypanel-zip.bat
+
+# Opção 2: Script PowerShell (Windows)
+.\create-easypanel-zip.ps1
+```
+
+**Saída esperada:**
+- Arquivo: `pontocomaudio-easypanel.zip` (~120KB)
+- Conteúdo: Backend compilado + Dockerfile + dependências
+
+### Passo 2: Upload no EasyPanel
+
+1. **Acesse o EasyPanel**
+2. **Vá para seu projeto**
+3. **Na aba "Source" (Origem):**
+   - Selecione **"Upload"**
+   - Faça upload do arquivo `pontocomaudio-easypanel.zip`
+
+### Passo 3: Configurar Volumes Persistentes
+
+**⚠️ CRÍTICO: Configure volumes ANTES do primeiro deploy**
+
+Na seção **"Volumes"** do EasyPanel:
+
+```
+Volume 1:
+- Nome: uploads-storage
+- Mount Path: /app/public/uploads
+- Tipo: Volume
+
+Volume 2:
+- Nome: temp-storage  
+- Mount Path: /app/temp
+- Tipo: Volume
+```
+
+**Por que volumes são importantes:**
+- 🏠 **Armazenamento local persistente**
+- 💾 **Arquivos nunca são perdidos entre deploys**
+- 💰 **Sem custos extras**
+- 🚀 **Performance otimizada**
+
+### Passo 4: Configurar Variáveis de Ambiente
+
+Na seção **"Environment"** do EasyPanel:
+
+```bash
+# Supabase
+VITE_SUPABASE_URL=sua_url_supabase
+VITE_SUPABASE_ANON_KEY=sua_chave_anonima
+SUPABASE_SERVICE_ROLE_KEY=sua_chave_service_role
+
+# APIs Externas
+GEMINI_API_KEY=sua_chave_gemini
+GEMINI_MODEL=gemini-2.5-flash-preview-05-20
+MERCADOPAGO_ACCESS_TOKEN=sua_chave_mp
+
+# Configurações do Servidor
+PORT=3000
+NODE_ENV=production
+MAX_UPLOAD_SIZE_MB=200
+NODE_OPTIONS=--max-old-space-size=1024
+
+# URLs (ajuste conforme seu domínio)
+FRONTEND_URL=https://seu-dominio.com
+API_URL=https://seu-dominio.com
+```
+
+### Passo 5: Deploy
+
+1. **Clique em "Deploy"**
+2. **Aguarde o build completar** (~2-3 minutos)
+3. **Verifique os logs** para confirmar que subiu corretamente
+
+---
+
+## 🔄 Próximos Deploys
+
+Para atualizações futuras:
+
+```bash
+# 1. Execute o script de deploy
+.\create-easypanel-zip.bat
+
+# 2. No EasyPanel, vá em "Source" → "Upload"
+# 3. Faça upload do novo pontocomaudio-easypanel.zip
+# 4. Clique em "Deploy"
+```
+
+**✅ Volumes persistentes mantêm todos os arquivos**
+**✅ Configurações são preservadas**
+**✅ Zero downtime na atualização**
+
+---
+
+## 🐛 Troubleshooting
+
+### Site inacessível após executar script
+```bash
+# O script não afeta o desenvolvimento local
+# Reinicie o servidor de desenvolvimento:
+npm run dev
+```
+
+### Build falha no EasyPanel
+- Verifique se todas as variáveis de ambiente estão configuradas
+- Confirme que o ZIP foi criado corretamente (~120KB)
+- Verifique os logs do build no EasyPanel
+
+### Arquivos de upload perdidos
+- Confirme que os volumes persistentes estão configurados
+- Volumes devem ser criados ANTES do primeiro deploy
+
+### Erro 413 (File too large)
+- Confirme `MAX_UPLOAD_SIZE_MB=200` nas variáveis de ambiente
+- O sistema tem fallback automático para upload em chunks
+
+---
+
+## 📁 Estrutura do Deploy
+
+```
+pontocomaudio-easypanel.zip
+├── Dockerfile              # Configuração Docker
+├── .dockerignore           # Arquivos ignorados no build
+├── package.json            # Dependências de produção
+├── package-lock.json       # Lock de dependências
+└── dist-server/            # Backend compilado
+    ├── server.js           # Servidor principal
+    ├── server.js.map       # Source map
+    └── api/                # APIs compiladas
+        ├── gerar-roteiro-ia.js
+        ├── gerar-pagamento-pix-mp.js
+        └── webhook-mp-pagamentos.js
+```
+
+---
+
+## 📞 Suporte
+
+Em caso de problemas:
+1. Verifique este guia primeiro
+2. Confirme que o desenvolvimento local funciona (`npm run dev`)
+3. Verifique logs do EasyPanel
+4. Confirme variáveis de ambiente
+
+**Lembre-se:** O script de deploy não afeta o desenvolvimento local! 

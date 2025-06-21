@@ -226,6 +226,38 @@ const MAX_UPLOAD_SIZE = process.env.MAX_UPLOAD_SIZE_MB ?
     parseInt(process.env.MAX_UPLOAD_SIZE_MB) * 1024 * 1024 :
     100 * 1024 * 1024; // Default: 100MB
 console.log(`[Server Config] Limite máximo de upload: ${(MAX_UPLOAD_SIZE / 1024 / 1024).toFixed(0)}MB`);
+// Configuração do Supabase Storage
+const SUPABASE_BUCKET = 'pontocomaudio-uploads';
+// Função para fazer upload para Supabase Storage
+async function uploadToSupabaseStorage(file, folder) {
+    if (!supabase) {
+        console.error('[Supabase Storage] Cliente não configurado');
+        return null;
+    }
+    try {
+        const fileName = `${folder}/${Date.now()}-${file.originalname}`;
+        const { data, error } = await supabase.storage
+            .from(SUPABASE_BUCKET)
+            .upload(fileName, file.buffer, {
+            contentType: file.mimetype,
+            upsert: false
+        });
+        if (error) {
+            console.error('[Supabase Storage] Erro no upload:', error);
+            return null;
+        }
+        // Retornar URL pública
+        const { data: publicUrl } = supabase.storage
+            .from(SUPABASE_BUCKET)
+            .getPublicUrl(fileName);
+        console.log(`[Supabase Storage] Upload realizado: ${publicUrl.publicUrl}`);
+        return publicUrl.publicUrl;
+    }
+    catch (error) {
+        console.error('[Supabase Storage] Erro inesperado:', error);
+        return null;
+    }
+}
 // Configuração do Multer para armazenamento de arquivos
 const storage = multer_1.default.diskStorage({
     destination: function (req, file, cb) {
