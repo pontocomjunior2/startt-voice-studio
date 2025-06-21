@@ -1,0 +1,35 @@
+# Dockerfile mínimo para debugging
+FROM node:18-alpine
+
+# Instalar apenas o essencial
+RUN apk add --no-cache dumb-init
+
+# Criar usuário
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+
+WORKDIR /app
+
+# Definir variáveis essenciais
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Copiar package.json
+COPY package.json ./
+
+# Tentar instalar dependências de forma mais tolerante
+RUN npm install --production --no-optional --no-audit --no-fund || \
+    (echo "Trying with --legacy-peer-deps" && npm install --production --legacy-peer-deps) || \
+    (echo "Final attempt with yarn" && npm install -g yarn && yarn install --production)
+
+# Copiar código pré-compilado (deve ser buildado localmente)
+COPY dist/ ./dist/
+COPY dist-server/ ./dist-server/
+
+# Criar diretórios
+RUN mkdir -p public/uploads temp && chown -R nodejs:nodejs /app
+
+USER nodejs
+
+EXPOSE 3000
+
+CMD ["node", "dist-server/server.js"] 

@@ -90,10 +90,23 @@ RUN mkdir -p public/uploads/avatars public/uploads/demos public/uploads/guias \
 
 ## Comandos Úteis
 
-### Recriar Deploy ZIP
+### Opções de Deploy
+
+#### 1. Deploy Completo (Recomendado)
 ```bash
 .\create-full-deploy-zip.bat
 ```
+- Cria ZIP com código fonte
+- Docker compila tudo dentro do container
+- Mais logs de debug
+
+#### 2. Deploy Minimal (Fallback)
+```bash
+.\create-minimal-deploy-zip.bat
+```
+- Compila localmente primeiro
+- Docker apenas instala dependências de produção
+- Mais rápido e com menos chance de erro
 
 ### Testar Localmente
 ```bash
@@ -106,12 +119,26 @@ node dist-server/server.js
 ```
 
 ### Debug Docker Local
+
+#### Teste Docker Completo
 ```bash
 # Build da imagem
 docker build -t pontocom-test .
 
 # Executar container
 docker run -p 3000:3000 pontocom-test
+```
+
+#### Teste Docker Minimal
+```bash
+# Primeiro compilar localmente
+npm run build && npm run build:server
+
+# Build da imagem minimal
+docker build -f Dockerfile.minimal -t pontocom-minimal .
+
+# Executar container
+docker run -p 3000:3000 pontocom-minimal
 ```
 
 ## Health Check
