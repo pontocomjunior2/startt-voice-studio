@@ -4,9 +4,6 @@ FROM node:18-alpine
 # Instalar dependências do sistema necessárias
 RUN apk add --no-cache dumb-init
 
-# Criar usuário não-root para segurança
-RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
-
 # Definir diretório de trabalho
 WORKDIR /app
 
@@ -52,21 +49,10 @@ RUN npm install --omit=dev && npm cache clean --force
 # Copiar código compilado do servidor
 COPY dist-server/ ./
 
-# Criar estrutura de pastas necessárias e definir permissões
-RUN mkdir -p public/uploads/audios \
-    public/uploads/demos \
-    public/uploads/avatars \
-    public/uploads/guias \
-    public/uploads/revisoes_guias \
-    temp/uploads && \
-    chown -R nodejs:nodejs /app
-
-# Mudar para usuário não-root
-USER nodejs
-
 # Expor porta
 EXPOSE $PORT
 
 # Comando de inicialização com dumb-init
+# O servidor criará as pastas de upload automaticamente em runtime
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "server.js"] 
