@@ -1,0 +1,26 @@
+# Use uma imagem base Node.js adequada
+FROM node:18-slim
+
+# Defina o diretório de trabalho no container
+WORKDIR /app
+
+# O ZIP enviado ('dist-server.zip') será descompactado pelo EasyPanel, criando o contexto de build.
+# Este Dockerfile deve estar NA RAIZ do ZIP enviado, e portanto, na raiz do contexto de build do Docker.
+
+# Copie o conteúdo da pasta 'dist-server' (do contexto de build) para o WORKDIR (/app) no container.
+# Isso inclui server.js, api/, node_modules/ (se estiverem em dist-server/ no ZIP), e este Dockerfile.
+COPY ./dist-server/ .
+
+# Copie a pasta 'public' (do contexto de build) para /app/public no container.
+COPY ./public ./public
+
+# A pasta 'certs-inter' não é necessária no momento.
+
+# Expõe a porta que o Express (ou seu servidor backend) escuta
+EXPOSE 3001
+
+# Comando para iniciar o servidor.
+# server.js foi copiado para /app/server.js.
+CMD [ "node", "server.js" ]
+
+# Lembre-se de configurar as variáveis de ambiente necessárias no EasyPanel.

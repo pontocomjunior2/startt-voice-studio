@@ -25,12 +25,31 @@ const webhook_mp_pagamentos_1 = __importDefault(require("./api/webhook-mp-pagame
 const app = (0, express_1.default)();
 app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT) || 3001; // Porta para o servidor backend
+// Configurar limites maiores para o Express
+app.use(express_1.default.json({ limit: '150mb' }));
+app.use(express_1.default.urlencoded({ limit: '150mb', extended: true }));
 // Habilitar CORS para todas as origens (em produção, restrinja para o seu domínio frontend)
 app.use((0, cors_1.default)({ origin: '*', credentials: true }));
 // Middleware para servir arquivos estáticos da pasta 'public' (onde os uploads estarão)
 // Isso é útil se você acessar o backend diretamente ou se o frontend buscar os arquivos por aqui.
 // O servidor Vite também servirá a pasta 'public' do projeto raiz.
 app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '../public/uploads')));
+// Middleware para detectar requisições muito grandes antes do multer
+app.use('/api/upload', (req, res, next) => {
+    const contentLength = parseInt(req.headers['content-length'] || '0');
+    const maxSize = 100 * 1024 * 1024; // 100MB
+    console.log(`[Body Size Check] Content-Length: ${contentLength} bytes (${(contentLength / 1024 / 1024).toFixed(2)} MB)`);
+    console.log(`[Body Size Check] Limite máximo: ${(maxSize / 1024 / 1024).toFixed(2)} MB`);
+    if (contentLength > maxSize) {
+        console.error(`[Body Size Check] Requisição rejeitada - muito grande: ${contentLength} > ${maxSize}`);
+        return res.status(413).json({
+            message: `Arquivo muito grande. Tamanho: ${(contentLength / 1024 / 1024).toFixed(2)}MB. Máximo permitido: 100MB.`,
+            uploadedSize: contentLength,
+            maxAllowed: maxSize
+        });
+    }
+    next();
+});
 // Adicione aqui:
 app.use(express_1.default.json());
 // ================= ROTAS DE UPLOAD DEVEM VIR ANTES DE QUALQUER BODY PARSER =================
@@ -202,8 +221,11 @@ app.post('/api/upload-guia-revisao', uploadGuiaRevisao.single('audioGuia'), (req
     res.status(200).json({ success: true, filePath });
 });
 // ================= FIM DAS ROTAS DE UPLOAD =================
-// Adicionar body parser JSON para rotas de API que recebem JSON
-app.use(express_1.default.json());
+// Configuração de limite de upload via variável de ambiente
+const MAX_UPLOAD_SIZE = process.env.MAX_UPLOAD_SIZE_MB ?
+    parseInt(process.env.MAX_UPLOAD_SIZE_MB) * 1024 * 1024 :
+    100 * 1024 * 1024; // Default: 100MB
+console.log(`[Server Config] Limite máximo de upload: ${(MAX_UPLOAD_SIZE / 1024 / 1024).toFixed(0)}MB`);
 // Configuração do Multer para armazenamento de arquivos
 const storage = multer_1.default.diskStorage({
     destination: function (req, file, cb) {
@@ -234,10 +256,15 @@ const storage = multer_1.default.diskStorage({
 });
 const upload = (0, multer_1.default)({
     storage: storage,
-    limits: { fileSize: 100 * 1024 * 1024 }, // Limite de 100MB por arquivo (ajuste conforme necessário)
+    limits: {
+        fileSize: MAX_UPLOAD_SIZE, // Usar variável de ambiente
+        fieldSize: 50 * 1024 * 1024 // 50MB para campos
+    },
     fileFilter: function (req, file, cb) {
+        console.log(`[Upload Filter] Arquivo recebido: ${file.originalname}, MIME: ${file.mimetype}, Tamanho estimado: ${file.size || 'N/A'}`);
         // Aceitar apenas arquivos de áudio
         if (!file.mimetype.startsWith('audio/')) {
+            console.error(`[Upload Filter] Arquivo rejeitado - MIME inválido: ${file.mimetype}`);
             return cb(new Error('Apenas arquivos de áudio são permitidos!'));
         }
         cb(null, true);
@@ -245,12 +272,19 @@ const upload = (0, multer_1.default)({
 });
 // Endpoint para upload de arquivos - AGORA COM :clientName NA ROTA
 app.post('/api/upload/:clientName', (req, res) => {
+    console.log(`[Upload Endpoint] Iniciando upload para cliente: ${req.params.clientName}`);
+    console.log(`[Upload Endpoint] Headers recebidos: Content-Length: ${req.headers['content-length']}, Content-Type: ${req.headers['content-type']}`);
     // Usar closure para acessar upload e tratar erros
     const uploader = upload.single('audioFile');
     uploader(req, res, function (err) {
         if (err instanceof multer_1.default.MulterError) {
             // Um erro do Multer ocorreu durante o upload.
             console.error("Erro do Multer:", err);
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                return res.status(413).send({
+                    message: `Arquivo muito grande. Tamanho máximo permitido: 100MB. Tamanho recebido: ${err.field}`
+                });
+            }
             return res.status(400).send({ message: `Erro do Multer: ${err.message}` });
         }
         else if (err) {
@@ -260,6 +294,7 @@ app.post('/api/upload/:clientName', (req, res) => {
         }
         // Se chegou aqui, o upload foi bem-sucedido (ou nenhum arquivo foi enviado)
         if (!req.file) {
+            console.error("[Upload Endpoint] Nenhum arquivo foi recebido na requisição");
             return res.status(400).send({ message: 'Nenhum arquivo enviado.' });
         }
         // Processar o arquivo e retornar o caminho
@@ -278,6 +313,64 @@ app.post('/api/upload/:clientName', (req, res) => {
             filePath: relativeFilePath
         });
     });
+});
+// Nova rota para upload em chunks (para contornar limites de proxy)
+app.post('/api/upload-chunked/:clientName', express_1.default.raw({ type: 'application/octet-stream', limit: '10mb' }), (req, res) => {
+    const clientName = req.params.clientName;
+    const chunkIndex = parseInt(req.headers['x-chunk-index']) || 0;
+    const totalChunks = parseInt(req.headers['x-total-chunks']) || 1;
+    const originalName = req.headers['x-original-name'] || 'upload.mp3';
+    const uploadId = req.headers['x-upload-id'];
+    if (!uploadId) {
+        return res.status(400).json({ message: 'Upload ID é obrigatório.' });
+    }
+    console.log(`[Chunked Upload] Cliente: ${clientName}, Chunk: ${chunkIndex + 1}/${totalChunks}, Arquivo: ${originalName}`);
+    const sanitizedClientName = clientName
+        .toLowerCase()
+        .replace(/\s+/g, '_')
+        .replace(/[^a-z0-9_.-]/g, '');
+    const tempDir = path_1.default.join(__dirname, '../temp/uploads', uploadId);
+    const uploadDir = path_1.default.join(__dirname, '../public/uploads/audios', sanitizedClientName);
+    // Criar diretórios se não existirem
+    if (!fs_1.default.existsSync(tempDir)) {
+        fs_1.default.mkdirSync(tempDir, { recursive: true });
+    }
+    if (!fs_1.default.existsSync(uploadDir)) {
+        fs_1.default.mkdirSync(uploadDir, { recursive: true });
+    }
+    // Salvar chunk
+    const chunkPath = path_1.default.join(tempDir, `chunk-${chunkIndex}`);
+    fs_1.default.writeFileSync(chunkPath, req.body);
+    // Se é o último chunk, montar o arquivo final
+    if (chunkIndex === totalChunks - 1) {
+        const timestamp = Date.now();
+        const randomSuffix = Math.round(Math.random() * 1E9);
+        const fileExt = path_1.default.extname(originalName);
+        const originalNameWithoutExt = path_1.default.basename(originalName, fileExt);
+        const finalFileName = `${originalNameWithoutExt}-${timestamp}-${randomSuffix}${fileExt}`;
+        const finalPath = path_1.default.join(uploadDir, finalFileName);
+        // Combinar todos os chunks
+        const writeStream = fs_1.default.createWriteStream(finalPath);
+        for (let i = 0; i < totalChunks; i++) {
+            const chunkData = fs_1.default.readFileSync(path_1.default.join(tempDir, `chunk-${i}`));
+            writeStream.write(chunkData);
+        }
+        writeStream.end();
+        // Limpar chunks temporários
+        fs_1.default.rmSync(tempDir, { recursive: true, force: true });
+        const relativeFilePath = `/uploads/audios/${sanitizedClientName}/${finalFileName}`;
+        console.log(`[Chunked Upload] Arquivo final criado: ${relativeFilePath}`);
+        res.json({
+            message: 'Upload concluído com sucesso!',
+            filePath: relativeFilePath
+        });
+    }
+    else {
+        res.json({
+            message: `Chunk ${chunkIndex + 1}/${totalChunks} recebido`,
+            chunkIndex
+        });
+    }
 });
 // Importe seu cliente Supabase aqui. Exemplo:
 // import { supabase } from './config/supabaseClient'; // Você precisará criar este arquivo ou inicializar o Supabase aqui.
