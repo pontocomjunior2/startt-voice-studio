@@ -4,7 +4,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Source files (apenas dist-server deve ser copiado)
+# Source files (apenas dist-server deve ser usado)
 src/
 server/
 tsconfig*.json
@@ -64,8 +64,19 @@ temp/
 tmp/
 *.tmp
 
-# EasyPanel specific
+# Deploy artifacts
 deploy*.bat
 prepare-deploy.ps1
 dist-server-*.zip
-package-prod.json 
+package-prod.json
+easypanel-deploy/
+pontocomaudio-easypanel.zip
+create-easypanel-zip.bat
+build-for-easypanel.bat
+
+# Backup files
+Dockerfile.old
+Dockerfile.correto
+
+# Workspace files
+*.code-workspace 
