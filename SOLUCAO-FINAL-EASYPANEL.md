@@ -11,7 +11,7 @@
 ```yaml
 Repository: pontocomjunior2/startt
 Branch: feat/visual-template-integration
-Commit: 97ed19f (com correção completa de devDependencies)
+Commit: b45a408 (correção completa + otimização de performance)
 Build Method: Dockerfile
 Build Context: /
 ```
@@ -22,6 +22,7 @@ Build Context: /
 - ✅ Verificação de diretórios críticos (node_modules/vite, etc.)
 - ✅ Debug detalhado de dependências instaladas
 - ✅ NODE_ENV=production apenas após build completo
+- ✅ Otimização de chown (evita travar no node_modules)
 
 ---
 
@@ -40,7 +41,7 @@ Build Context: /
 ```yaml
 Repository: pontocomjunior2/startt
 Branch: master
-Commit: 97ed19f (mesma correção de devDependencies aplicada)
+Commit: b45a408 (mesma correção + otimização aplicada)
 Build Method: Dockerfile
 Build Context: /
 ```
