@@ -1523,12 +1523,12 @@ function GravarLocucaoPage() {
                         <>
                           <div>
                             <Label className="font-semibold">Nome do Projeto/Campanha (opcional)</Label>
-                            <Input value={iaForm.nomeProjetoIA} onChange={e => handleIaInput('nomeProjetoIA', e.target.value)} placeholder="Ex: Lançamento Verão, Spot Institucional Dezembro" className="mt-1" />
+                            <Input value={iaForm.nomeProjetoIA} onChange={e => handleIaInput('nomeProjetoIA', e.target.value)} placeholder="Ex: Lançamento Verão, Spot Institucional Dezembro" className="mt-1 text-foreground placeholder:text-muted-foreground" />
                           </div>
                           <div>
                             <Label className="font-semibold mt-4">Qual o principal objetivo deste áudio?</Label>
                             <Select value={iaForm.objetivoAudioIA} onValueChange={v => handleIaInput('objetivoAudioIA', v)}>
-                              <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o objetivo" /></SelectTrigger>
+                              <SelectTrigger className="mt-1 text-foreground data-[placeholder]:text-muted-foreground"><SelectValue placeholder="Selecione o objetivo" /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="Aumentar vendas de um produto/serviço específico">Aumentar vendas de um produto/serviço específico</SelectItem>
                                 <SelectItem value="Gerar leads / Captar contatos">Gerar leads / Captar contatos</SelectItem>
@@ -1541,12 +1541,12 @@ function GravarLocucaoPage() {
                               </SelectContent>
                             </Select>
                             {iaForm.objetivoAudioIA === 'Outro' && (
-                              <Input value={iaForm.objetivoAudioOutroIA} onChange={e => handleIaInput('objetivoAudioOutroIA', e.target.value)} placeholder="Especifique o objetivo:" className="mt-2" />
+                              <Input value={iaForm.objetivoAudioOutroIA} onChange={e => handleIaInput('objetivoAudioOutroIA', e.target.value)} placeholder="Especifique o objetivo:" className="mt-2 text-foreground placeholder:text-muted-foreground" />
                             )}
                           </div>
                           <div>
                             <Label className="font-semibold mt-4">Descreva seu público-alvo principal:</Label>
-                            <Textarea value={iaForm.publicoAlvoIA} onChange={e => handleIaInput('publicoAlvoIA', e.target.value)} placeholder="Ex: Jovens adultos (18-25 anos) interessados em tecnologia e games; ou Mães (30-45 anos) buscando praticidade para o dia a dia." className="mt-1" />
+                            <Textarea value={iaForm.publicoAlvoIA} onChange={e => handleIaInput('publicoAlvoIA', e.target.value)} placeholder="Ex: Jovens adultos (18-25 anos) interessados em tecnologia e games; ou Mães (30-45 anos) buscando praticidade para o dia a dia." className="mt-1 text-foreground placeholder:text-muted-foreground" />
                           </div>
                         </>
                       )}
@@ -1555,15 +1555,15 @@ function GravarLocucaoPage() {
                         <>
                           <div>
                             <Label className="font-semibold">Sobre o que é o áudio? (Detalhe o produto, serviço, evento ou tema)</Label>
-                            <Textarea value={iaForm.produtoTemaIA} onChange={e => handleIaInput('produtoTemaIA', e.target.value)} placeholder="Ex: Nosso novo tênis de corrida 'Velocity X', super leve e com amortecimento responsivo. Ou: Evento de inauguração da loja no dia X às Y horas." className="mt-1" />
+                            <Textarea value={iaForm.produtoTemaIA} onChange={e => handleIaInput('produtoTemaIA', e.target.value)} placeholder="Ex: Nosso novo tênis de corrida 'Velocity X', super leve e com amortecimento responsivo. Ou: Evento de inauguração da loja no dia X às Y horas." className="mt-1 text-foreground placeholder:text-muted-foreground" />
                           </div>
                           <div>
                             <Label className="font-semibold mt-4">Qual o MAIOR benefício ou diferencial que você oferece?</Label>
-                            <Input value={iaForm.beneficioPrincipalIA} onChange={e => handleIaInput('beneficioPrincipalIA', e.target.value)} placeholder="Ex: A única solução que economiza seu tempo; O melhor custo-benefício do mercado." className="mt-1" />
+                            <Input value={iaForm.beneficioPrincipalIA} onChange={e => handleIaInput('beneficioPrincipalIA', e.target.value)} placeholder="Ex: A única solução que economiza seu tempo; O melhor custo-benefício do mercado." className="mt-1 text-foreground placeholder:text-muted-foreground" />
                           </div>
                           <div>
                             <Label className="font-semibold mt-4">Informações que DEVEM constar no roteiro:</Label>
-                            <Textarea value={iaForm.pontosChaveIA} onChange={e => handleIaInput('pontosChaveIA', e.target.value)} placeholder="Ex: Telefone: (XX)XXXX-XXXX, Site: www.exemplo.com, Oferta válida até DD/MM, Endereço: Rua X, 123." className="mt-1" />
+                            <Textarea value={iaForm.pontosChaveIA} onChange={e => handleIaInput('pontosChaveIA', e.target.value)} placeholder="Ex: Telefone: (XX)XXXX-XXXX, Site: www.exemplo.com, Oferta válida até DD/MM, Endereço: Rua X, 123." className="mt-1 text-foreground placeholder:text-muted-foreground" />
                           </div>
                         </>
                       )}
@@ -1573,7 +1573,7 @@ function GravarLocucaoPage() {
                           <div>
                             <Label className="font-semibold">Estilo de Locução (para a voz do locutor):</Label>
                             <Select value={iaForm.estiloLocucaoIA} onValueChange={v => handleIaInput('estiloLocucaoIA', v)}>
-                              <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o estilo de locução" /></SelectTrigger>
+                              <SelectTrigger className="mt-1 text-foreground data-[placeholder]:text-muted-foreground"><SelectValue placeholder="Selecione o estilo de locução" /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="padrao">Padrão</SelectItem>
                                 <SelectItem value="impacto">Impacto</SelectItem>
@@ -1586,13 +1586,13 @@ function GravarLocucaoPage() {
                               </SelectContent>
                             </Select>
                             {iaForm.estiloLocucaoIA === 'outro' && (
-                              <Input value={iaForm.estiloLocucaoOutroIA || ''} onChange={e => handleIaInput('estiloLocucaoOutroIA', e.target.value)} placeholder="Especifique o estilo:" className="mt-2" />
+                              <Input value={iaForm.estiloLocucaoOutroIA || ''} onChange={e => handleIaInput('estiloLocucaoOutroIA', e.target.value)} placeholder="Especifique o estilo:" className="mt-2 text-foreground placeholder:text-muted-foreground" />
                             )}
                           </div>
                           <div>
                             <Label className="font-semibold mt-4">Tom da Mensagem (como o roteiro deve soar):</Label>
                             <Select value={iaForm.tomMensagemIA} onValueChange={v => handleIaInput('tomMensagemIA', v)}>
-                              <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o tom da mensagem" /></SelectTrigger>
+                              <SelectTrigger className="mt-1 text-foreground data-[placeholder]:text-muted-foreground"><SelectValue placeholder="Selecione o tom da mensagem" /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="Entusiasmado">Entusiasmado</SelectItem>
                                 <SelectItem value="Confiante">Confiante</SelectItem>
@@ -1612,7 +1612,7 @@ function GravarLocucaoPage() {
                           <div>
                             <Label className="font-semibold mt-4">Duração Alvo Aproximada:</Label>
                             <Select value={iaForm.duracaoAlvoIA} onValueChange={v => handleIaInput('duracaoAlvoIA', v)}>
-                              <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione a duração" /></SelectTrigger>
+                              <SelectTrigger className="mt-1 text-foreground data-[placeholder]:text-muted-foreground"><SelectValue placeholder="Selecione a duração" /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="Não importa">Não importa</SelectItem>
                                 <SelectItem value="15 segundos">15 segundos</SelectItem>
@@ -1623,12 +1623,12 @@ function GravarLocucaoPage() {
                               </SelectContent>
                             </Select>
                             {iaForm.duracaoAlvoIA === 'Outra' && (
-                              <Input value={iaForm.duracaoAlvoOutraIA} onChange={e => handleIaInput('duracaoAlvoOutraIA', e.target.value)} placeholder="Especifique a duração:" className="mt-2" />
+                              <Input value={iaForm.duracaoAlvoOutraIA} onChange={e => handleIaInput('duracaoAlvoOutraIA', e.target.value)} placeholder="Especifique a duração:" className="mt-2 text-foreground placeholder:text-muted-foreground" />
                             )}
                           </div>
                           <div>
                             <Label className="font-semibold mt-4">O que você quer que o ouvinte FAÇA após ouvir?</Label>
-                            <Input value={iaForm.callToActionIA} onChange={e => handleIaInput('callToActionIA', e.target.value)} placeholder="Ex: Acesse nosso site agora!; Ligue e agende!; Visite-nos!" className="mt-1" />
+                            <Input value={iaForm.callToActionIA} onChange={e => handleIaInput('callToActionIA', e.target.value)} placeholder="Ex: Acesse nosso site agora!; Ligue e agende!; Visite-nos!" className="mt-1 text-foreground placeholder:text-muted-foreground" />
                           </div>
                         </>
                       )}
@@ -1637,19 +1637,19 @@ function GravarLocucaoPage() {
                         <>
                           <div>
                             <Label className="font-semibold">Palavras, frases ou abordagens a EVITAR (opcional):</Label>
-                            <Textarea value={iaForm.evitarIA} onChange={e => handleIaInput('evitarIA', e.target.value)} placeholder="Ex: Não usar termos técnicos; evitar clichês; não mencionar concorrentes." className="mt-1" />
+                            <Textarea value={iaForm.evitarIA} onChange={e => handleIaInput('evitarIA', e.target.value)} placeholder="Ex: Não usar termos técnicos; evitar clichês; não mencionar concorrentes." className="mt-1 text-foreground placeholder:text-muted-foreground" />
                           </div>
                           <div>
                             <Label className="font-semibold mt-4">Slogan, URL ou contato a ser REPETIDO ou DESTACADO (opcional):</Label>
-                            <Textarea value={iaForm.destacarIA} onChange={e => handleIaInput('destacarIA', e.target.value)} placeholder="Ex: www.suaempresa.com.br; Ligue: 0800-123-456; Slogan: Sua vida, nosso compromisso." className="mt-1" />
+                            <Textarea value={iaForm.destacarIA} onChange={e => handleIaInput('destacarIA', e.target.value)} placeholder="Ex: www.suaempresa.com.br; Ligue: 0800-123-456; Slogan: Sua vida, nosso compromisso." className="mt-1 text-foreground placeholder:text-muted-foreground" />
                           </div>
                           <div>
                             <Label className="font-semibold mt-4">Referências de estilo que você gosta (opcional):</Label>
-                            <Textarea value={iaForm.referenciasIA} onChange={e => handleIaInput('referenciasIA', e.target.value)} placeholder="Ex: Gosto do estilo do comercial X da marca Y; ou cole um link de exemplo." className="mt-1" />
+                            <Textarea value={iaForm.referenciasIA} onChange={e => handleIaInput('referenciasIA', e.target.value)} placeholder="Ex: Gosto do estilo do comercial X da marca Y; ou cole um link de exemplo." className="mt-1 text-foreground placeholder:text-muted-foreground" />
                           </div>
                           <div>
                             <Label className="font-semibold mt-4">Algo mais que a IA precise saber? (opcional)</Label>
-                            <Textarea value={iaForm.infoAdicionalIA} onChange={e => handleIaInput('infoAdicionalIA', e.target.value)} placeholder="Conte aqui qualquer detalhe extra, contexto ou pedido especial." className="mt-1" />
+                            <Textarea value={iaForm.infoAdicionalIA} onChange={e => handleIaInput('infoAdicionalIA', e.target.value)} placeholder="Conte aqui qualquer detalhe extra, contexto ou pedido especial." className="mt-1 text-foreground placeholder:text-muted-foreground" />
                           </div>
                         </>
                       )}
@@ -1663,7 +1663,7 @@ function GravarLocucaoPage() {
                         value={iaRoteiroGerado}
                         onChange={e => iaEditandoRoteiro ? setIaRoteiroGerado(e.target.value) : undefined}
                         readOnly={!iaEditandoRoteiro}
-                        className={cn("min-h-[180px] text-base", iaEditandoRoteiro && "border-primary ring-2 ring-primary")}
+                        className={cn("min-h-[180px] text-base text-foreground", iaEditandoRoteiro && "border-primary ring-2 ring-primary")}
                       />
                       <div className="flex flex-wrap gap-2 justify-end">
                         <Button variant="secondary" onClick={() => setIaEditandoRoteiro(e => !e)}>
