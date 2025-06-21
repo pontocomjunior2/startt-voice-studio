@@ -1,15 +1,23 @@
-# Build stage
-FROM node:18-alpine AS builder
+# Usar Node.js 18 LTS Alpine para menor tamanho
+FROM node:18-alpine
 
-# Instalar dependências do sistema para compilação
-RUN apk add --no-cache python3 make g++ git
+# Instalar dependências do sistema
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    git \
+    dumb-init
+
+# Criar usuário não-root
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 
 # Definir diretório de trabalho
 WORKDIR /app
 
-# Definir variáveis de ambiente no build stage
+# Definir variáveis de ambiente
 ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_ANON_KEY
+ARG VITE_SUPABASE_ANON_KEY  
 ARG SUPABASE_SERVICE_ROLE_KEY
 ARG VITE_DOWNLOAD_PROXY_URL
 ARG VITE_API_URL
@@ -21,6 +29,8 @@ ARG MP_NOTIFICATION_URL
 ARG MAX_UPLOAD_SIZE_MB=200
 ARG NODE_OPTIONS=--max-old-space-size=4096
 
+ENV NODE_ENV=production
+ENV PORT=3000
 ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
 ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
@@ -34,14 +44,35 @@ ENV MP_NOTIFICATION_URL=$MP_NOTIFICATION_URL
 ENV MAX_UPLOAD_SIZE_MB=$MAX_UPLOAD_SIZE_MB
 ENV NODE_OPTIONS=$NODE_OPTIONS
 
-# Copiar arquivos de configuração para cache de dependências
-COPY package.json ./
-COPY package-lock.json* ./
+# Debug: Mostrar informações do sistema
+RUN echo "=== System Info ===" && \
+    node --version && \
+    npm --version && \
+    echo "Memory: $(free -h)" && \
+    echo "Disk: $(df -h)" && \
+    echo "=== End System Info ==="
 
-# Instalar dependências
-RUN npm ci --verbose
+# Copiar package files primeiro (cache layer)
+COPY package.json package-lock.json* ./
 
-# Copiar configurações de build
+# Debug: Verificar arquivos copiados
+RUN echo "=== Package Files ===" && \
+    ls -la package* && \
+    echo "=== End Package Files ==="
+
+# Instalar dependências com handling de erros
+RUN echo "=== Installing Dependencies ===" && \
+    if [ -f package-lock.json ]; then \
+        echo "Using npm ci..." && \
+        npm ci --verbose --no-audit --no-fund || \
+        (echo "npm ci failed, trying npm install..." && npm install --verbose); \
+    else \
+        echo "Using npm install..." && \
+        npm install --verbose; \
+    fi && \
+    echo "=== Dependencies Installed ==="
+
+# Copiar arquivos de configuração
 COPY tsconfig*.json ./
 COPY vite.config.ts ./
 COPY postcss.config.cjs ./
@@ -49,70 +80,95 @@ COPY tailwind.config.cjs ./
 COPY components.json ./
 COPY index.html ./
 
+# Debug: Verificar configurações
+RUN echo "=== Config Files ===" && \
+    ls -la *.json *.ts *.cjs *.html && \
+    echo "=== End Config Files ==="
+
 # Copiar código fonte
 COPY src/ ./src/
 COPY server/ ./server/
 COPY public/ ./public/
 
-# Debug: Listar arquivos para verificar estrutura
-RUN echo "=== Estrutura de arquivos ===" && ls -la
-RUN echo "=== Conteúdo de src ===" && ls -la src/
-RUN echo "=== Variáveis de ambiente ===" && env | grep VITE
+# Debug: Verificar estrutura do código
+RUN echo "=== Source Structure ===" && \
+    ls -la && \
+    echo "--- src/ ---" && \
+    ls -la src/ && \
+    echo "--- server/ ---" && \
+    ls -la server/ && \
+    echo "--- public/ ---" && \
+    ls -la public/ && \
+    echo "=== End Source Structure ==="
 
-# Build do frontend e backend
-RUN echo "=== Iniciando build do frontend ===" && \
-    npm run build && \
-    echo "=== Build do frontend concluído ===" && \
-    npm run build:server && \
-    echo "=== Build do backend concluído ==="
+# Debug: Verificar variáveis de ambiente críticas
+RUN echo "=== Environment Variables ===" && \
+    echo "VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:0:50}..." && \
+    echo "VITE_API_URL: $VITE_API_URL" && \
+    echo "NODE_OPTIONS: $NODE_OPTIONS" && \
+    echo "NODE_ENV: $NODE_ENV" && \
+    echo "=== End Environment Variables ==="
 
-# Verificar se os builds foram criados
-RUN echo "=== Verificando builds ===" && \
+# Build frontend com tratamento de erro
+RUN echo "=== Building Frontend ===" && \
+    npm run build 2>&1 | tee build-frontend.log && \
+    if [ ! -d "dist" ]; then \
+        echo "ERROR: Frontend build failed - dist directory not created" && \
+        cat build-frontend.log && \
+        exit 1; \
+    fi && \
+    echo "Frontend build successful" && \
     ls -la dist/ && \
-    ls -la dist-server/
+    echo "=== End Frontend Build ==="
 
-# Production stage
-FROM node:18-alpine
+# Build backend com tratamento de erro
+RUN echo "=== Building Backend ===" && \
+    npm run build:server 2>&1 | tee build-backend.log && \
+    if [ ! -d "dist-server" ]; then \
+        echo "ERROR: Backend build failed - dist-server directory not created" && \
+        cat build-backend.log && \
+        exit 1; \
+    fi && \
+    echo "Backend build successful" && \
+    ls -la dist-server/ && \
+    echo "=== End Backend Build ==="
 
-# Instalar dumb-init
-RUN apk add --no-cache dumb-init
-
-# Criar usuário não-root
-RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
-
-# Definir diretório de trabalho
-WORKDIR /app
-
-# Copiar package files
-COPY package.json ./
-COPY package-lock.json* ./
-
-# Instalar apenas dependências de produção
-RUN npm ci --omit=dev --verbose && npm cache clean --force
-
-# Copiar arquivos buildados do stage anterior
-COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nodejs:nodejs /app/dist-server ./dist-server
+# Limpar dependências de desenvolvimento para economizar espaço
+RUN echo "=== Cleaning Dev Dependencies ===" && \
+    npm prune --production && \
+    npm cache clean --force && \
+    echo "=== Dev Dependencies Cleaned ==="
 
 # Criar estrutura de diretórios
-RUN mkdir -p public/uploads/avatars public/uploads/demos public/uploads/guias \
-    public/uploads/revisoes_guias public/uploads/audios temp/uploads \
-    && chown -R nodejs:nodejs public temp
+RUN mkdir -p \
+    public/uploads/avatars \
+    public/uploads/demos \
+    public/uploads/guias \
+    public/uploads/revisoes_guias \
+    public/uploads/audios \
+    temp/uploads && \
+    echo "Upload directories created"
+
+# Definir permissões
+RUN chown -R nodejs:nodejs /app
 
 # Mudar para usuário não-root
 USER nodejs
 
-# Definir variáveis de ambiente de produção
-ENV NODE_ENV=production
-ENV PORT=3000
-
-# Healthcheck
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
+    CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
 
 # Expor porta
 EXPOSE 3000
 
-# Comando de inicialização
+# Debug final
+RUN echo "=== Final Check ===" && \
+    whoami && \
+    pwd && \
+    ls -la && \
+    echo "=== Ready to Start ==="
+
+# Inicialização
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "dist-server/server.js"] 
