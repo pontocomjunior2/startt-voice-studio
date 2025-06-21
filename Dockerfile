@@ -70,7 +70,10 @@ RUN echo "=== Installing Dependencies ===" && \
         echo "Using npm install..." && \
         npm install --verbose; \
     fi && \
-    echo "=== Dependencies Installed ==="
+    echo "=== Dependencies Installed ===" && \
+    echo "=== Verifying Critical Dependencies ===" && \
+    npm list vite @vitejs/plugin-react-swc typescript || echo "Some critical deps missing" && \
+    echo "=== End Dependency Verification ==="
 
 # Copiar arquivos de configuração
 COPY tsconfig*.json ./
@@ -83,6 +86,10 @@ COPY index.html ./
 # Debug: Verificar configurações
 RUN echo "=== Config Files ===" && \
     ls -la *.json *.ts *.cjs *.html && \
+    echo "=== Checking TypeScript Config ===" && \
+    cat tsconfig.json && \
+    echo "=== Checking Vite Config ===" && \
+    head -10 vite.config.ts && \
     echo "=== End Config Files ==="
 
 # Copiar código fonte
@@ -111,6 +118,10 @@ RUN echo "=== Environment Variables ===" && \
 
 # Build frontend com tratamento de erro
 RUN echo "=== Building Frontend ===" && \
+    echo "Pre-build verification:" && \
+    ls -la src/main.tsx src/index.css vite.config.ts || echo "Some files missing" && \
+    echo "Node modules check:" && \
+    ls node_modules/@vitejs/ || echo "Vite plugin missing" && \
     npm run build 2>&1 | tee build-frontend.log && \
     if [ ! -d "dist" ]; then \
         echo "ERROR: Frontend build failed - dist directory not created" && \
@@ -133,7 +144,7 @@ RUN echo "=== Building Backend ===" && \
     ls -la dist-server/ && \
     echo "=== End Backend Build ==="
 
-# Limpar dependências de desenvolvimento para economizar espaço
+# Limpar dependências de desenvolvimento APÓS o build
 RUN echo "=== Cleaning Dev Dependencies ===" && \
     npm prune --production && \
     npm cache clean --force && \
@@ -171,6 +182,6 @@ RUN echo "=== Final Check ===" && \
 
 # Inicialização
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist-server/server.js"] # Force EasyPanel cache refresh - 06/21/2025 19:34:22
+CMD ["node", "dist-server/server.js"] # Force EasyPanel cache refresh - 06/21/2025 22:56:01
 
-# EasyPanel cache breaker - 2025-06-21-19-36-29
+# EasyPanel cache breaker - TypeScript deps fix - 2025-06-21-22-56-15
