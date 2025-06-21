@@ -98,4 +98,6 @@ Dockerfile.frontend.dockerfile
 sidefolio-portfolio-template/
 certs-inter/
 *.pdf
-*.docx 
+*.docx
+Agente*
+termos* 

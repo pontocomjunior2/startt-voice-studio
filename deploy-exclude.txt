@@ -1,4 +1,10 @@
 uploads\
 uploads/
+sidefolio-portfolio-template\
+sidefolio-portfolio-template/
 .DS_Store
-Thumbs.db 
+Thumbs.db
+*.pdf
+*.docx
+certs-inter\
+certs-inter/ 

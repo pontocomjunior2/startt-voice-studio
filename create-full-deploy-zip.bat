@@ -34,10 +34,25 @@ echo.
 echo [4/6] Preparando estrutura de deploy...
 mkdir deploy-temp 2>nul
 
-echo   Copiando código fonte e configurações...
+echo   Copiando código fonte necessário...
 xcopy /E /I /Y src deploy-temp\src
 xcopy /E /I /Y server deploy-temp\server
 xcopy /E /I /Y public deploy-temp\public /EXCLUDE:deploy-exclude.txt 2>nul
+
+echo   Limpando arquivos e diretórios desnecessários...
+for %%d in (sidefolio-portfolio-template certs-inter dist dist-server node_modules) do (
+    if exist deploy-temp\%%d (
+        rmdir /s /q deploy-temp\%%d
+        echo   ✓ %%d removido
+    )
+)
+
+for %%f in (*.pdf *.docx *.zip) do (
+    if exist deploy-temp\%%f (
+        del /q deploy-temp\%%f
+        echo   ✓ %%f removido
+    )
+)
 
 echo   Removendo uploads da cópia...
 if exist deploy-temp\public\uploads (
