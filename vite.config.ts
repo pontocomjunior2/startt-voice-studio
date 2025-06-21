@@ -43,7 +43,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // Otimização de chunks
-        manualChunks(id) {
+        manualChunks(id: string) {
           if (id.includes('node_modules')) {
             return 'vendor';
           }
