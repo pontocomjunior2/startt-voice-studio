@@ -4,14 +4,13 @@ import path from 'path';
 import fs from 'fs';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 
-// Especificar o caminho para o arquivo .env na raiz do projeto
-const envPath = path.resolve(__dirname, '../.env'); 
-dotenv.config({ path: envPath });
+// Em um ambiente de container (Docker/EasyPanel), as variáveis de ambiente
+// são injetadas diretamente, então o `dotenv` não é necessário.
+// dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-console.log(`[Servidor Express] Tentando carregar .env de: ${envPath}`);
+// console.log(`[Servidor Express] Tentando carregar .env de: ${path.resolve(__dirname, '../.env')}`);
 console.log('[Servidor Express] VITE_SUPABASE_URL lido:', process.env.VITE_SUPABASE_URL ? 'Definido' : 'NÃO DEFINIDO');
 console.log('[Servidor Express] VITE_SUPABASE_ANON_KEY lido:', process.env.VITE_SUPABASE_ANON_KEY ? 'Definido' : 'NÃO DEFINIDO');
 console.log('[Servidor Express] SUPABASE_SERVICE_ROLE_KEY lido:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Definido' : 'NÃO DEFINIDO');

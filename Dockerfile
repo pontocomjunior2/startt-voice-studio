@@ -198,7 +198,7 @@ RUN mkdir -p \
 USER nodejs
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD node -e "require('http').get('http://localhost:80/api/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))" || \
     node -e "require('http').get('http://localhost:80/', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
 
