@@ -873,13 +873,28 @@ app.post('/api/admin/delete-user', async (req, res) => {
   res.json({ success: true });
 });
 
-// ROTA: Health Check para Docker
+// ROTA: Health Check para Docker/EasyPanel
 app.get('/api/health', (req, res) => {
+  console.log('[Health Check] Requisição recebida em /api/health');
   res.status(200).json({ 
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    port: PORT,
+    env: process.env.NODE_ENV || 'development'
   });
+  console.log('[Health Check] Resposta enviada');
+});
+
+// ROTA: Health Check alternativo na raiz (backup)
+app.get('/health', (req, res) => {
+  console.log('[Health Check Root] Requisição recebida em /health');
+  res.status(200).json({ 
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    port: PORT
+  });
+  console.log('[Health Check Root] Resposta enviada');
 });
 
 // ROTA: Geração de roteiro com IA Gemini
