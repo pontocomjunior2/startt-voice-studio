@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useForm, Controller, useWatch } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFetchPacotes } from "@/hooks/queries/use-fetch-pacotes.hook";
 import { useUpsertPacote } from "@/hooks/mutations/use-upsert-pacote.mutation.hook";
@@ -70,7 +70,6 @@ export default function AdminPacotesPage() {
     control,
     reset,
     formState: { errors },
-    getValues,
     setValue,
   } = useForm<PacoteFormValues>({
     resolver: zodResolver(pacoteSchema),

@@ -21,7 +21,7 @@ export const useTogglePacoteAtivo = () => {
 
   return useMutation({
     mutationFn: togglePacoteAtivo,
-    onSuccess: (data, variables) => {
+    onSuccess: (_, variables) => {
       const statusText = variables.newStatus ? "ativado" : "desativado";
       toast.success(`Pacote ${statusText} com sucesso!`);
       queryClient.invalidateQueries({ queryKey: ['pacotes'] });

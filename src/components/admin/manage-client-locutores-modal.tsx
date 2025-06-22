@@ -25,7 +25,7 @@ interface LocutoresFormData {
 }
 
 export function ManageClientLocutoresModal({ user, isOpen, onClose }: ManageClientLocutoresModalProps) {
-  const [assignedLocutores, setAssignedLocutores] = useState<string[]>([]);
+  const [, setAssignedLocutores] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const { data: locutoresList = [], isLoading: isLoadingLocutores } = useFetchLocutoresList();
@@ -139,7 +139,7 @@ export function ManageClientLocutoresModal({ user, isOpen, onClose }: ManageClie
                           }}
                         />
                         <Label htmlFor={`cliente-locutor-${locutor.id}`} className="font-normal">
-                          {locutor.nome}
+                          {locutor.nome_artistico}
                         </Label>
                       </div>
                     ))

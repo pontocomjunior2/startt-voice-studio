@@ -1,5 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabaseClient';
+import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 declare global {
@@ -57,11 +56,9 @@ const processCardPayment = async ({ pacoteId, userIdCliente, formData }: CardPay
 
 // O hook de mutação
 export const useProcessCardPayment = () => {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: processCardPayment,
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast.success("Pagamento aprovado!", {
         description: "Seus créditos foram adicionados. Você será redirecionado.",
       });

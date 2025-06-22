@@ -9,7 +9,7 @@ import { useFetchListablePacotes } from '@/hooks/queries/use-fetch-listable-paco
 import type { Pacote } from "@/hooks/queries/use-fetch-pacotes.hook";
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import CreditCardForm from '@/components/cliente/credit-card-form';
 import { initMercadoPago } from '@mercadopago/sdk-react';
@@ -82,7 +82,7 @@ export default function ComprarCreditosPage() {
   const [qrCodePayloadMP, setQrCodePayloadMP] = useState<string | null>(null);
   const [tempoRestanteSegundosMP, setTempoRestanteSegundosMP] = useState<number | null>(null);
   const [isMPSdkReady, setIsMPSdkReady] = useState(false);
-  const [forceFormRemount, setForceFormRemount] = useState(0);
+  const [forceFormRemount] = useState(0);
 
   const { data: pacotes = [], isLoading, isError } = useFetchListablePacotes();
 

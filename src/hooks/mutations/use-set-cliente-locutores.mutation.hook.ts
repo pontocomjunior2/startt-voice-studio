@@ -26,7 +26,7 @@ export const useSetClienteLocutores = () => {
 
   return useMutation({
     mutationFn: setClienteLocutores,
-    onSuccess: (data, variables) => {
+    onSuccess: (_, variables) => {
       toast.success("Permissões de locutores atualizadas com sucesso!");
       // Invalida o cache para garantir que, se o modal for reaberto, ele buscará os dados mais recentes.
       queryClient.invalidateQueries({ queryKey: ['assignedLocutores', variables.clienteId] });

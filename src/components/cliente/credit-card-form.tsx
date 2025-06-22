@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, useMemo, useCallback, memo } from 'react';
+import { useEffect, useState, useCallback, memo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProcessCardPayment } from '@/hooks/mutations/use-process-card-payment.mutation.hook';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+
 
 interface CreditCardFormProps {
   pacote: {
