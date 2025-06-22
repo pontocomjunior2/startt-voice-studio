@@ -39,6 +39,7 @@
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
+    "file-type": "^16.5.4",
     "formidable": "^3.5.4",
     "framer-motion": "^12.11.0",
     "lucide-react": "^0.510.0",

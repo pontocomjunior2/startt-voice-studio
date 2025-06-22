@@ -14,6 +14,9 @@ import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import rateLimit from 'express-rate-limit';
 
+// Corrigindo o import para compatibilidade com CJS
+const fileType = require('file-type');
+
 // Em um ambiente de container (Docker/EasyPanel), as variáveis de ambiente
 // são injetadas diretamente, então o `dotenv` não é necessário.
 // dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -32,12 +35,62 @@ const app = express();
 app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT) || 3001; // Porta para o servidor backend
 
+/**
+ * Sanitiza um nome de arquivo ou componente de diretório para previnir path traversal.
+ * - Remove caracteres especiais, incluindo `.` e `/`.
+ * - Limita o tamanho.
+ * - Substitui espaços por underscores.
+ * @param {string} input - A string a ser sanitizada.
+ * @returns {string} A string sanitizada.
+ */
+function sanitizeFilename(input: string): string {
+  if (!input) return '';
+  const sanitized = String(input)
+    .normalize('NFD') // Normaliza caracteres acentuados
+    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+    .toLowerCase()
+    .replace(/[^a-z0-9_-\s]/g, '') // Remove caracteres perigosos (exceto espaço, underscore, hifen)
+    .trim()
+    .replace(/\s+/g, '_') // Substitui espaços por underscore
+    .substring(0, 50); // Limita o comprimento
+  return sanitized;
+}
+
 // Configurar limites maiores para o Express
 app.use(express.json({ limit: '150mb' }));
 app.use(express.urlencoded({ limit: '150mb', extended: true }));
 
-// Habilitar CORS para todas as origens (em produção, restrinja para o seu domínio frontend)
-app.use(cors({ origin: '*', credentials: true }));
+// Habilitar CORS de forma segura
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? (process.env.CORS_ALLOWED_ORIGINS || '').split(',')
+  : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+
+console.log('[CORS] Origens permitidas:', allowedOrigins);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Permitir requisições sem 'origin' (ex: Postman, apps mobile) ou se a origem estiver na lista
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`[CORS] Requisição bloqueada da origem: ${origin}`);
+      callback(new Error('Não permitido por CORS'));
+    }
+  },
+  credentials: true
+}));
+
+// Rate Limiter para todas as rotas da API
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 200, // Limita cada IP a 200 requisições por janela de 15 minutos
+  message: { success: false, message: 'Muitas requisições enviadas deste IP, por favor, tente novamente após 15 minutos.' },
+  standardHeaders: true, // Retorna informação do limite nos headers `RateLimit-*`
+  legacyHeaders: false, // Desabilita os headers obsoletos `X-RateLimit-*`
+});
+
+// Aplicar o rate limiter a todas as rotas que começam com /api
+app.use('/api/', apiLimiter);
 
 // Middleware para servir os arquivos de uploads de forma correta
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
@@ -97,8 +150,16 @@ app.use(express.json());
 const avatarStorage = multer.diskStorage({
   destination: function (req, file, cb) {
     const uploadPath = path.join(__dirname, '../public/uploads/avatars');
-    if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
-    cb(null, uploadPath);
+    const safeBaseDir = path.resolve(__dirname, '../public/uploads');
+    if (!fs.existsSync(safeBaseDir)) fs.mkdirSync(safeBaseDir, { recursive: true });
+    
+    const finalUploadPath = path.resolve(uploadPath);
+    if (!finalUploadPath.startsWith(safeBaseDir)) {
+      return cb(new Error('Tentativa de gravação em diretório inválido.'), '');
+    }
+
+    if (!fs.existsSync(finalUploadPath)) fs.mkdirSync(finalUploadPath, { recursive: true });
+    cb(null, finalUploadPath);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -108,99 +169,138 @@ const avatarStorage = multer.diskStorage({
 });
 const uploadAvatar = multer({
   storage: avatarStorage,
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(new Error('Apenas imagens são permitidas para avatar!'));
+  fileFilter: async (req, file, cb) => {
+    // Atenção: fileFilter não tem acesso ao conteúdo final.
+    // Esta validação pelo mimetype é uma primeira barreira.
+    if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+    } else {
+        // @ts-ignore
+        cb(new Error('Apenas imagens são permitidas para avatar!'), false);
+    }
   }
 });
 
-app.post('/api/upload/avatar', uploadAvatar.single('avatar'), (req, res) => {
-  if (!req.file) {
-    res.status(400).json({ message: 'Nenhum arquivo enviado.' });
-    return;
-  }
-  const url = `/uploads/avatars/${req.file.filename}`;
-  res.status(200).json({ url });
-  return;
+app.post('/api/upload/avatar', (req, res, next) => {
+  uploadAvatar.single('avatar')(req, res, async (err) => {
+    if (err) return next(err);
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'Nenhum arquivo enviado.' });
+      }
+      const type = await fileType.fromFile(req.file.path);
+      if (!type || !type.mime.startsWith('image/')) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ message: 'Tipo de arquivo inválido. Apenas imagens são permitidas.' });
+      }
+      const url = `/uploads/avatars/${req.file.filename}`;
+      res.status(200).json({ url });
+    } catch (error) {
+      next(error);
+    }
+  });
 });
 
 // Upload de demo de áudio do locutor (agora com nome customizado)
 const demoStorage = multer.diskStorage({
   destination: function (req, file, cb) {
     const uploadPath = path.join(__dirname, '../public/uploads/demos');
-    if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
-    cb(null, uploadPath);
+    // Validação extra de segurança para garantir que o diretório base existe e é seguro
+    const safeBaseDir = path.resolve(__dirname, '../public/uploads');
+    if (!fs.existsSync(safeBaseDir)) fs.mkdirSync(safeBaseDir, { recursive: true });
+    
+    const finalUploadPath = path.resolve(uploadPath);
+    if (!finalUploadPath.startsWith(safeBaseDir)) {
+      return cb(new Error('Tentativa de gravação em diretório inválido.'), '');
+    }
+
+    if (!fs.existsSync(finalUploadPath)) fs.mkdirSync(finalUploadPath, { recursive: true });
+    cb(null, finalUploadPath);
   },
   filename: function (req, file, cb) {
-    // Receber nome do locutor e estilo via body ou query
-    let nomeLocutor = req.body.nomeLocutor || req.query.nomeLocutor || 'locutor';
-    let estilo = req.body.estilo || req.query.estilo || 'estilo';
-    // Slugify para evitar caracteres inválidos
-    nomeLocutor = String(nomeLocutor).toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '');
-    estilo = String(estilo).toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '');
+    // Receber nome do locutor e estilo via body ou query e SANITIZAR
+    const nomeLocutor = sanitizeFilename(req.body.nomeLocutor || req.query.nomeLocutor || 'locutor');
+    const estilo = sanitizeFilename(req.body.estilo || req.query.estilo || 'estilo');
+    
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
+    const ext = path.extname(file.originalname); // A extensão é considerada segura por path.extname
+    
     cb(null, `${nomeLocutor}-${estilo}-${uniqueSuffix}${ext}`);
   }
 });
 const uploadDemo = multer({
   storage: demoStorage,
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('audio/')) cb(null, true);
-    else cb(new Error('Apenas arquivos de áudio são permitidos para demo!'));
+    if (file.mimetype.startsWith('audio/')) {
+        cb(null, true);
+    } else {
+        // @ts-ignore
+        cb(new Error('Apenas arquivos de áudio são permitidos para demo!'), false);
+    }
   }
 });
 
-app.post('/api/upload/demo', uploadDemo.single('demo'), async (req, res) => {
-  if (!req.file) {
-    res.status(400).json({ message: 'Nenhum arquivo enviado.' });
-    return;
-  }
-  if (!supabase) {
-    res.status(500).json({ message: 'Supabase não configurado no backend.' });
-    return;
-  }
-  const url = `/uploads/demos/${req.file.filename}`;
-  const nomeLocutor = req.body.nomeLocutor || req.query.nomeLocutor;
-  const estilo = req.body.estilo || req.query.estilo;
-  if (!nomeLocutor || !estilo) {
-    res.status(400).json({ message: 'nomeLocutor e estilo são obrigatórios.' });
-    return;
-  }
-  try {
-    const { data: locutores, error: locutorError } = await supabase
-      .from('locutores')
-      .select('id')
-      .ilike('nome', nomeLocutor);
-    if (locutorError || !locutores || locutores.length === 0) {
-      res.status(404).json({ message: 'Locutor não encontrado para nome informado.' });
-      return;
-    }
-    const locutor_id = locutores[0].id;
-    const { error: demoError } = await supabase
-      .from('locutor_demos')
-      .insert({
-        locutor_id,
-        estilo,
-        url,
-        data_criacao: new Date().toISOString(),
-      });
-    if (demoError) {
-      res.status(500).json({ message: 'Erro ao salvar demo no banco.', details: demoError.message });
-      return;
-    }
-    res.status(200).json({ url, nomeLocutor, estilo });
-  } catch (err) {
-    res.status(500).json({ message: 'Erro inesperado ao salvar demo.', details: err.message });
-  }
+app.post('/api/upload/demo', (req, res, next) => {
+    uploadDemo.single('demo')(req, res, async (err) => {
+        if (err) return next(err);
+        try {
+            if (!req.file) {
+                return res.status(400).json({ message: 'Nenhum arquivo enviado.' });
+            }
+            const type = await fileType.fromFile(req.file.path);
+            if (!type || !type.mime.startsWith('audio/')) {
+                fs.unlinkSync(req.file.path);
+                return res.status(400).json({ message: 'Tipo de arquivo inválido. Apenas áudios são permitidos.' });
+            }
+
+            if (!supabase) {
+                return res.status(500).json({ message: 'Supabase não configurado no backend.' });
+            }
+            const url = `/uploads/demos/${req.file.filename}`;
+            const nomeLocutor = req.body.nomeLocutor || req.query.nomeLocutor;
+            const estilo = req.body.estilo || req.query.estilo;
+            if (!nomeLocutor || !estilo) {
+                return res.status(400).json({ message: 'nomeLocutor e estilo são obrigatórios.' });
+            }
+            const { data: locutores, error: locutorError } = await supabase
+                .from('locutores')
+                .select('id')
+                .ilike('nome', nomeLocutor);
+            if (locutorError || !locutores || locutores.length === 0) {
+                return res.status(404).json({ message: 'Locutor não encontrado para nome informado.' });
+            }
+            const locutor_id = locutores[0].id;
+            const { error: demoError } = await supabase
+                .from('locutor_demos')
+                .insert({
+                    locutor_id,
+                    estilo,
+                    url,
+                    data_criacao: new Date().toISOString(),
+                });
+            if (demoError) throw demoError;
+            
+            res.status(200).json({ url, nomeLocutor, estilo });
+        } catch (error) {
+            next(error);
+        }
+    });
 });
 
 // Upload de Áudio Guia do Cliente
 const guiaStorage = multer.diskStorage({
   destination: function (req, file, cb) {
     const uploadPath = path.join(__dirname, '../public/uploads/guias');
-    if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
-    cb(null, uploadPath);
+    const safeBaseDir = path.resolve(__dirname, '../public/uploads');
+    if (!fs.existsSync(safeBaseDir)) fs.mkdirSync(safeBaseDir, { recursive: true });
+    
+    const finalUploadPath = path.resolve(uploadPath);
+    if (!finalUploadPath.startsWith(safeBaseDir)) {
+      return cb(new Error('Tentativa de gravação em diretório inválido.'), '');
+    }
+
+    if (!fs.existsSync(finalUploadPath)) fs.mkdirSync(finalUploadPath, { recursive: true });
+    cb(null, finalUploadPath);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -216,21 +316,40 @@ const uploadGuia = multer({
   }
 });
 
-app.post('/api/upload-guia', uploadGuia.single('audioGuia'), (req, res) => {
-  if (!req.file) {
-    res.status(400).json({ success: false, message: 'Nenhum arquivo enviado.' });
-    return;
-  }
-  const filePath = `/uploads/guias/${req.file.filename}`;
-  res.status(200).json({ success: true, filePath });
+app.post('/api/upload-guia', (req, res, next) => {
+    uploadGuia.single('audioGuia')(req, res, async (err) => {
+        if (err) return next(err);
+        try {
+            if (!req.file) {
+                return res.status(400).json({ success: false, message: 'Nenhum arquivo enviado.' });
+            }
+            const type = await fileType.fromFile(req.file.path);
+            if (!type || !type.mime.startsWith('audio/')) {
+                fs.unlinkSync(req.file.path);
+                return res.status(400).json({ success: false, message: 'Tipo de arquivo inválido. Apenas áudios são permitidos.' });
+            }
+            const filePath = `/uploads/guias/${req.file.filename}`;
+            res.status(200).json({ success: true, filePath });
+        } catch (error) {
+            next(error);
+        }
+    });
 });
 
 // Upload de Áudio Guia da Revisão do Cliente
 const guiaRevisaoStorage = multer.diskStorage({
   destination: function (req, file, cb) {
     const uploadPath = path.join(__dirname, '../public/uploads/revisoes_guias');
-    if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
-    cb(null, uploadPath);
+    const safeBaseDir = path.resolve(__dirname, '../public/uploads');
+    if (!fs.existsSync(safeBaseDir)) fs.mkdirSync(safeBaseDir, { recursive: true });
+    
+    const finalUploadPath = path.resolve(uploadPath);
+    if (!finalUploadPath.startsWith(safeBaseDir)) {
+      return cb(new Error('Tentativa de gravação em diretório inválido.'), '');
+    }
+
+    if (!fs.existsSync(finalUploadPath)) fs.mkdirSync(finalUploadPath, { recursive: true });
+    cb(null, finalUploadPath);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -246,13 +365,24 @@ const uploadGuiaRevisao = multer({
   }
 });
 
-app.post('/api/upload-guia-revisao', uploadGuiaRevisao.single('audioGuia'), (req, res) => {
-  if (!req.file) {
-    res.status(400).json({ success: false, message: 'Nenhum arquivo enviado.' });
-    return;
-  }
-  const filePath = `/uploads/revisoes_guias/${req.file.filename}`;
-  res.status(200).json({ success: true, filePath });
+app.post('/api/upload-guia-revisao', (req, res, next) => {
+    uploadGuiaRevisao.single('audioGuia')(req, res, async (err) => {
+        if (err) return next(err);
+        try {
+            if (!req.file) {
+                return res.status(400).json({ success: false, message: 'Nenhum arquivo enviado.' });
+            }
+            const type = await fileType.fromFile(req.file.path);
+            if (!type || !type.mime.startsWith('audio/')) {
+                fs.unlinkSync(req.file.path);
+                return res.status(400).json({ success: false, message: 'Tipo de arquivo inválido. Apenas áudios são permitidos.' });
+            }
+            const filePath = `/uploads/revisoes_guias/${req.file.filename}`;
+            res.status(200).json({ success: true, filePath });
+        } catch (error) {
+            next(error);
+        }
+    });
 });
 // ================= FIM DAS ROTAS DE UPLOAD =================
 
@@ -303,31 +433,26 @@ async function uploadToSupabaseStorage(file: Express.Multer.File, folder: string
 // Configuração do Multer para armazenamento de arquivos
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Ler o nome do cliente dos PARÂMETROS da URL
-    const clientName = req.params.clientName || 'unknown_client';
-    console.log('[Multer Destination] clientName (from PARAMS) determinado:', clientName);
+    const clientName = sanitizeFilename(req.params.clientName || 'unknown_client');
+    console.log('[Multer Destination] clientName (sanitized) determinado:', clientName);
 
-    const sanitizedClientName = clientName
-                                .toLowerCase()
-                                .replace(/\s+/g, '_<0xC2><0xA0>') // Atenção: pode precisar ajustar sanitização para URL params
-                                .replace(/[^a-z0-9_.-]/g, '');
+    const baseUploadDir = path.resolve(__dirname, '../public/uploads/audios');
+    const uploadPath = path.join(baseUploadDir, clientName);
     
-    const uploadPath = path.join(__dirname, '../public/uploads/audios', sanitizedClientName);
+    if (!path.resolve(uploadPath).startsWith(baseUploadDir)) {
+        return cb(new Error('Tentativa de gravação em diretório inválido.'), '');
+    }
     
-    // Criar o diretório do cliente se não existir
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
     }
     cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
-    // Gerar um nome de arquivo único para evitar sobrescritas
-    // Manter a extensão original do arquivo
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const fileExt = path.extname(file.originalname);
     const originalNameWithoutExt = path.basename(file.originalname, fileExt);
-    // Poderia usar o ID do pedido aqui se enviado na requisição
-    const finalFileName = `${originalNameWithoutExt}-${uniqueSuffix}${fileExt}`;
+    const finalFileName = `${sanitizeFilename(originalNameWithoutExt)}-${uniqueSuffix}${fileExt}`;
     cb(null, finalFileName);
   }
 });
@@ -524,18 +649,18 @@ ensureDirectoriesExist();
 
 const revisaoStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const clientUsername = req.params.clientUsername; // MODIFICADO: Ler dos parâmetros da URL
+    const clientUsername = sanitizeFilename(req.params.clientUsername);
     if (!clientUsername) {
-      return cb(new Error("Username do cliente não fornecido na URL para o diretório de revisão."), "");
+      return cb(new Error("Username do cliente inválido ou não fornecido na URL para o diretório de revisão."), "");
     }
-    const sanitizedClientName = clientUsername
-                                .toLowerCase()
-                                .replace(/\s+/g, '_')
-                                .replace(/[^a-z0-9_.-]/g, '');
     
-    const baseUploadDir = path.join(__dirname, '../public/uploads/audios');
-    const clientDir = path.join(baseUploadDir, sanitizedClientName);
+    const baseUploadDir = path.resolve(__dirname, '../public/uploads/audios');
+    const clientDir = path.join(baseUploadDir, clientUsername);
     const revisoesDir = path.join(clientDir, 'revisoes');
+
+    if (!path.resolve(revisoesDir).startsWith(baseUploadDir)) {
+        return cb(new Error('Tentativa de gravação em diretório inválido.'), '');
+    }
 
     if (!fs.existsSync(revisoesDir)) {
       fs.mkdirSync(revisoesDir, { recursive: true });
@@ -547,8 +672,7 @@ const revisaoStorage = multer.diskStorage({
     const timestamp = Date.now();
     const originalNameWithoutExt = path.parse(file.originalname).name;
     const fileExt = path.parse(file.originalname).ext;
-    // Sanitiza o nome do arquivo original para evitar caracteres problemáticos
-    const sanitizedOriginalName = originalNameWithoutExt.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const sanitizedOriginalName = sanitizeFilename(originalNameWithoutExt);
     const finalFileName = `${sanitizedOriginalName}-${timestamp}${fileExt}`;
     cb(null, finalFileName);
   }
@@ -936,6 +1060,35 @@ app.get('*', (req, res) => {
     console.error('[Catch-all Route] index.html não encontrado em:', indexPath);
     res.status(500).json({ error: 'Frontend não está disponível' });
   }
+});
+
+// Middleware de Erro Global
+// Deve ser o último middleware adicionado
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('[ERRO GLOBAL]', {
+    timestamp: new Date().toISOString(),
+    path: req.path,
+    method: req.method,
+    errorName: err.name,
+    errorMessage: err.message,
+  });
+
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({
+      success: false,
+      error: `Erro de upload: ${err.message}.`,
+      code: err.code
+    });
+  }
+  
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  res.status(err.status || 500).json({
+    success: false,
+    error: 'Ocorreu um erro inesperado no servidor. Por favor, tente novamente mais tarde.'
+  });
 });
 
 const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1';

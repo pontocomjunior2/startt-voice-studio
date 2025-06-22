@@ -29,3 +29,6 @@ dist-ssr
 !.env.example
 public/uploads/
 public/uploads/
+
+# Supabase temporary files
+supabase/.temp/
