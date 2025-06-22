@@ -20,6 +20,7 @@ import PedidoSucessoPage from './pages/cliente/PedidoSucessoPage';
 import HistoricoCreditosPage from './pages/cliente/historico-creditos-page';
 import LocutoresPage from './pages/cliente/LocutoresPage';
 import ComprarCreditosPage from './pages/cliente/comprar-creditos-page';
+import TesteCreditosPage from './pages/TesteCreditosPage';
 
 function App() {
   // Remover useAuth daqui, pois AuthRedirector cuidará da lógica inicial
@@ -147,6 +148,16 @@ function App() {
           element={
             <ProtectedRoute>
               <LocutoresPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Rota de teste para debuggar créditos */}
+        <Route 
+          path="/teste-creditos"
+          element={
+            <ProtectedRoute>
+              <TesteCreditosPage />
             </ProtectedRoute>
           }
         />
