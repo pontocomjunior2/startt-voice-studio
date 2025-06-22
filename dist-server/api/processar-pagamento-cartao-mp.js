@@ -86,12 +86,12 @@ async function handler(req, res) {
                     .from('lotes_creditos')
                     .insert({
                     user_id: userIdCliente,
-                    creditos_adicionados: pacote.creditos_oferecidos,
+                    quantidade: pacote.creditos_oferecidos,
                     metodo_pagamento: 'credit_card_manual',
                     valor_pago: valorTotal,
                     pacote_id: pacoteId,
                     pagamento_id_externo: simulatedPaymentId,
-                    status: 'completed'
+                    status: 'ativo'
                 });
                 if (loteError) {
                     console.warn("⚠️ [FLUXO MANUAL] Erro ao registrar lote de créditos:", loteError);
