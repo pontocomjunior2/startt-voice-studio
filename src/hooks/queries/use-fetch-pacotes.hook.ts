@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient'; // Verifique se o caminho está correto
+import type { PacoteComLocutores } from '@/types';
 
 // Definimos o tipo de dado que esperamos receber do banco de dados para um pacote
 export interface Pacote {
@@ -15,23 +16,36 @@ export interface Pacote {
 }
 
 // A função que efetivamente busca os dados no Supabase
-const fetchPacotes = async (): Promise<Pacote[]> => {
+const fetchPacotes = async (): Promise<PacoteComLocutores[]> => {
   const { data, error } = await supabase
     .from('pacotes')
-    .select('*')
+    .select(`
+      *,
+      locutores: locutores (
+        id,
+        nome
+      )
+    `)
     .order('nome', { ascending: true });
 
   if (error) {
-    console.error("Erro ao buscar pacotes:", error);
+    console.error("Erro ao buscar pacotes com locutores:", error);
     throw new Error(error.message);
   }
 
-  return data || [];
+  // Ajuste para garantir que o campo se chame nome_artistico no frontend
+  return (data || []).map(pacote => ({
+    ...pacote,
+    locutores: pacote.locutores.map((loc: any) => ({
+      ...loc,
+      nome_artistico: loc.nome 
+    }))
+  }));
 };
 
 // O hook customizado que usa o useQuery do TanStack Query
 export const useFetchPacotes = () => {
-  return useQuery<Pacote[], Error>({
+  return useQuery<PacoteComLocutores[], Error>({
     queryKey: ['pacotes'], // Chave de cache para esta query
     queryFn: fetchPacotes, // Função que será executada para buscar os dados
   });

@@ -1,22 +1,26 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { toast } from 'sonner';
-import type { PacoteFormData } from '@/lib/validators/pacote.validator';
+import type { PacoteFormValues } from '@/lib/validators/pacote.validator';
 
-interface UpsertPacoteParams {
-  pacoteId: string | null;
-  pacoteData: PacoteFormData;
-}
+// A função agora recebe diretamente os valores do formulário
+const upsertPacote = async (pacoteData: PacoteFormValues) => {
+  const { id, locutores, ...restOfPacoteData } = pacoteData;
 
-// Função que chama nosso RPC no Supabase
-const upsertPacote = async ({ pacoteId, pacoteData }: UpsertPacoteParams) => {
-  const { locutoresIds, ...restOfPacoteData } = pacoteData;
+  const params = {
+    p_pacote_id: id || null,
+    p_pacote_data: {
+      ...restOfPacoteData,
+      // Garante que o valor seja numérico antes de enviar
+      valor: Number(restOfPacoteData.valor),
+      creditos_oferecidos: Number(restOfPacoteData.creditos_oferecidos),
+      // Converte para null se não for fornecido
+      validade_dias: restOfPacoteData.validade_dias ? Number(restOfPacoteData.validade_dias) : null,
+    },
+    p_locutor_ids: locutores || []
+  };
 
-  const { data, error } = await supabase.rpc('upsert_pacote_with_locutores', {
-    p_pacote_id: pacoteId,
-    p_pacote_data: restOfPacoteData,
-    p_locutor_ids: locutoresIds
-  });
+  const { data, error } = await supabase.rpc('upsert_pacote_with_locutores', params);
 
   if (error) {
     console.error("Erro ao salvar pacote:", error);
@@ -34,13 +38,10 @@ export const useUpsertPacote = () => {
     onSuccess: () => {
       toast.success("Pacote salvo com sucesso!");
       queryClient.invalidateQueries({ queryKey: ['pacotes'] });
-      // Também invalidamos a lista de locutores de um pacote específico, se tivermos um cache para isso no futuro.
     },
     onError: (error: any) => {
       toast.error("Falha ao salvar o pacote", {
-        description: error.code === 'PGRST116' 
-          ? 'Erro de permissão ou a função não foi encontrada no banco de dados. Verifique o nome e a existência da função RPC.'
-          : error.message,
+        description: error.message,
       });
     },
   });

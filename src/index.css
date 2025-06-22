@@ -19,25 +19,34 @@
 
 @layer base {
   :root {
-    --primary: 36 90% 50%;           /* Laranja (amber-500) */
-    --primary-foreground: 0 0% 100%; /* Branco */
-    --secondary: 205 30% 95%;          /* Cinza azulado muito claro */
-    --secondary-foreground: 205 15% 40%; /* Cinza azulado escuro */
-    --accent: 205 86% 51%;            /* Azul (sky-500) */
-    --accent-foreground: 0 0% 100%;   /* Branco */
-    --background: 0 0% 100%;         /* Branco */
-    --foreground: 205 20% 25%;        /* Cinza muito escuro */
-    --card: 0 0% 100%;                /* Branco */
-    --card-foreground: 205 20% 25%;   /* Cinza muito escuro */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+ 
     --popover: 0 0% 100%;
-    --popover-foreground: 205 20% 25%;
-    --muted: 205 20% 92%;             /* Cinza claro */
-    --muted-foreground: 205 15% 55%;  /* Cinza médio */
-    --destructive: 0 84% 60%;          /* Vermelho (corrigido) */
-    --destructive-foreground: 0 0% 100%; /* Branco (mantido) */
-    --border: 205 20% 88%;            /* Cinza claro (borda) */
-    --input: 205 20% 88%;             /* Cinza claro (input) */
-    --ring: 205 86% 51%;              /* Azul (sky-500) para anel de foco */
+    --popover-foreground: 222.2 84% 4.9%;
+ 
+    --primary: 192 100% 55%; /* #18e0ff convertido para HSL */
+    --primary-foreground: 0 0% 100%;
+ 
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+ 
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+ 
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+ 
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 192 100% 55%; /* Usando mesma cor do primary */
+ 
     --radius: 0.5rem;
 
     /* Cores de Status (mantidas, exceto laranja se necessário) */
@@ -49,23 +58,34 @@
   }
 
   .dark {
-    --background: 222 47% 11%;
+    --background: 232 50% 8%; /* #0a0c1b */
     --foreground: 210 40% 98%;
-    --card: 223 36% 17%;
+ 
+    --card: 232 30% 13%; /* #181a2a */
     --card-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 222 47% 15%;
+ 
+    --popover: 232 30% 13%;
+    --popover-foreground: 210 40% 98%;
+ 
+    --primary: 192 100% 55%; /* #18e0ff convertido para HSL */
+    --primary-foreground: 0 0% 100%;
+ 
+    --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
-    --accent: 200 98% 39%;
+ 
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+ 
+    --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
-    --muted: 220 16% 25%;
-    --muted-foreground: 220 15% 75%; /* Mais claro para rótulos e descrições */
+ 
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 220 16% 20%;
-    --input: 220 16% 20%;
-    --ring: 217 91% 60%;
+    --destructive-foreground: 210 40% 98%;
+ 
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 192 100% 55%; /* Usando mesma cor do primary */
+
     --status-green: 140 60% 40%;
     --status-red: 0 80% 55%;
     --status-orange: 36 90% 50%;
@@ -92,7 +112,14 @@
   }
 
   .dark body {
-    background-color: #0a0a0a !important;
+    background-color: #0a0c1b !important;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }
 
@@ -104,6 +131,34 @@
   .admin-table-fix-dark-border tbody {
     border-color: hsl(var(--border)) !important;
   }
+
+  /* Estilos específicos para checkboxes - garantir visibilidade */
+  [data-radix-collection-item] {
+    outline: none;
+  }
+  
+  /* Força bordas visíveis nos checkboxes */
+  button[role="checkbox"] {
+    border: 2px solid hsl(var(--primary)) !important;
+    background-color: transparent !important;
+    min-width: 16px;
+    min-height: 16px;
+  }
+  
+  /* Estado checked dos checkboxes */
+  button[role="checkbox"][data-state="checked"] {
+    background-color: hsl(var(--primary)) !important;
+    border-color: hsl(var(--primary)) !important;
+    color: white !important;
+  }
+  
+  /* Hover nos checkboxes */
+  button[role="checkbox"]:hover {
+    border-color: hsl(var(--primary)) !important;
+    background-color: hsl(var(--primary) / 0.1) !important;
+  }
+
+
 }
 
 /* Esconde o cabeçalho dos dias da semana do react-day-picker */

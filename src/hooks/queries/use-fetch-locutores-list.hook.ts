@@ -3,13 +3,13 @@ import { supabase } from '@/lib/supabaseClient';
 
 export interface LocutorSelecao {
   id: string;
-  nome: string;
+  nome_artistico: string;
 }
 
 const fetchLocutoresList = async (): Promise<LocutorSelecao[]> => {
   const { data, error } = await supabase
     .from('locutores')
-    .select('id, nome')
+    .select('id, nome') // Buscando a coluna 'nome'
     .eq('ativo', true) // Buscamos apenas locutores ativos para seleção
     .order('nome', { ascending: true });
 
@@ -18,7 +18,11 @@ const fetchLocutoresList = async (): Promise<LocutorSelecao[]> => {
     throw new Error(error.message);
   }
 
-  return data || [];
+  // Mapeando para o formato esperado pelo frontend
+  return (data || []).map(locutor => ({
+    id: locutor.id,
+    nome_artistico: locutor.nome,
+  }));
 };
 
 export const useFetchLocutoresList = () => {

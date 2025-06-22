@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +40,7 @@ export function LoginForm({ onSuccess, showConfirmEmailAlert, confirmEmailMessag
   confirmEmailMessage?: React.ReactNode;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { signInWithPassword, isProcessing } = useAuth();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showEmailAlert, setShowEmailAlert] = useState(false);
@@ -64,8 +65,12 @@ export function LoginForm({ onSuccess, showConfirmEmailAlert, confirmEmailMessag
       });
 
       if (!error) {
-        if (onSuccess) onSuccess();
-        else navigate("/dashboard");
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          const from = location.state?.from || "/dashboard";
+          navigate(from, { replace: true });
+        }
       } else {
         // Detecta erro de e-mail não confirmado do Supabase
         if (

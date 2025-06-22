@@ -96,14 +96,10 @@ function App() {
           }
         />
 
-        {/* Nova rota para Comprar Créditos */}
+        {/* Nova rota para Comprar Créditos - SEM PROTECTED ROUTE REDUNDANTE */}
         <Route 
           path="/comprar-creditos"
-          element={
-            <ProtectedRoute>
-              <ComprarCreditosPage />
-            </ProtectedRoute>
-          }
+          element={<ComprarCreditosPage />}
         />
 
         {/* Rota para Admin Dashboard */}

@@ -16,6 +16,7 @@ const fs_1 = __importDefault(require("fs"));
 const cors_1 = __importDefault(require("cors"));
 const supabase_js_1 = require("@supabase/supabase-js");
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
+const supabaseAdmin_1 = require("./lib/supabaseAdmin");
 // Corrigindo o import para compatibilidade com CJS
 const fileType = require('file-type');
 // Em um ambiente de container (Docker/EasyPanel), as variáveis de ambiente
@@ -29,6 +30,7 @@ console.log('[Servidor Express] SUPABASE_SERVICE_ROLE_KEY lido:', process.env.SU
 const gerar_roteiro_ia_1 = __importDefault(require("./api/gerar-roteiro-ia"));
 const gerar_pagamento_pix_mp_1 = __importDefault(require("./api/gerar-pagamento-pix-mp"));
 const webhook_mp_pagamentos_1 = __importDefault(require("./api/webhook-mp-pagamentos"));
+const processar_pagamento_cartao_mp_1 = __importDefault(require("./api/processar-pagamento-cartao-mp"));
 const app = (0, express_1.default)();
 app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT) || 3001; // Porta para o servidor backend
@@ -812,7 +814,6 @@ app.post('/api/locutor/:id/demos', async (req, res) => {
         res.status(500).json({ message: 'Erro inesperado ao salvar demo.', details: err.message });
     }
 });
-const supabaseAdmin = (0, supabase_js_1.createClient)(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 // ROTA: Exclusão total de usuário (Auth + profiles)
 app.post('/api/admin/delete-user', async (req, res) => {
     const { userId } = req.body;
@@ -825,7 +826,7 @@ app.post('/api/admin/delete-user', async (req, res) => {
         return;
     }
     // Exclui do Auth
-    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    const { error: authError } = await supabaseAdmin_1.supabaseAdmin.auth.admin.deleteUser(userId);
     if (authError) {
         console.error('[DeleteUser] Erro ao deletar do Auth:', authError);
         // Se for erro 500 (Database error deleting user), apenas loga e segue
@@ -836,7 +837,7 @@ app.post('/api/admin/delete-user', async (req, res) => {
         console.warn('[DeleteUser] Ignorando erro 500 do Auth e continuando exclusão no banco.');
     }
     // Buscar todos os IDs de solicitacoes_revisao do usuário
-    const { data: solicitacoes, error: solicitacoesError } = await supabaseAdmin
+    const { data: solicitacoes, error: solicitacoesError } = await supabaseAdmin_1.supabaseAdmin
         .from('solicitacoes_revisao')
         .select('id')
         .eq('user_id', userId);
@@ -848,7 +849,7 @@ app.post('/api/admin/delete-user', async (req, res) => {
     const solicitacaoIds = (solicitacoes || []).map(s => s.id);
     if (solicitacaoIds.length > 0) {
         // Deletar todas as versoes_audio_revisao dessas solicitações
-        const { error: audioRevError } = await supabaseAdmin
+        const { error: audioRevError } = await supabaseAdmin_1.supabaseAdmin
             .from('versoes_audio_revisao')
             .delete()
             .in('solicitacao_id', solicitacaoIds);
@@ -859,21 +860,21 @@ app.post('/api/admin/delete-user', async (req, res) => {
         }
     }
     // 2. Solicitações de revisão
-    const { error: revisaoError } = await supabaseAdmin.from('solicitacoes_revisao').delete().eq('user_id', userId);
+    const { error: revisaoError } = await supabaseAdmin_1.supabaseAdmin.from('solicitacoes_revisao').delete().eq('user_id', userId);
     if (revisaoError) {
         console.error('[DeleteUser] Erro ao deletar solicitacoes_revisao:', revisaoError);
         res.status(500).json({ error: 'Erro ao deletar solicitações de revisão: ' + revisaoError.message });
         return;
     }
     // 3. Lotes de créditos
-    const { error: lotesError } = await supabaseAdmin.from('lotes_creditos').delete().eq('user_id', userId);
+    const { error: lotesError } = await supabaseAdmin_1.supabaseAdmin.from('lotes_creditos').delete().eq('user_id', userId);
     if (lotesError) {
         console.error('[DeleteUser] Erro ao deletar lotes_creditos:', lotesError);
         res.status(500).json({ error: 'Erro ao deletar lotes de créditos: ' + lotesError.message });
         return;
     }
     // 4. Pedidos
-    const { error: pedidosError } = await supabaseAdmin.from('pedidos').delete().eq('user_id', userId);
+    const { error: pedidosError } = await supabaseAdmin_1.supabaseAdmin.from('pedidos').delete().eq('user_id', userId);
     if (pedidosError) {
         console.error('[DeleteUser] Erro ao deletar pedidos:', pedidosError);
         res.status(500).json({ error: 'Erro ao deletar pedidos: ' + pedidosError.message });
@@ -881,7 +882,7 @@ app.post('/api/admin/delete-user', async (req, res) => {
     }
     // 5. Outros dados relacionados (adicione aqui caso existam mais tabelas)
     // 6. Exclui do banco (profiles)
-    const { error: dbError } = await supabaseAdmin.from('profiles').delete().eq('id', userId);
+    const { error: dbError } = await supabaseAdmin_1.supabaseAdmin.from('profiles').delete().eq('id', userId);
     if (dbError) {
         console.error('[DeleteUser] Erro ao deletar profile:', dbError);
         res.status(500).json({ error: dbError.message });
@@ -913,6 +914,8 @@ app.get('/health', (req, res) => {
 });
 // ROTA: Geração de roteiro com IA Gemini
 app.post('/api/gerar-roteiro-ia', gerar_roteiro_ia_1.default);
+// ROTA: Processamento de pagamento com cartão
+app.post('/api/processar-pagamento-cartao-mp', processar_pagamento_cartao_mp_1.default);
 app.use(gerar_pagamento_pix_mp_1.default);
 const webhookLimiter = (0, express_rate_limit_1.default)({
     windowMs: 1 * 60 * 1000, // 1 minuto

@@ -1,79 +1,220 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, Copy } from "lucide-react";
+import { Loader2, Copy, CreditCard, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from '@/contexts/AuthContext';
+import { useFetchListablePacotes } from '@/hooks/queries/use-fetch-listable-pacotes.hook';
+import type { Pacote } from "@/hooks/queries/use-fetch-pacotes.hook";
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+import CreditCardForm from '@/components/cliente/credit-card-form';
+import { initMercadoPago } from '@mercadopago/sdk-react';
 
-// Tipos
-interface PacoteCredito {
-  id: string;
-  nome: string;
-  creditos: number;
-  preco: number;
-  precoFormatado: string;
-}
+// Hook personalizado para detectar visibilidade da página
+const usePageVisibility = () => {
+  const [isVisible, setIsVisible] = useState(!document.hidden);
 
-// Dados estáticos de exemplo (substitua por fetch do backend futuramente)
-const PACOTES: PacoteCredito[] = [
-  { id: "starter", nome: "Starter", creditos: 10, preco: 1.99, precoFormatado: "R$ 1,99" },
-  { id: "pro", nome: "Pro", creditos: 50, preco: 89.9, precoFormatado: "R$ 89,90" },
-  { id: "premium", nome: "Premium", creditos: 150, preco: 249.9, precoFormatado: "R$ 249,90" },
-];
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setIsVisible(!document.hidden);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Também escutar eventos de foco da janela
+    window.addEventListener('focus', () => setIsVisible(true));
+    window.addEventListener('blur', () => setIsVisible(false));
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', () => setIsVisible(true));
+      window.removeEventListener('blur', () => setIsVisible(false));
+    };
+  }, []);
+
+  return isVisible;
+};
 
 export default function ComprarCreditosPage() {
   const { profile, user } = useAuth();
-  const [pacoteSelecionadoParaCompra, setPacoteSelecionadoParaCompra] = useState<PacoteCredito | null>(null);
-  const [isModalPixOpen, setIsModalPixOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isPageVisible = usePageVisibility();
+  
+  // Chaves para localStorage
+  const STORAGE_KEY = 'pontocom-compra-creditos-state';
+  const FORM_STATE_KEY = 'pontocom-card-form-state';
+  
+  // Estados com inicialização do localStorage
+  const [pacoteSelecionado, setPacoteSelecionado] = useState<Pacote | null>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved).pacoteSelecionado : null;
+    } catch {
+      return null;
+    }
+  });
+  
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved).selectedPaymentMethod : null;
+    } catch {
+      return null;
+    }
+  });
+  
+  const [lastSelectedPaymentMethod, setLastSelectedPaymentMethod] = useState<string | null>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved).lastSelectedPaymentMethod : null;
+    } catch {
+      return null;
+    }
+  });
+  
   const [isLoadingQrCode, setIsLoadingQrCode] = useState(false);
   const [qrCodeBase64MP, setQrCodeBase64MP] = useState<string | null>(null);
   const [qrCodePayloadMP, setQrCodePayloadMP] = useState<string | null>(null);
   const [tempoRestanteSegundosMP, setTempoRestanteSegundosMP] = useState<number | null>(null);
+  const [isMPSdkReady, setIsMPSdkReady] = useState(false);
+  const [forceFormRemount, setForceFormRemount] = useState(0);
 
-  const handleAbrirModalPix = async (pacote: PacoteCredito) => {
-    if (!profile) {
-      toast("Erro de Autenticação", { description: "Usuário não autenticado. Faça login novamente." });
+  const { data: pacotes = [], isLoading, isError } = useFetchListablePacotes();
+
+  // Detectar quando o usuário volta à página e restaurar estado se necessário
+  useEffect(() => {
+    if (isPageVisible) {
+      // Usuário voltou à página, verificar se precisa restaurar estado
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const savedState = JSON.parse(saved);
+          
+          // Verificar se o estado local está desatualizado
+          if (savedState.pacoteSelecionado && !pacoteSelecionado) {
+            setPacoteSelecionado(savedState.pacoteSelecionado);
+          }
+          
+          if (savedState.selectedPaymentMethod && !selectedPaymentMethod) {
+            setSelectedPaymentMethod(savedState.selectedPaymentMethod);
+          }
+          
+          if (savedState.lastSelectedPaymentMethod && !lastSelectedPaymentMethod) {
+            setLastSelectedPaymentMethod(savedState.lastSelectedPaymentMethod);
+          }
+        }
+      } catch (error) {
+        console.warn('Erro ao restaurar estado:', error);
+      }
+    }
+  }, [isPageVisible, pacoteSelecionado, selectedPaymentMethod, lastSelectedPaymentMethod]);
+
+  // Salvar estado no localStorage sempre que mudarem
+  useEffect(() => {
+    const stateToSave = {
+      pacoteSelecionado,
+      selectedPaymentMethod,
+      lastSelectedPaymentMethod,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+  }, [pacoteSelecionado, selectedPaymentMethod, lastSelectedPaymentMethod]);
+
+  // Limpar estado expirado (24 horas)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const { timestamp } = JSON.parse(saved);
+        const isExpired = Date.now() - timestamp > 24 * 60 * 60 * 1000; // 24 horas
+        if (isExpired) {
+          localStorage.removeItem(STORAGE_KEY);
+          localStorage.removeItem(FORM_STATE_KEY);
+        }
+      }
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(FORM_STATE_KEY);
+    }
+  }, []);
+
+  // Inicializa o SDK do MP apenas uma vez
+  useEffect(() => {
+    if (!isMPSdkReady) {
+      initMercadoPago(import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY!, { locale: 'pt-BR' });
+      setIsMPSdkReady(true);
+    }
+  }, [isMPSdkReady]);
+
+  // Função para lidar com mudança de método de pagamento
+  const handlePaymentMethodChange = useCallback((method: string) => {
+    setSelectedPaymentMethod(method);
+    setLastSelectedPaymentMethod(method);
+  }, []);
+
+  const handleSelectPacote = (pacote: Pacote) => {
+    if (!user) {
+      navigate('/login', { state: { from: location.pathname } });
       return;
     }
-    setPacoteSelecionadoParaCompra(pacote);
-    setIsModalPixOpen(true);
-    // setPaymentIdMP(null); // This line was causing the error as paymentIdMP state was removed
-    setQrCodeBase64MP(null);
-    setQrCodePayloadMP(null);
-    setTempoRestanteSegundosMP(null);
+    
+    const isChangingPackage = pacoteSelecionado && pacoteSelecionado.id !== pacote.id;
+    setPacoteSelecionado(pacote);
+    
+    // Se estivermos mudando de pacote, limpar dados PIX mas manter o método selecionado
+    if (isChangingPackage) {
+      setQrCodeBase64MP(null);
+      setQrCodePayloadMP(null);
+      setTempoRestanteSegundosMP(null);
+      // Limpar também o estado do formulário de cartão quando mudar de pacote
+      localStorage.removeItem(FORM_STATE_KEY);
+    } else if (!pacoteSelecionado && lastSelectedPaymentMethod) {
+      // Se é a primeira seleção e temos um método lembrado, restaurá-lo
+      setSelectedPaymentMethod(lastSelectedPaymentMethod);
+    }
+  };
+
+  const generatePix = async () => {
+    if (!pacoteSelecionado || !profile) return;
     setIsLoadingQrCode(true);
     try {
       const response = await fetch('/api/criar-pagamento-pix-mp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          pacoteNome: pacote.nome,
-          valorTotal: pacote.preco,
+          pacoteNome: pacoteSelecionado.nome,
+          valorTotal: pacoteSelecionado.valor,
           emailCliente: user?.email,
           userIdCliente: profile.id,
         }),
       });
       const result = await response.json();
-      if (!result.success) {
-        throw new Error(result.message || 'Erro ao criar pagamento Pix.');
-      }
-      // setPaymentIdMP(result.paymentId); // This was one of the unused variables
+      if (!result.success) throw new Error(result.message || 'Erro ao criar pagamento Pix.');
       setQrCodeBase64MP(result.qrCodeBase64);
       setQrCodePayloadMP(result.qrCodePayload);
       setTempoRestanteSegundosMP(result.tempoExpiracaoSegundos);
     } catch (error: any) {
-      console.error("Erro ao criar pagamento Pix MP:", error);
       toast("Erro ao Gerar PIX", { description: error.message });
     } finally {
       setIsLoadingQrCode(false);
     }
   };
-
+  
+  // useEffect para gerar o PIX só quando o método for selecionado
+  useEffect(() => {
+    if (pacoteSelecionado && selectedPaymentMethod === 'pix' && !qrCodeBase64MP) {
+      generatePix();
+    }
+  }, [pacoteSelecionado, selectedPaymentMethod]);
+  
   // Contador regressivo Mercado Pago
   useEffect(() => {
-    if (isModalPixOpen && tempoRestanteSegundosMP !== null && tempoRestanteSegundosMP > 0 && !isLoadingQrCode) {
+    if (isLoadingQrCode && tempoRestanteSegundosMP !== null && tempoRestanteSegundosMP > 0) {
       const timer = setInterval(() => {
         setTempoRestanteSegundosMP((prev) => {
           if (prev === null || prev <= 1) {
@@ -86,7 +227,7 @@ export default function ComprarCreditosPage() {
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [isModalPixOpen, tempoRestanteSegundosMP, isLoadingQrCode]);
+  }, [isLoadingQrCode, tempoRestanteSegundosMP]);
 
   const formatarTempoRestante = (segundos: number | null): string => {
     if (segundos === null || segundos < 0) return "00:00";
@@ -95,126 +236,180 @@ export default function ComprarCreditosPage() {
     return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   };
 
+  // Função para limpar todo o estado (útil para pagamento bem-sucedido)
+  const clearAllState = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(FORM_STATE_KEY);
+    setPacoteSelecionado(null);
+    setSelectedPaymentMethod(null);
+    setLastSelectedPaymentMethod(null);
+    setQrCodeBase64MP(null);
+    setQrCodePayloadMP(null);
+    setTempoRestanteSegundosMP(null);
+  }, []);
+
+  const handlePaymentSuccess = useCallback(() => {
+    clearAllState(); // Limpar todo o estado salvo
+    toast.success("Pagamento realizado com sucesso!", {
+      description: "Seus créditos foram adicionados. Você será redirecionado em breve.",
+    });
+    setTimeout(() => navigate('/dashboard'), 3000);
+  }, [navigate, clearAllState]);
+
+  // Memoizar o CreditCardForm para evitar renderizações desnecessárias
+  const creditCardFormMemo = useMemo(() => {
+    if (!pacoteSelecionado) return null;
+    
+    return (
+      <CreditCardForm 
+        key={`credit-card-${pacoteSelecionado.id}-${forceFormRemount}`}
+        pacote={pacoteSelecionado}
+        onPaymentSuccess={handlePaymentSuccess}
+      />
+    );
+  }, [pacoteSelecionado?.id, pacoteSelecionado?.valor, handlePaymentSuccess, forceFormRemount]);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-12 w-12 animate-spin text-amber-500" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center h-64">
+        <p className="text-red-600">Ocorreu um erro ao carregar os pacotes.</p>
+        <p className="text-muted-foreground">Por favor, tente novamente mais tarde.</p>
+      </div>
+    );
+  }
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-start py-8 px-2 bg-background">
-      <h1 className="text-3xl font-bold text-center mb-6 bg-clip-text text-transparent bg-gradient-to-r from-startt-blue to-startt-purple">
-        Comprar Créditos
-      </h1>
-      <section className="w-full max-w-2xl grid grid-cols-1 sm:grid-cols-3 gap-6">
-        {PACOTES.map((pacote) => (
-          <div key={pacote.id} className="flex flex-col items-center border rounded-xl p-6 shadow-sm bg-card">
-            <span className="text-lg font-semibold mb-2">{pacote.nome}</span>
-            <span className="text-3xl font-bold text-primary mb-2">{pacote.creditos}</span>
-            <span className="text-muted-foreground mb-4">créditos</span>
-            <span className="text-xl font-bold mb-4">{pacote.precoFormatado}</span>
-            <Button
-              className="w-full bg-gradient-to-r from-startt-blue to-startt-purple text-primary-foreground"
-              onClick={() => handleAbrirModalPix(pacote)}
-              aria-label={`Comprar pacote ${pacote.nome}`}
-            >
-              Comprar Pacote
-            </Button>
-          </div>
+    <main className="min-h-screen container mx-auto py-8 px-4">
+      <div className="text-center mb-10">
+        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-startt-blue to-startt-purple">
+          Comprar Créditos
+        </h1>
+        <p className="text-muted-foreground mt-2">Selecione um pacote para ver as opções de pagamento.</p>
+      </div>
+
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+        {pacotes.map((pacote) => (
+          <Card 
+            key={pacote.id} 
+            className={cn(
+              "cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1",
+              pacoteSelecionado?.id === pacote.id ? "ring-2 ring-primary shadow-2xl" : "shadow-sm"
+            )}
+            onClick={() => handleSelectPacote(pacote)}
+          >
+            <CardContent className="flex flex-col items-center p-6">
+              <span className="text-lg font-semibold mb-2">{pacote.nome}</span>
+              <span className="text-3xl font-bold text-primary mb-2">{pacote.creditos_oferecidos}</span>
+              <span className="text-muted-foreground mb-4">créditos</span>
+              <span className="text-xl font-bold mb-4">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pacote.valor)}</span>
+            </CardContent>
+          </Card>
         ))}
       </section>
 
-      {/* Modal PIX */}
-      <Dialog open={isModalPixOpen} onOpenChange={setIsModalPixOpen}>
-        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl text-center bg-clip-text text-transparent bg-gradient-to-r from-startt-blue to-startt-purple">
-              Pagamento via PIX
-            </DialogTitle>
-            {pacoteSelecionadoParaCompra && (
-              <DialogDescription className="text-center pt-2">
-                Você está adquirindo: <span className="font-semibold">{pacoteSelecionadoParaCompra.nome}</span> ({pacoteSelecionadoParaCompra.creditos} créditos)
-                <br />
-                Valor: <span className="font-semibold">{pacoteSelecionadoParaCompra.precoFormatado}</span>
-              </DialogDescription>
-            )}
-          </DialogHeader>
+      {pacoteSelecionado && (
+        <section className="max-w-xl mx-auto">
+          <h2 className="text-2xl font-semibold text-center mb-4">Pagamento para: {pacoteSelecionado.nome}</h2>
+          <Tabs 
+            value={selectedPaymentMethod || ''} 
+            onValueChange={handlePaymentMethodChange} 
+            className="w-full"
+          >
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="pix"><QrCode className="mr-2 h-4 w-4"/> PIX</TabsTrigger>
+              <TabsTrigger value="card"><CreditCard className="mr-2 h-4 w-4"/> Cartão de Crédito</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-          <div className="py-4 flex flex-col items-center justify-center space-y-3">
-            {isLoadingQrCode ? (
-              <div className="h-40 w-40 flex items-center justify-center">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" aria-label="Carregando QR Code" />
-              </div>
-            ) : qrCodeBase64MP ? (
-              <img src={`data:image/png;base64,${qrCodeBase64MP}`} alt="QR Code PIX" className="h-40 w-40 border rounded-md" width={160} height={160} loading="lazy" />
-            ) : (
-              <p className="text-destructive">Não foi possível carregar o QR Code.</p>
-            )}
-
-            {/* Contador regressivo Mercado Pago */}
-            {tempoRestanteSegundosMP !== null && tempoRestanteSegundosMP > 0 && !isLoadingQrCode && (
-              <p className="text-center text-lg font-medium mt-3">
-                Este QR Code expira em: <span className="text-primary font-bold">{formatarTempoRestante(tempoRestanteSegundosMP)}</span>
-              </p>
-            )}
-            {tempoRestanteSegundosMP === 0 && !isLoadingQrCode && (
-              <p className="text-center text-lg font-medium mt-3 text-destructive">
-                QR Code Expirado!
-              </p>
-            )}
-            {/* Campo PIX Copia e Cola Mercado Pago */}
-            {qrCodePayloadMP && !isLoadingQrCode && (
-              <div className="w-full flex flex-col items-center mt-2">
-                <label htmlFor="pix-copia-e-cola" className="text-sm font-medium text-muted-foreground mb-1">
-                  Código Copia e Cola:
-                </label>
-                <div className="flex w-full max-w-xs gap-2">
-                  <input
-                    id="pix-copia-e-cola"
-                    type="text"
-                    value={qrCodePayloadMP}
-                    readOnly
-                    className="flex-1 rounded-md border border-neutral-700 px-2 py-1 text-xs bg-neutral-900 text-white select-all focus:outline-none focus:ring-2 focus:ring-primary"
-                    aria-label="Código PIX Copia e Cola"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0"
-                    onClick={() => {
-                      if (qrCodePayloadMP) {
-                        navigator.clipboard.writeText(qrCodePayloadMP);
-                        toast("Código copiado!", { description: "O código PIX foi copiado para sua área de transferência." });
-                      }
-                    }}
-                    aria-label="Copiar código PIX Copia e Cola"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            <div className="text-center text-sm text-muted-foreground space-y-1">
-              <p>1. Abra o aplicativo do seu banco e escolha a opção PIX.</p>
-              <p>2. Selecione "Pagar com QR Code" e escaneie o código acima.</p>
-              <p>3. Confirme o valor e finalize o pagamento.</p>
-              <p className="font-semibold mt-2">Após o pagamento, seus créditos podem levar alguns minutos para serem processados e adicionados à sua conta.</p>
-            </div>
+          {/* Placeholder para quando nada está selecionado */}
+          <div className={cn("text-center p-10 border-dashed border-2 mt-4 rounded-lg", selectedPaymentMethod ? "hidden" : "block")}>
+            <p className="text-muted-foreground">Selecione uma forma de pagamento acima.</p>
           </div>
 
-          <DialogFooter className="sm:justify-center">
-            <Button
-              type="button"
-              className="w-full sm:w-auto bg-gradient-to-r from-startt-blue to-startt-purple text-primary-foreground"
-              onClick={() => {
-                setIsModalPixOpen(false);
-                toast("Aguardando Confirmação", {
-                  description: "Seu pagamento está sendo processado. Avisaremos quando os créditos estiverem disponíveis."
-                });
-              }}
-              aria-label="Confirmar pagamento PIX"
-            >
-              Pagamento Realizado / Fechar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          {/* Conteúdo do PIX (controlado por visibilidade) */}
+          <div className={cn("mt-4", selectedPaymentMethod === 'pix' ? 'block' : 'hidden')}>
+            <Card>
+              <CardContent className="py-6 flex flex-col items-center justify-center space-y-3">
+                {isLoadingQrCode ? (
+                  <div className="h-40 w-40 flex items-center justify-center">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary" aria-label="Carregando QR Code" />
+                  </div>
+                ) : qrCodeBase64MP ? (
+                  <img src={`data:image/png;base64,${qrCodeBase64MP}`} alt="QR Code PIX" className="h-40 w-40 border rounded-md" width={160} height={160} loading="lazy" />
+                ) : (
+                  <p className="text-destructive">Não foi possível carregar o QR Code.</p>
+                )}
+
+                {/* Contador regressivo Mercado Pago */}
+                {tempoRestanteSegundosMP !== null && tempoRestanteSegundosMP > 0 && (
+                  <p className="text-center text-lg font-medium mt-3">
+                    Este QR Code expira em: <span className="text-primary font-bold">{formatarTempoRestante(tempoRestanteSegundosMP)}</span>
+                  </p>
+                )}
+                {tempoRestanteSegundosMP === 0 && (
+                  <p className="text-center text-lg font-medium mt-3 text-destructive">
+                    QR Code Expirado!
+                  </p>
+                )}
+                {/* Campo PIX Copia e Cola Mercado Pago */}
+                {qrCodePayloadMP && (
+                  <div className="w-full flex flex-col items-center mt-2">
+                    <label htmlFor="pix-copia-e-cola" className="text-sm font-medium text-muted-foreground mb-1">
+                      Código Copia e Cola:
+                    </label>
+                    <div className="flex w-full max-w-xs gap-2">
+                      <input
+                        id="pix-copia-e-cola"
+                        type="text"
+                        value={qrCodePayloadMP}
+                        readOnly
+                        className="flex-1 rounded-md border border-neutral-700 px-2 py-1 text-xs bg-neutral-900 text-white select-all focus:outline-none focus:ring-2 focus:ring-primary"
+                        aria-label="Código PIX Copia e Cola"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={() => {
+                          if (qrCodePayloadMP) {
+                            navigator.clipboard.writeText(qrCodePayloadMP);
+                            toast("Código copiado!", { description: "O código PIX foi copiado para sua área de transferência." });
+                          }
+                        }}
+                        aria-label="Copiar código PIX Copia e Cola"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Conteúdo do Cartão (controlado por visibilidade, NUNCA desmontado) */}
+          <div className={cn("mt-4", selectedPaymentMethod === 'card' ? 'block' : 'hidden')}>
+            <Card>
+              <CardHeader>
+                <CardTitle>Pagamento com Cartão</CardTitle>
+                <CardDescription>Preencha os dados do seu cartão de crédito.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {creditCardFormMemo}
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      )}
     </main>
   );
 }

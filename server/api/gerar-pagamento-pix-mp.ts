@@ -15,9 +15,9 @@ function isValidHttpUrl(url: string | undefined): boolean {
 
 router.post('/api/criar-pagamento-pix-mp', async (req: Request, res: Response) => {
   try {
-    const { pacoteNome, valorTotal, emailCliente, userIdCliente } = req.body;
-    if (!pacoteNome || !valorTotal || !emailCliente || !userIdCliente) {
-      return res.status(400).json({ success: false, message: 'Dados obrigatórios ausentes.' });
+    const { pacoteNome, valorTotal, emailCliente, userIdCliente, pacoteId } = req.body;
+    if (!pacoteNome || !valorTotal || !emailCliente || !userIdCliente || !pacoteId) {
+      return res.status(400).json({ success: false, message: 'Dados obrigatórios ausentes (pacoteNome, valorTotal, emailCliente, userIdCliente, pacoteId).' });
     }
 
     const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
@@ -39,6 +39,11 @@ router.post('/api/criar-pagamento-pix-mp', async (req: Request, res: Response) =
       notification_url: NOTIFICATION_URL,
       external_reference: externalReference,
       date_of_expiration: expirationDate,
+      metadata: {
+        user_id_cliente: userIdCliente,
+        pacote_id: pacoteId,
+        pacote_nome: pacoteNome
+      },
     };
 
     const response = await axios.post(

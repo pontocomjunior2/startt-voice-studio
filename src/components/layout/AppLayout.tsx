@@ -49,6 +49,8 @@ const AppLayout: React.FC = () => {
   const location = useLocation();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
 
+  console.log('AppLayout Render - User Role:', profile?.role); // Log para depuração
+
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {

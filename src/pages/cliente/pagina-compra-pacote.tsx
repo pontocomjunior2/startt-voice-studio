@@ -9,12 +9,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
+import { toast } from 'sonner';
 
 function PaginaCompraPacote() {
   const { pacoteId } = useParams<{ pacoteId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { mutate: purchasePacote, isPending: isPurchasing } = usePurchasePacote();
 
   const { data: pacote, isLoading: isLoadingPacote, isError: isErrorPacote, error: errorPacote } = useFetchPublicPacote(pacoteId!);
@@ -25,6 +26,16 @@ function PaginaCompraPacote() {
       navigate('/login', { state: { from: location.pathname } });
       return;
     }
+
+    const isProfileComplete = profile?.full_name && (profile?.cpf || profile?.cnpj);
+    if (!isProfileComplete) {
+      toast.info("Complete seu perfil", {
+        description: "Você precisa preencher seu nome completo e CPF/CNPJ antes de comprar.",
+      });
+      navigate('/meu-perfil', { state: { from: location.pathname } });
+      return;
+    }
+    
     purchasePacote(pacoteId!, {
       onSuccess: () => {
         navigate('/dashboard');

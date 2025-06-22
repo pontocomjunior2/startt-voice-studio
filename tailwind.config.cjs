@@ -33,32 +33,16 @@ module.exports = {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
-        background: '#0a0c1b',
-        card: '#181a2a',
-        foreground: '#f3f4f6',
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: '#18e0ff',
-          dark: '#8f5fff',
-          gradient: 'linear-gradient(90deg, #18e0ff 0%, #8f5fff 100%)',
-          foreground: '#f3f4f6',
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
         },
-        startt: {
-          blue: '#18e0ff',
-          purple: '#8f5fff',
-        },
-        text: {
-          DEFAULT: '#f3f4f6',
-          muted: '#b0b3c6',
-        },
-        secondary: { // Mantém sua estrutura
+        secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
         },
-        // Cores do template (primary: "var(--neutral-700)", secondary: "var(--neutral-500)")
-        // serão resolvidas se 'addVariablesForColors' funcionar como esperado
-        // ou se você definir --neutral-700 e --neutral-500 em seu CSS global.
-        // Por enquanto, não vamos sobrescrever suas definições de 'primary' e 'secondary'.
-        // Vamos ver como os componentes do template se comportam.
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
@@ -74,6 +58,19 @@ module.exports = {
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+        // Cores customizadas startt mantidas como adicionais
+        startt: {
+          blue: '#18e0ff',
+          purple: '#8f5fff',
+        },
+        text: {
+          DEFAULT: '#f3f4f6',
+          muted: '#b0b3c6',
         },
         // Definições de cores de status adicionadas aqui
         'status-red': '#EF4444',    // red-500

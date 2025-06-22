@@ -20,9 +20,9 @@ function isValidHttpUrl(url) {
 router.post('/api/criar-pagamento-pix-mp', async (req, res) => {
     var _a, _b, _c;
     try {
-        const { pacoteNome, valorTotal, emailCliente, userIdCliente } = req.body;
-        if (!pacoteNome || !valorTotal || !emailCliente || !userIdCliente) {
-            return res.status(400).json({ success: false, message: 'Dados obrigatórios ausentes.' });
+        const { pacoteNome, valorTotal, emailCliente, userIdCliente, pacoteId } = req.body;
+        if (!pacoteNome || !valorTotal || !emailCliente || !userIdCliente || !pacoteId) {
+            return res.status(400).json({ success: false, message: 'Dados obrigatórios ausentes (pacoteNome, valorTotal, emailCliente, userIdCliente, pacoteId).' });
         }
         const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
         const NOTIFICATION_URL = process.env.MP_NOTIFICATION_URL; // Ex: https://suaapp.com/api/webhook-mp-pagamentos
@@ -40,6 +40,11 @@ router.post('/api/criar-pagamento-pix-mp', async (req, res) => {
             notification_url: NOTIFICATION_URL,
             external_reference: externalReference,
             date_of_expiration: expirationDate,
+            metadata: {
+                user_id_cliente: userIdCliente,
+                pacote_id: pacoteId,
+                pacote_nome: pacoteNome
+            },
         };
         const response = await axios_1.default.post('https://api.mercadopago.com/v1/payments', body, {
             headers: {
