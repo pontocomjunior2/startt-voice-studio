@@ -30,7 +30,7 @@ ARG MAX_UPLOAD_SIZE_MB=200
 ARG NODE_OPTIONS=--max-old-space-size=4096
 
 ENV NODE_ENV=development
-ENV PORT=3000
+ENV PORT=80
 ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
 ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
@@ -199,11 +199,11 @@ USER nodejs
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))" || \
-    node -e "require('http').get('http://localhost:3000/', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
+    CMD node -e "require('http').get('http://localhost:80/api/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))" || \
+    node -e "require('http').get('http://localhost:80/', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
 
 # Expor porta
-EXPOSE 3000
+EXPOSE 80
 
 # Debug final e verificação de arquivos críticos
 RUN echo "=== Final Check ===" && \
