@@ -31,6 +31,8 @@ const gerar_roteiro_ia_1 = __importDefault(require("./api/gerar-roteiro-ia"));
 const gerar_pagamento_pix_mp_1 = __importDefault(require("./api/gerar-pagamento-pix-mp"));
 const webhook_mp_pagamentos_1 = __importDefault(require("./api/webhook-mp-pagamentos"));
 const processar_pagamento_cartao_mp_1 = __importDefault(require("./api/processar-pagamento-cartao-mp"));
+const teste_creditos_1 = __importDefault(require("./api/teste-creditos"));
+const verificar_creditos_1 = __importDefault(require("./api/verificar-creditos"));
 const app = (0, express_1.default)();
 app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT) || 3001; // Porta para o servidor backend
@@ -916,6 +918,10 @@ app.get('/health', (req, res) => {
 app.post('/api/gerar-roteiro-ia', gerar_roteiro_ia_1.default);
 // ROTA: Processamento de pagamento com cartão
 app.post('/api/processar-pagamento-cartao-mp', processar_pagamento_cartao_mp_1.default);
+// ROTA: Teste de créditos direto
+app.post('/api/teste-creditos', teste_creditos_1.default);
+// ROTA: Verificar créditos do usuário
+app.get('/api/verificar-creditos', verificar_creditos_1.default);
 app.use(gerar_pagamento_pix_mp_1.default);
 const webhookLimiter = (0, express_rate_limit_1.default)({
     windowMs: 1 * 60 * 1000, // 1 minuto

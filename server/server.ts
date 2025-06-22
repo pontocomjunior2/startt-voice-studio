@@ -32,6 +32,8 @@ import gerarRoteiroIAHandler from './api/gerar-roteiro-ia';
 import gerarPagamentoPixMpRouter from './api/gerar-pagamento-pix-mp';
 import webhookMpPagamentosRouter from './api/webhook-mp-pagamentos';
 import processarPagamentoCartaoMpHandler from './api/processar-pagamento-cartao-mp';
+import testeCreditosHandler from './api/teste-creditos';
+import verificarCreditosHandler from './api/verificar-creditos';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -993,6 +995,12 @@ app.post('/api/gerar-roteiro-ia', gerarRoteiroIAHandler);
 
 // ROTA: Processamento de pagamento com cartão
 app.post('/api/processar-pagamento-cartao-mp', processarPagamentoCartaoMpHandler);
+
+// ROTA: Teste de créditos direto
+app.post('/api/teste-creditos', testeCreditosHandler);
+
+// ROTA: Verificar créditos do usuário
+app.get('/api/verificar-creditos', verificarCreditosHandler);
 
 app.use(gerarPagamentoPixMpRouter);
 
