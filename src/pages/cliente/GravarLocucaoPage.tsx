@@ -101,7 +101,7 @@ const multiStepGravarLocucaoFormSchema = z.object({
   }
 });
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+// const API_URL = import.meta.env.VITE_API_URL || '';
 
 function GravarLocucaoPage() {
   const { user, profile, refreshProfile } = useAuth();
