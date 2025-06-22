@@ -1029,10 +1029,11 @@ function MeusAudiosPage() {
                           pedido.status === PEDIDO_STATUS.GRAVANDO && "border-purple-500 bg-purple-100 text-purple-700 dark:border-purple-400 dark:bg-purple-900/30 dark:text-purple-300",
                           pedido.status === PEDIDO_STATUS.EM_REVISAO && "border-pink-500 bg-pink-100 text-pink-700 dark:border-pink-400 dark:bg-pink-900/30 dark:text-pink-300",
                           pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && "bg-amber-500 text-white hover:bg-amber-600 dark:bg-yellow-500 dark:text-yellow-900",
-                          pedido.status === PEDIDO_STATUS.CANCELADO && "bg-red-600 hover:bg-red-700"
+                          (pedido.status === PEDIDO_STATUS.CANCELADO || pedido.status === PEDIDO_STATUS.ESTORNADO) && "bg-red-600 hover:bg-red-700"
                         )}
                       >
-                        {pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE 
+                        {pedido.status === PEDIDO_STATUS.ESTORNADO ? "Cancelado" 
+                          : pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE 
                           ? "Info Solicitada" 
                           : pedido.status === PEDIDO_STATUS.EM_PRODUCAO
                             ? "Em Produção"

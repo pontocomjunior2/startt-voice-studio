@@ -3,18 +3,23 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const dotenv_1 = __importDefault(require("dotenv"));
+const path_1 = __importDefault(require("path"));
+// Carrega as variáveis de ambiente do arquivo .env na raiz do projeto.
+// O __dirname aponta para o diretório do arquivo JS compilado (dist-server),
+// então subimos um nível para encontrar o .env na raiz.
+const envPath = path_1.default.resolve(__dirname, '../.env');
+dotenv_1.default.config({ path: envPath });
 const express_1 = __importDefault(require("express"));
 const multer_1 = __importDefault(require("multer"));
-const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const cors_1 = __importDefault(require("cors"));
 const supabase_js_1 = require("@supabase/supabase-js");
-const dotenv_1 = __importDefault(require("dotenv"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
-// Especificar o caminho para o arquivo .env na raiz do projeto
-const envPath = path_1.default.resolve(__dirname, '../.env');
-dotenv_1.default.config({ path: envPath });
-console.log(`[Servidor Express] Tentando carregar .env de: ${envPath}`);
+// Em um ambiente de container (Docker/EasyPanel), as variáveis de ambiente
+// são injetadas diretamente, então o `dotenv` não é necessário.
+// dotenv.config({ path: path.resolve(__dirname, '../.env') });
+// console.log(`[Servidor Express] Tentando carregar .env de: ${path.resolve(__dirname, '../.env')}`);
 console.log('[Servidor Express] VITE_SUPABASE_URL lido:', process.env.VITE_SUPABASE_URL ? 'Definido' : 'NÃO DEFINIDO');
 console.log('[Servidor Express] VITE_SUPABASE_ANON_KEY lido:', process.env.VITE_SUPABASE_ANON_KEY ? 'Definido' : 'NÃO DEFINIDO');
 console.log('[Servidor Express] SUPABASE_SERVICE_ROLE_KEY lido:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Definido' : 'NÃO DEFINIDO');
@@ -30,23 +35,8 @@ app.use(express_1.default.json({ limit: '150mb' }));
 app.use(express_1.default.urlencoded({ limit: '150mb', extended: true }));
 // Habilitar CORS para todas as origens (em produção, restrinja para o seu domínio frontend)
 app.use((0, cors_1.default)({ origin: '*', credentials: true }));
-// Middleware personalizado para uploads com melhor tratamento de erros
-app.use('/uploads', (req, res, next) => {
-    const filePath = path_1.default.join(__dirname, '../public/uploads', req.path);
-    // Verificar se o caminho existe
-    if (!fs_1.default.existsSync(filePath)) {
-        console.log(`[Uploads Middleware] Arquivo não encontrado: ${filePath}`);
-        return res.status(404).json({ error: 'Arquivo não encontrado' });
-    }
-    // Verificar se é um diretório (evitar erro EISDIR)
-    const stats = fs_1.default.statSync(filePath);
-    if (stats.isDirectory()) {
-        console.log(`[Uploads Middleware] Tentativa de acesso a diretório: ${filePath}`);
-        return res.status(403).json({ error: 'Acesso a diretório não permitido' });
-    }
-    // Se chegou aqui, é um arquivo válido - usar o middleware padrão
-    express_1.default.static(path_1.default.join(__dirname, '../public/uploads'))(req, res, next);
-});
+// Middleware para servir os arquivos de uploads de forma correta
+app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '../public/uploads')));
 // Middleware para servir arquivos estáticos do frontend compilado
 // Com proteção extra contra EISDIR
 app.use((req, res, next) => {
@@ -799,13 +789,27 @@ app.post('/api/admin/delete-user', async (req, res) => {
     }
     res.json({ success: true });
 });
-// ROTA: Health Check para Docker
+// ROTA: Health Check para Docker/EasyPanel
 app.get('/api/health', (req, res) => {
+    console.log('[Health Check] Requisição recebida em /api/health');
     res.status(200).json({
         status: 'healthy',
         timestamp: new Date().toISOString(),
-        uptime: process.uptime()
+        uptime: process.uptime(),
+        port: PORT,
+        env: process.env.NODE_ENV || 'development'
     });
+    console.log('[Health Check] Resposta enviada');
+});
+// ROTA: Health Check alternativo na raiz (backup)
+app.get('/health', (req, res) => {
+    console.log('[Health Check Root] Requisição recebida em /health');
+    res.status(200).json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        port: PORT
+    });
+    console.log('[Health Check Root] Resposta enviada');
 });
 // ROTA: Geração de roteiro com IA Gemini
 app.post('/api/gerar-roteiro-ia', gerar_roteiro_ia_1.default);
@@ -851,8 +855,9 @@ app.get('*', (req, res) => {
         res.status(500).json({ error: 'Frontend não está disponível' });
     }
 });
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Servidor backend rodando na porta ${PORT}`);
+const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1';
+app.listen(PORT, HOST, () => {
+    console.log(`Servidor backend rodando em http://${HOST}:${PORT}`);
     console.log(`Frontend será servido em: http://localhost:${PORT}/`);
     console.log(`API disponível em: http://localhost:${PORT}/api/*`);
     console.log(`Uploads serão salvos em: ${path_1.default.join(__dirname, '../public/uploads')}`);

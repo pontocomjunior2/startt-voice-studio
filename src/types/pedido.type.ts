@@ -8,6 +8,7 @@ export interface PedidoStatus {
   EM_REVISAO: 'em_revisao';
   AGUARDANDO_CLIENTE: 'aguardando_cliente';
   REJEITADO?: 'rejeitado';
+  ESTORNADO?: 'estornado';
 }
 
 export const PEDIDO_STATUS: PedidoStatus = {
@@ -20,6 +21,7 @@ export const PEDIDO_STATUS: PedidoStatus = {
   EM_REVISAO: 'em_revisao',
   AGUARDANDO_CLIENTE: 'aguardando_cliente',
   REJEITADO: 'rejeitado',
+  ESTORNADO: 'estornado',
 };
 
 export type TipoStatusPedido = PedidoStatus[keyof PedidoStatus];

@@ -181,7 +181,7 @@ function GravarLocucaoPage() {
       // Buscar demos para cada locutor
       const locutoresComDemos = await Promise.all((locutoresData || []).map(async (locutor) => {
         try {
-          const res = await fetch(`${import.meta.env.VITE_API_URL}/api/locutor/${locutor.id}/demos`);
+          const res = await fetch(`/api/locutor/${locutor.id}/demos`); // CORRIGIDO: Usar caminho relativo absoluto
           if (!res.ok) return { ...locutor, demos: [] };
           const json = await res.json();
           return { ...locutor, demos: json.demos || [] } as Locutor & { demos: { url: string; estilo?: string }[] };
@@ -640,7 +640,7 @@ function GravarLocucaoPage() {
           const uploadFormData = new FormData();
           uploadFormData.append('audioGuia', audioGuiaFile);
           try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/upload-guia`, {
+            const response = await fetch(`/api/upload-guia`, {
               method: 'POST',
               body: uploadFormData,
             });
@@ -849,7 +849,7 @@ function GravarLocucaoPage() {
     setIaError(null);
     try {
       const payload = { ...iaForm };
-      const response = await fetch(`${API_URL}/api/gerar-roteiro-ia`, {
+      const response = await fetch(`/api/gerar-roteiro-ia`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -883,7 +883,7 @@ function GravarLocucaoPage() {
     }
     setRoteiroSendoRegenerado(true);
     try {
-      const response = await fetch(`${API_URL}/api/gerar-roteiro-ia`, {
+      const response = await fetch(`/api/gerar-roteiro-ia`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(ultimosInputsAssistenteIA),
@@ -1485,9 +1485,19 @@ function GravarLocucaoPage() {
                         </div>
                     </div>
                      {(profile?.saldoCalculadoCreditos ?? 0) < estimatedCredits && estimatedCredits > 0 && (
-                      <p className="text-sm mt-3 text-destructive text-center">
-                        Você não tem créditos suficientes para este pedido.
-                      </p>
+                      <div className="text-center mt-4 p-3 bg-destructive/10 rounded-md">
+                        <p className="text-sm font-medium text-destructive">
+                          Você não tem créditos suficientes para este pedido.
+                        </p>
+                        <Button
+                          type="button"
+                          onClick={() => navigate('/comprar-creditos')}
+                          className="mt-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold shadow-lg hover:opacity-90"
+                          size="sm"
+                        >
+                          Adicionar Créditos
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>

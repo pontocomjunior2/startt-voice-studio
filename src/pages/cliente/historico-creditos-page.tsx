@@ -5,10 +5,10 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { PlusCircle, MinusCircle, Clock, Circle, AlertTriangle, Undo2, UserCog } from 'lucide-react';
+import { PlusCircle, MinusCircle, Clock, Circle, AlertTriangle, Undo2, UserCog, Ban } from 'lucide-react';
 
 interface EventoTimeline {
-  tipo: 'ADICAO_CREDITO' | 'USO_CREDITO' | 'EXPIRACAO_CREDITO' | 'ESTORNO_CREDITO' | 'AJUSTE_MANUAL' | 'CREDITOS_VENCIDOS';
+  tipo: 'ADICAO_CREDITO' | 'USO_CREDITO' | 'EXPIRACAO_CREDITO' | 'ESTORNO_CREDITO' | 'AJUSTE_MANUAL' | 'CREDITOS_VENCIDOS' | 'PEDIDO_CANCELADO';
   data: string;
   descricao: string;
   detalhes: string;
@@ -23,7 +23,8 @@ const getIcon = (tipo: EventoTimeline['tipo']) => {
   if (tipo === 'ADICAO_CREDITO') return <PlusCircle className="h-5 w-5 text-green-500" />;
   if (tipo === 'USO_CREDITO') return <MinusCircle className="h-5 w-5 text-red-500" />;
   if (tipo === 'EXPIRACAO_CREDITO') return <Clock className="h-5 w-5 text-yellow-600" />;
-  if (tipo === 'ESTORNO_CREDITO') return <Undo2 className="h-5 w-5 text-blue-600" />;
+  if (tipo === 'ESTORNO_CREDITO') return <Undo2 className="h-5 w-5 text-blue-500" />;
+  if (tipo === 'PEDIDO_CANCELADO') return <Ban className="h-5 w-5 text-gray-500" />;
   if (tipo === 'AJUSTE_MANUAL') return <UserCog className="h-5 w-5 text-purple-600" />;
   return <Circle className="h-5 w-5 text-muted-foreground" />;
 };
@@ -80,20 +81,31 @@ const HistoricoCreditosPage: React.FC = () => {
           .from('pedidos')
           .select('id, id_pedido_serial, titulo, created_at, creditos_debitados, status')
           .eq('user_id', userId)
-          .neq('status', 'cancelado')
           .neq('status', 'rejeitado');
         if (pedidosError) throw pedidosError;
         console.log('[TimelineV3] Pedidos recebidos:', pedidosData);
 
         pedidosData?.forEach(pedido => {
           if (pedido.creditos_debitados > 0) {
+            
+            // Lógica para diferenciar o tipo de evento do pedido
+            let tipoEvento: EventoTimeline['tipo'] = 'USO_CREDITO';
+            let descricaoEvento = `Pedido #${pedido.id_pedido_serial || pedido.id.substring(0,8)} (${pedido.titulo || 'Sem título'})`;
+            let detalhesEvento = `- ${pedido.creditos_debitados} créditos utilizados.`;
+
+            if (pedido.status === 'estornado' || pedido.status === 'cancelado_pelo_usuario') {
+              tipoEvento = 'ESTORNO_CREDITO';
+              descricaoEvento = `Estorno de ${pedido.creditos_debitados} créditos`;
+              detalhesEvento = `Referente ao pedido #${pedido.id_pedido_serial || pedido.id.substring(0,8)} (${pedido.titulo || 'Sem título'}) cancelado.`;
+            }
+
             eventosBrutosParaTimeline.push({
-              tipo: 'USO_CREDITO',
+              tipo: tipoEvento,
               data: new Date(pedido.created_at).toISOString(),
               pedido_id: pedido.id,
-              quantidade: pedido.creditos_debitados,
-              descricao: `Pedido #${pedido.id_pedido_serial || pedido.id.substring(0,8)} (${pedido.titulo || 'Sem título'})`,
-              detalhes: `- ${pedido.creditos_debitados} créditos utilizados.`,
+              quantidade: pedido.creditos_debitados, // Mantemos a quantidade para consistência
+              descricao: descricaoEvento,
+              detalhes: detalhesEvento,
             });
           }
         });
@@ -178,6 +190,16 @@ const HistoricoCreditosPage: React.FC = () => {
               console.warn(`[TimelineV3 Loop] USO: Não foi possível debitar todos os ${eventoAtual.quantidade} créditos. Faltaram ${creditosADebitar}. Isso indica saldo negativo ou problema na lógica.`);
             }
             console.log(`[TimelineV3 Loop] USO: -${eventoAtual.quantidade}. Novo Saldo: ${saldoLinhaDoTempo}`);
+          } else if (eventoAtual.tipo === 'ESTORNO_CREDITO') {
+            // Para estorno, a lógica é a mesma de uma adição de lote
+            estadoSimuladoDosLotes.push({
+              id: `estorno-${eventoAtual.pedido_id}`,
+              data_adicao: eventoAtual.data,
+              data_validade: null, // Estornos não deveriam ter validade
+              saldoRestanteNoLote: eventoAtual.quantidade,
+            });
+            // O saldo também não é somado aqui, é calculado externamente.
+            console.log(`[TimelineV3 Loop] ESTORNO: Simulado como adição de ${eventoAtual.quantidade}.`);
           }
           eventoPrincipalParaExibicao.saldoAposEvento = Math.max(0, saldoLinhaDoTempo);
           eventosFinaisParaExibicao.push(eventoPrincipalParaExibicao);
@@ -245,6 +267,7 @@ const HistoricoCreditosPage: React.FC = () => {
                       evento.tipo === 'USO_CREDITO' ? 'bg-red-900' :
                       evento.tipo === 'EXPIRACAO_CREDITO' || isVencido ? 'bg-muted' :
                       evento.tipo === 'ESTORNO_CREDITO' ? 'bg-blue-900' :
+                      evento.tipo === 'PEDIDO_CANCELADO' ? 'bg-gray-700' :
                       isAjusteManual ? 'bg-purple-900' :
                       'bg-background'}`}>
                     {getIcon(isVencido ? 'EXPIRACAO_CREDITO' : evento.tipo)}
@@ -258,7 +281,7 @@ const HistoricoCreditosPage: React.FC = () => {
                         <span className="ml-2 px-2 py-0.5 rounded bg-purple-200 text-purple-900 text-xs font-bold dark:bg-purple-700 dark:text-purple-100">Atendimento</span>
                       )}
                       {evento.tipo === 'ESTORNO_CREDITO' && (
-                        <span className="ml-2 px-2 py-0.5 rounded bg-blue-900/30 text-blue-400 text-xs font-bold">Estorno</span>
+                        <span className="ml-2 px-2 py-0.5 rounded bg-blue-200 text-blue-900 text-xs font-bold dark:bg-blue-700 dark:text-blue-100">Estorno</span>
                       )}
                       {isVencido && (
                         <span className="ml-2 px-2 py-0.5 rounded bg-muted text-muted-foreground text-xs font-bold">Vencido</span>
@@ -266,11 +289,6 @@ const HistoricoCreditosPage: React.FC = () => {
                     </div>
                     <h3 className="text-lg font-semibold text-foreground">{evento.descricao}</h3>
                     <p className="text-sm text-muted-foreground whitespace-pre-line">{evento.detalhes}</p>
-                    {typeof evento.saldoAposEvento === 'number' && (
-                      <div className="mt-2 text-sm font-semibold text-blue-400">
-                        Saldo após este evento: {evento.saldoAposEvento} crédito{evento.saldoAposEvento === 1 ? '' : 's'}
-                      </div>
-                    )}
                   </Card>
                 </li>
               );

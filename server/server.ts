@@ -1,6 +1,14 @@
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Carrega as variáveis de ambiente do arquivo .env na raiz do projeto.
+// O __dirname aponta para o diretório do arquivo JS compilado (dist-server),
+// então subimos um nível para encontrar o .env na raiz.
+const envPath = path.resolve(__dirname, '../.env');
+dotenv.config({ path: envPath });
+
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
 import fs from 'fs';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
@@ -31,26 +39,8 @@ app.use(express.urlencoded({ limit: '150mb', extended: true }));
 // Habilitar CORS para todas as origens (em produção, restrinja para o seu domínio frontend)
 app.use(cors({ origin: '*', credentials: true }));
 
-// Middleware personalizado para uploads com melhor tratamento de erros
-app.use('/uploads', (req, res, next) => {
-  const filePath = path.join(__dirname, '../public/uploads', req.path);
-  
-  // Verificar se o caminho existe
-  if (!fs.existsSync(filePath)) {
-    console.log(`[Uploads Middleware] Arquivo não encontrado: ${filePath}`);
-    return res.status(404).json({ error: 'Arquivo não encontrado' });
-  }
-  
-  // Verificar se é um diretório (evitar erro EISDIR)
-  const stats = fs.statSync(filePath);
-  if (stats.isDirectory()) {
-    console.log(`[Uploads Middleware] Tentativa de acesso a diretório: ${filePath}`);
-    return res.status(403).json({ error: 'Acesso a diretório não permitido' });
-  }
-  
-  // Se chegou aqui, é um arquivo válido - usar o middleware padrão
-  express.static(path.join(__dirname, '../public/uploads'))(req, res, next);
-});
+// Middleware para servir os arquivos de uploads de forma correta
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
 // Middleware para servir arquivos estáticos do frontend compilado
 // Com proteção extra contra EISDIR
@@ -948,8 +938,10 @@ app.get('*', (req, res) => {
   }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Servidor backend rodando na porta ${PORT}`);
+const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1';
+
+app.listen(PORT, HOST, () => {
+  console.log(`Servidor backend rodando em http://${HOST}:${PORT}`);
   console.log(`Frontend será servido em: http://localhost:${PORT}/`);
   console.log(`API disponível em: http://localhost:${PORT}/api/*`);
   console.log(`Uploads serão salvos em: ${path.join(__dirname, '../public/uploads')}`);
