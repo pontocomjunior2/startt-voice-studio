@@ -58,9 +58,9 @@ COPY --from=builder /app/package.json .
 # Copiar diretório public
 COPY --from=builder /app/public ./public
 
-# Criar e dar permissão para diretórios de upload
-RUN mkdir -p public/uploads temp/uploads && \
-    chown -R nodejs:nodejs public/uploads temp/uploads
+# Criar e dar permissão para os diretórios que serão montados como volumes
+RUN mkdir -p public/uploads temp && \
+    chown -R nodejs:nodejs public/uploads temp
 
 # Mudar para usuário não-root
 USER nodejs
