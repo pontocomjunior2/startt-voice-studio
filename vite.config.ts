@@ -1,8 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import path from "path"
-import fs from 'fs'
-import { cpSync, rmSync } from 'fs'
+import * as fs from 'fs';
 
 // https://vite.dev/config/
 export default defineConfig({
