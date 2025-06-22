@@ -199,20 +199,25 @@ USER nodejs
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
+    CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))" || \
+    node -e "require('http').get('http://localhost:3000/', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
 
 # Expor porta
 EXPOSE 3000
 
-# Debug final
+# Debug final e verificação de arquivos críticos
 RUN echo "=== Final Check ===" && \
     whoami && \
     pwd && \
     ls -la && \
+    echo "=== Checking Critical Files ===" && \
+    test -f dist-server/server.js && echo "✅ dist-server/server.js exists" || echo "❌ dist-server/server.js missing" && \
+    test -d dist && echo "✅ dist directory exists" || echo "❌ dist directory missing" && \
+    ls -la dist-server/ || echo "dist-server directory contents unknown" && \
     echo "=== Ready to Start ==="
 
 # Inicialização
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist-server/server.js"] # Force EasyPanel cache refresh - 06/21/2025 23:45:30
-
-# EasyPanel cache breaker - Optimized chown performance fix - 2025-06-21-23-45-45
+# Force EasyPanel cache refresh - 06/21/2025 23:50:15
+# EasyPanel cache breaker - Fix CMD syntax error - 2025-06-21-23-50-30
+CMD ["node", "dist-server/server.js"]
