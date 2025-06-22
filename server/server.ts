@@ -1043,6 +1043,14 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
     errorMessage: err.message,
   });
 
+  // Tratamento específico para erros de CORS
+  if (err.message === 'Não permitido por CORS') {
+    return res.status(403).json({
+      success: false,
+      error: 'Acesso negado pela política de CORS.'
+    });
+  }
+
   if (err instanceof multer.MulterError) {
     return res.status(400).json({
       success: false,
