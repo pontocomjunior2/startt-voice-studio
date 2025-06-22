@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-// import { supabase } from '../../lib/supabaseClient'; // Não mais necessário diretamente aqui
 import { toast } from "sonner";
 import { Button } from '@/components/ui/button';
 import {
@@ -29,72 +28,59 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// import { Link } from 'react-router-dom'; // Não usado
 import { Loader2, Calendar as CalendarIcon } from 'lucide-react';
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { cn } from '@/lib/utils';
-
-// Imports para DatePicker
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale'; // Para formatação em pt-BR
+import { ptBR } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Checkbox } from "@/components/ui/checkbox"; // Adicionado Checkbox
-import { Textarea } from "@/components/ui/textarea"; // Adicionado Textarea
-
-// Hooks customizados do React Query
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { useFetchAdminUsers } from '../../hooks/queries/use-fetch-admin-users.hook';
 import type { UserProfile } from '../../hooks/queries/use-fetch-admin-users.hook';
 import { useUpdateUserRole } from '../../hooks/mutations/use-update-user-role.hook';
-
-// Importar useAuth e supabaseClient
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabaseClient'; // Usar o cliente supabase global
-import { useQueryClient } from '@tanstack/react-query'; // Adicionar se não estiver lá
+import { supabase } from '../../lib/supabaseClient';
+import { useQueryClient } from '@tanstack/react-query';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { ManageClientLocutoresModal } from '@/components/admin/manage-client-locutores-modal';
 
 function AdminUsuariosPage() {
-  const { profile: adminProfile } = useAuth(); // Para admin_id_que_adicionou
-  const queryClient = useQueryClient(); // Para invalidar queries
+  const { profile: adminProfile } = useAuth();
+  const queryClient = useQueryClient();
 
   const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
   const [selectedUserForCredit, setSelectedUserForCredit] = useState<UserProfile | null>(null);
-  // const [newCreditAmount, setNewCreditAmount] = useState<string>(''); // REMOVIDO - Substituído por estados do lote
-
-  // Novos estados para o modal de adicionar lote de créditos
   const [quantidadeLote, setQuantidadeLote] = useState<string>('');
   const [dataValidadeLote, setDataValidadeLote] = useState<Date | undefined>(undefined);
   const [semPrazoValidade, setSemPrazoValidade] = useState(false);
   const [observacaoLote, setObservacaoLote] = useState('');
-  const [isAddingCredits, setIsAddingCredits] = useState(false); // Novo estado de loading para lotes
+  const [isAddingCredits, setIsAddingCredits] = useState(false);
 
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [selectedUserForRoleChange, setSelectedUserForRoleChange] = useState<UserProfile | null>(null);
   const [newUserRole, setNewUserRole] = useState<'cliente' | 'admin'>('cliente');
-  // const [isUpdatingRole, setIsUpdatingRole] = useState(false); // Gerenciado pelo React Query mutation
+
+  const [isLocutorModalOpen, setIsLocutorModalOpen] = useState(false);
+  const [selectedUserForLocutores, setSelectedUserForLocutores] = useState<UserProfile | null>(null);
 
   const [userFilter, setUserFilter] = useState('');
 
   const { data: initialUsers = [], isLoading: isLoadingInitialUsers, isError: isFetchUsersError, error: fetchUsersError } = useFetchAdminUsers();
-  
-  // const { mutate: updateUserCredits, isPending: isUpdatingCreditsHook } = useUpdateUserCredits(); // REMOVIDO - O isPending será do isAddingCredits local
   const { mutate: updateUserRole, isPending: isUpdatingRole } = useUpdateUserRole();
 
   const [usersWithCalculatedCredit, setUsersWithCalculatedCredit] = useState<UserProfile[]>([]);
   const [isCalculatingBalances, setIsCalculatingBalances] = useState(false);
-
-  // [NOVOS ESTADOS PARA SUBTRAÇÃO DE CRÉDITOS]
   const [isDebitModalOpen, setIsDebitModalOpen] = useState(false);
   const [selectedUserForDebit, setSelectedUserForDebit] = useState<UserProfile | null>(null);
   const [debitAmount, setDebitAmount] = useState<string>('');
   const [debitReason, setDebitReason] = useState('');
   const [isDebiting, setIsDebiting] = useState(false);
-
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedUserForDelete, setSelectedUserForDelete] = useState<UserProfile | null>(null);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
-
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
   useEffect(() => {
@@ -108,14 +94,13 @@ function AdminUsuariosPage() {
             });
             if (saldoError) {
               console.error(`AdminUsuariosPage: Erro ao buscar saldo para usuário ${user.id}:`, saldoError);
-              return { ...user, saldoCalculadoCreditos: user.credits || 0 }; // Fallback para credits se RPC falhar
+              return { ...user, saldoCalculadoCreditos: user.credits || 0 };
             }
             return { ...user, saldoCalculadoCreditos: saldoData ?? 0 };
           }));
           setUsersWithCalculatedCredit(usersWithBalances);
         } catch (error) {
           console.error("AdminUsuariosPage: Erro ao processar saldos de usuários:", error);
-          // Em caso de erro geral, usar fallback para todos
           setUsersWithCalculatedCredit(initialUsers.map(u => ({...u, saldoCalculadoCreditos: u.credits || 0 })));
         } finally {
           setIsCalculatingBalances(false);
@@ -128,7 +113,6 @@ function AdminUsuariosPage() {
 
   const openCreditModal = (user: UserProfile) => {
     setSelectedUserForCredit(user);
-    // Limpar campos do formulário de lote ao abrir o modal
     setQuantidadeLote('');
     setDataValidadeLote(undefined);
     setSemPrazoValidade(false);
@@ -141,12 +125,10 @@ function AdminUsuariosPage() {
       toast.error("Erro de Validação", { description: "A quantidade de créditos deve ser diferente de zero." });
       return;
     }
-    // Se for redução, exigir observação
     if (parseInt(quantidadeLote, 10) < 0 && !observacaoLote.trim()) {
       toast.error("Erro de Validação", { description: "Ao reduzir créditos, é obrigatório informar o motivo na observação." });
       return;
     }
-    // Só valida validade se for adição
     if (parseInt(quantidadeLote, 10) > 0 && !semPrazoValidade && !dataValidadeLote) {
       toast.error("Erro de Validação", { description: "Defina uma data de validade ou marque 'Sem prazo de validade'." });
       return;
@@ -157,7 +139,7 @@ function AdminUsuariosPage() {
       const dadosLote: any = {
         user_id: selectedUserForCredit.id,
         quantidade_adicionada: parseInt(quantidadeLote, 10),
-        quantidade_usada: 0, // Novo lote começa com 0 usados
+        quantidade_usada: 0, 
         data_validade: parseInt(quantidadeLote, 10) < 0 ? null : (semPrazoValidade || !dataValidadeLote ? null : dataValidadeLote.toISOString()),
         admin_id_que_adicionou: adminProfile?.id, 
         observacao_admin: observacaoLote.trim() || null
@@ -206,13 +188,10 @@ function AdminUsuariosPage() {
     }, {
       onSuccess: () => {
         setIsRoleModalOpen(false);
-        // A invalidação de queries já é feita dentro do hook useUpdateUserRole
       },
-      // onError já é tratado no hook
     });
   };
 
-  // [FUNÇÃO PARA ABRIR MODAL DE SUBTRAÇÃO]
   const openDebitModal = (user: UserProfile) => {
     setSelectedUserForDebit(user);
     setDebitAmount('');
@@ -220,7 +199,6 @@ function AdminUsuariosPage() {
     setIsDebitModalOpen(true);
   };
 
-  // [FUNÇÃO PARA SUBTRAIR CRÉDITOS]
   const handleDebitCredits = async () => {
     if (!selectedUserForDebit || !debitAmount || parseInt(debitAmount, 10) <= 0) {
       toast.error("Erro de Validação", { description: "A quantidade a subtrair deve ser maior que zero." });
@@ -232,10 +210,9 @@ function AdminUsuariosPage() {
     }
     setIsDebiting(true);
     try {
-      // Chama a nova RPC admin_subtrair_creditos
       const { error } = await supabase.rpc('admin_subtrair_creditos', {
         p_user_id: selectedUserForDebit.id,
-        p_quantidade: parseInt(debitAmount, 10), // valor positivo
+        p_quantidade: parseInt(debitAmount, 10),
         p_observacao: debitReason.trim()
       });
       if (error) {
@@ -288,8 +265,6 @@ function AdminUsuariosPage() {
   );
   
   if (isFetchUsersError && fetchUsersError) {
-    // O toast de erro já é disparado dentro do hook useFetchAdminUsers
-    // Mas podemos mostrar uma mensagem na UI também se quisermos
     return <div className="p-4 text-red-500">Erro ao carregar usuários: {fetchUsersError.message}</div>;
   }
 
@@ -368,6 +343,16 @@ function AdminUsuariosPage() {
                       Subtrair Créditos
                     </Button>
                     <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedUserForLocutores(user);
+                        setIsLocutorModalOpen(true);
+                      }}
+                    >
+                      Gerenciar Locutores
+                    </Button>
+                    <Button
                       variant="destructive"
                       size="sm"
                       onClick={() => openDeleteDialog(user)}
@@ -387,7 +372,6 @@ function AdminUsuariosPage() {
         setIsCreditModalOpen(isOpen);
         if (!isOpen) {
           setSelectedUserForCredit(null);
-          // Limpar estados do formulário de lote de crédito ao fechar
           setQuantidadeLote('');
           setDataValidadeLote(undefined);
           setSemPrazoValidade(false);
@@ -619,6 +603,14 @@ function AdminUsuariosPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <ManageClientLocutoresModal 
+        user={selectedUserForLocutores}
+        isOpen={isLocutorModalOpen}
+        onClose={() => {
+          setIsLocutorModalOpen(false);
+          setSelectedUserForLocutores(null);
+        }}
+      />
     </div>
   );
 }

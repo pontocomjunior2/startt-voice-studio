@@ -19,7 +19,8 @@ import {
   Instagram,
   ArrowRight,
   Clock,
-  CreditCard
+  CreditCard,
+  Package
 } from 'lucide-react';
 import Footer from './Footer'; // Garantir que esta importação existe
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +67,7 @@ const AppLayout: React.FC = () => {
       { href: '/admin', label: 'Dashboard Admin', icon: ShieldCheck, roles: ['admin'] },
       { href: '/admin/locutores', label: 'Gerenciar Locutores', icon: Voicemail, roles: ['admin'] },
       { href: '/admin/usuarios', label: 'Gerenciar Usuários', icon: Users, roles: ['admin'] },
+      { href: '/admin/pacotes', label: 'Gerenciar Pacotes', icon: Package, roles: ['admin'] },
     ];
   } else if (profile?.role === 'cliente') {
     navItems = [

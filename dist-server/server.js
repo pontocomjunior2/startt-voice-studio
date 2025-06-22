@@ -84,32 +84,15 @@ const apiLimiter = (0, express_rate_limit_1.default)({
 });
 // Aplicar o rate limiter a todas as rotas que começam com /api
 app.use('/api/', apiLimiter);
-// Middleware para servir os arquivos de uploads de forma correta
+// --- SERVIR ARQUIVOS ESTÁTICOS ---
+// 1. Servir uploads do diretório /public/uploads
 app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '../public/uploads')));
-// Middleware para servir arquivos estáticos do frontend compilado
-// Com proteção extra contra EISDIR
-app.use((req, res, next) => {
-    // Pular rotas da API e uploads
-    if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
-        return next();
-    }
-    // Não servir diretórios ou arquivos de desenvolvimento
-    if (req.path.includes('/src/') || req.path.includes('/app/') || req.path.endsWith('/')) {
-        return next();
-    }
-    // Servir arquivos estáticos do dist
-    express_1.default.static(path_1.default.join(__dirname, '../dist'), {
-        index: false,
-        fallthrough: true,
-        redirect: false,
-        setHeaders: (res, filePath) => {
-            // Cache de assets por 1 ano
-            if (filePath.includes('/assets/')) {
-                res.setHeader('Cache-Control', 'public, max-age=31536000');
-            }
-        }
-    })(req, res, next);
-});
+// 2. Servir os arquivos estáticos do build do frontend (React/Vite)
+// O Express vai procurar por arquivos correspondentes aqui (ex: /assets/index-*.js)
+app.use(express_1.default.static(path_1.default.join(__dirname, '../dist'), {
+    // Cache de assets por 1 ano em produção
+    maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
+}));
 // Middleware para detectar requisições muito grandes antes do multer
 app.use('/api/upload', (req, res, next) => {
     const contentLength = parseInt(req.headers['content-length'] || '0');
@@ -948,28 +931,19 @@ app.get('/api/test-env', (req, res) => {
 });
 // Rota catch-all para servir o frontend React (SPA)
 // DEVE vir depois de todas as rotas da API
-app.get('*', (req, res) => {
-    console.log(`[Catch-all Route] Requisição para: ${req.path}`);
-    // Não interceptar rotas da API ou uploads
-    if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
-        console.log(`[Catch-all Route] Rota não encontrada: ${req.path}`);
-        return res.status(404).json({ error: 'Rota não encontrada' });
+app.get('*', (req, res, next) => {
+    // Pular rotas da API para evitar conflitos
+    if (req.path.startsWith('/api/')) {
+        return next();
     }
-    // Rejeitar rotas que possam causar EISDIR
-    if (req.path.includes('/src/') || req.path.includes('/app/') ||
-        req.path.includes('/server/') || req.path.includes('/node_modules/')) {
-        console.warn(`[Catch-all Route] Tentativa de acesso a diretório de desenvolvimento: ${req.path}`);
-        return res.status(403).json({ error: 'Acesso negado' });
-    }
-    // Verificar se o arquivo index.html existe antes de tentar servir
+    // Servir o index.html para qualquer outra rota que não seja um arquivo estático ou API
     const indexPath = path_1.default.join(__dirname, '../dist/index.html');
     if (fs_1.default.existsSync(indexPath)) {
-        console.log(`[Catch-all Route] Servindo index.html para: ${req.path}`);
         res.sendFile(indexPath);
     }
     else {
-        console.error('[Catch-all Route] index.html não encontrado em:', indexPath);
-        res.status(500).json({ error: 'Frontend não está disponível' });
+        // Se o index.html não existe, o frontend não foi buildado corretamente
+        res.status(500).json({ error: 'Arquivo principal do frontend não encontrado.' });
     }
 });
 // Middleware de Erro Global
@@ -982,6 +956,13 @@ app.use((err, req, res, next) => {
         errorName: err.name,
         errorMessage: err.message,
     });
+    // Tratamento específico para erros de CORS
+    if (err.message === 'Não permitido por CORS') {
+        return res.status(403).json({
+            success: false,
+            error: 'Acesso negado pela política de CORS.'
+        });
+    }
     if (err instanceof multer_1.default.MulterError) {
         return res.status(400).json({
             success: false,

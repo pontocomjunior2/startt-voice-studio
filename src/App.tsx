@@ -5,10 +5,12 @@ import DashboardPage from './pages/DashboardPage';
 import AdminDashboardPage from './pages/admin/admin-dashboard-page.tsx';
 import AdminLocutoresPage from './pages/admin/AdminLocutoresPage';
 import AdminUsuariosPage from './pages/admin/AdminUsuariosPage';
+import AdminPacotesPage from './pages/admin/admin-pacotes-page';
 import ProtectedRoute from './components/ProtectedRoute';
 import AuthRedirector from './components/AuthRedirector';
 import AppLayout from './components/layout/AppLayout';
 import NotFoundPage from './pages/NotFoundPage';
+import PaginaCompraPacote from './pages/cliente/pagina-compra-pacote';
 
 // Novas páginas do cliente
 import GravarLocucaoPage from './pages/cliente/GravarLocucaoPage';
@@ -34,6 +36,7 @@ function App() {
       />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/comprar/pacote/:pacoteId" element={<PaginaCompraPacote />} />
       
       {/* Rotas Protegidas DENTRO do Layout */}
       <Route element={<AppLayout />}>
@@ -129,6 +132,16 @@ function App() {
           element={
             <ProtectedRoute requiredRole="admin">
               <AdminUsuariosPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Nova rota para gerenciar pacotes */}
+        <Route 
+          path="/admin/pacotes"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminPacotesPage />
             </ProtectedRoute>
           }
         />
