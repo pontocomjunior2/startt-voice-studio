@@ -7,6 +7,9 @@ const payment = new Payment(client);
 const cardToken = new CardToken(client);
 
 export const processarPagamentoCartaoMP = async (req: any, res: any) => {
+  console.log('--- NOVA REQUISIÇÃO DE PAGAMENTO ---');
+  console.log('🔍 [DEBUG] Body completo recebido:', JSON.stringify(req.body, null, 2));
+
   try {
     console.log('🔍 [DEBUG] Dados recebidos no backend:', {
       token: req.body.token ? 'PRESENTE' : 'AUSENTE',
@@ -104,9 +107,20 @@ export const processarPagamentoCartaoMP = async (req: any, res: any) => {
       console.log('🔧 [MP] Usando token oficial');
     } else if (card_data) {
       // Criar Card Token com dados do cartão via API MP
-      console.log('🔧 [MP] Criando Card Token com dados do cartão');
+      console.log('🔧 [MP] Criando Card Token com dados do cartão. Expiry Date recebida:', card_data.expiry_date);
       
-      const [month, year] = card_data.expiry_date.split('/');
+      // BLINDAGEM CONTRA FORMATO DE DATA INVÁLIDO
+      if (!card_data.expiry_date || typeof card_data.expiry_date !== 'string') {
+        return res.status(400).json({ success: false, message: 'Data de expiração inválida ou não fornecida.' });
+      }
+
+      const cleanedExpiryDate = card_data.expiry_date.replace(/\\s/g, ''); // Remove espaços
+      const [month, year] = cleanedExpiryDate.split('/');
+
+      if (!month || !year || month.length !== 2 || year.length !== 2) {
+        console.error('💥 [ERRO] Formato da data de expiração inválido após limpeza:', cleanedExpiryDate);
+        return res.status(400).json({ success: false, message: `Formato da data de expiração inválido. Use MM/AA.` });
+      }
       
       const cardTokenData = {
         card_number: card_data.number,
@@ -143,13 +157,23 @@ export const processarPagamentoCartaoMP = async (req: any, res: any) => {
 
     console.log('📤 [MP OFICIAL] Enviando para Mercado Pago (método oficial)');
 
-    // Criar o pagamento via API oficial
-    const mpResult = await payment.create({ 
-      body: paymentData,
-      requestOptions: {
-        idempotencyKey: idempotencyKey
-      }
-    });
+    let mpResult;
+    try {
+      mpResult = await payment.create({
+        body: paymentData,
+        requestOptions: {
+          idempotencyKey: idempotencyKey
+        }
+      });
+    } catch (mpError: any) {
+      console.error('💥 [ERRO FATAL] Erro na chamada da API do Mercado Pago:', JSON.stringify(mpError, null, 2));
+      const errorMessage = mpError?.cause?.[0]?.description || mpError.message || 'Erro de comunicação com o provedor de pagamento.';
+      return res.status(500).json({
+        success: false,
+        message: 'Falha ao processar pagamento.',
+        details: errorMessage,
+      });
+    }
 
     console.log('📨 [MP OFICIAL] Resposta do Mercado Pago:', {
       id: mpResult.id,
@@ -177,17 +201,11 @@ export const processarPagamentoCartaoMP = async (req: any, res: any) => {
     return res.status(200).json(response);
 
   } catch (error: any) {
-    console.error('💥 [ERRO] Erro no processamento:', {
-      message: error.message,
-      error: error.error || 'Erro desconhecido',
-      status: error.status || 500,
-      cause: error.cause || []
-    });
-
+    console.error('💥 [ERRO GERAL] Erro no processamento:', JSON.stringify(error, null, 2));
     return res.status(500).json({
       success: false,
       message: error.message || 'Erro interno do servidor',
-      details: error.cause || error.error || 'Erro no processamento do pagamento'
+      details: 'Ocorreu um erro inesperado no processamento do pagamento.'
     });
   }
 }; 

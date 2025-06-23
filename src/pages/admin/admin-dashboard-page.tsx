@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, CreditCard, ListChecks, Loader2, FileText, Eye, Save, RotateCcw, RefreshCw, MessageSquare, DownloadCloud, MessageSquareWarning } from 'lucide-react';
+import { Users, CreditCard, ListChecks, Loader2, FileText, Eye, Save, RotateCcw, RefreshCw, MessageSquare, DownloadCloud, MessageSquareWarning, FileAudio } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   Table,
@@ -381,7 +381,7 @@ function AdminDashboardPage() {
           id, created_at, status, texto_roteiro, creditos_debitados, titulo,
           estilo_locucao, tipo_audio, orientacoes, id_pedido_serial,
           audio_final_url, audio_guia_url, downloaded_at, cliente_notificado_em,
-          admin_message, cliente_resposta_info, data_resposta_cliente,
+          admin_message, cliente_resposta_info, data_resposta_cliente, cliente_audio_resposta_url,
           profile:profiles ( id, full_name, email, username ),
           locutores ( id, nome )
         `)
@@ -445,6 +445,7 @@ function AdminDashboardPage() {
             admin_message: p.admin_message,
             cliente_resposta_info: p.cliente_resposta_info,
             data_resposta_cliente: p.data_resposta_cliente,
+            cliente_audio_resposta_url: p.cliente_audio_resposta_url,
           };
         }) as AdminPedido[];
         console.log('[AdminDashboardPage] Pedidos (paginados) recebidos e formatados:', pedidosFormatados);
@@ -1418,6 +1419,36 @@ function AdminDashboardPage() {
                       <div className="text-sm text-green-700 dark:text-green-200 whitespace-pre-wrap">
                         {selectedPedido.cliente_resposta_info}
                       </div>
+                      
+                      {/* Áudio Anexado pelo Cliente na Resposta */}
+                      {selectedPedido.cliente_audio_resposta_url && (
+                        <div className="mt-3 p-2 bg-green-100 dark:bg-green-800/30 rounded-md">
+                          <h6 className="text-xs font-medium text-green-700 dark:text-green-300 mb-2 flex items-center">
+                            <DownloadCloud className="h-3 w-3 mr-1" />
+                            Áudio Anexado na Resposta:
+                          </h6>
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                            <audio
+                              controls
+                              src={selectedPedido.cliente_audio_resposta_url}
+                              className="w-full max-w-xs bg-neutral-900 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                              aria-label="Áudio anexado pelo cliente na resposta"
+                            >
+                              Seu navegador não suporta o elemento de áudio.
+                            </audio>
+                            <a
+                              href={selectedPedido.cliente_audio_resposta_url}
+                              download
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-xs font-medium transition-colors"
+                            >
+                              <DownloadCloud className="h-3 w-3 mr-1" />
+                              Baixar Áudio
+                            </a>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1426,121 +1457,121 @@ function AdminDashboardPage() {
               {(selectedPedido.admin_message || selectedPedido.cliente_resposta_info) && <Separator className="my-4" />}
 
               {/* SEÇÃO DE AÇÕES DO ADMIN */}
-              <div className="space-y-4">
-                  <div className="space-y-2">
-                      <Label htmlFor="status-pedido-principal">Alterar Status do Pedido:</Label>
-                      <Select 
-                          value={currentPedidoStatus} 
-                          onValueChange={setCurrentPedidoStatus}
-                          disabled={selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado' || isUpdatingPedido}
-                      >
-                          <SelectTrigger id="status-pedido-principal"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                              {/* ... (opções de status) ... */}
-                              <SelectItem value={PEDIDO_STATUS.EM_PRODUCAO}>Em Produção</SelectItem>
-                              <SelectItem value={PEDIDO_STATUS.AGUARDANDO_CLIENTE}>Aguardando Cliente</SelectItem>
-                              <SelectItem value={PEDIDO_STATUS.CONCLUIDO}>Concluído (requer áudio)</SelectItem>
-                              <SelectItem value={PEDIDO_STATUS.CANCELADO}>Cancelar Pedido</SelectItem>
-                          </SelectContent>
-                      </Select>
-                  </div>
+              <div className="space-y-6">
+                <h4 className="text-lg font-semibold text-foreground border-b pb-2">Ações do Administrador</h4>
+                
+                {/* Seletor de Status */}
+                <div className="space-y-3">
+                  <Label htmlFor="status-pedido-principal" className="text-sm font-medium text-foreground">
+                    Alterar Status do Pedido:
+                  </Label>
+                  <Select 
+                    value={currentPedidoStatus} 
+                    onValueChange={setCurrentPedidoStatus}
+                    disabled={selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado' || isUpdatingPedido}
+                  >
+                    <SelectTrigger id="status-pedido-principal" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={PEDIDO_STATUS.EM_ANALISE}>Em Análise</SelectItem>
+                      <SelectItem value={PEDIDO_STATUS.EM_PRODUCAO}>Em Produção</SelectItem>
+                      <SelectItem value={PEDIDO_STATUS.GRAVANDO}>Gravando</SelectItem>
+                      <SelectItem value={PEDIDO_STATUS.AGUARDANDO_CLIENTE}>Aguardando Cliente</SelectItem>
+                      <SelectItem value={PEDIDO_STATUS.CONCLUIDO}>Concluído (requer áudio)</SelectItem>
+                      <SelectItem value={PEDIDO_STATUS.CANCELADO}>Cancelar Pedido</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                  {/* PAINEL DE AÇÃO CONTEXTUAL: AGUARDANDO CLIENTE */}
-                  {currentPedidoStatus === PEDIDO_STATUS.AGUARDANDO_CLIENTE && (
-                    <div className="mt-4 p-4 border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-900/20 rounded-r-lg space-y-2">
-                      <Label htmlFor="admin-aguardando-cliente-message" className="text-base font-semibold text-amber-800 dark:text-amber-300 flex items-center">
-                        <MessageSquare className="h-5 w-5 mr-2" />
+                {/* PAINEL CONDICIONAL: AGUARDANDO CLIENTE */}
+                {currentPedidoStatus === PEDIDO_STATUS.AGUARDANDO_CLIENTE && (
+                  <div className="p-4 border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-900/20 rounded-r-lg space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <MessageSquare className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                      <Label htmlFor="admin-aguardando-cliente-message" className="text-base font-semibold text-amber-800 dark:text-amber-300">
                         Solicitar Informações ao Cliente
                       </Label>
-                      <Textarea
-                        id="admin-aguardando-cliente-message"
-                        placeholder="Ex: O áudio guia está com ruído. Por favor, envie um novo arquivo com mais clareza para continuarmos."
-                        value={adminAguardandoClienteMessage}
-                        onChange={(e) => setAdminAguardandoClienteMessage(e.target.value)}
-                        rows={4}
-                        required
-                        disabled={isUpdatingPedido}
-                        className="bg-white dark:bg-background placeholder:text-muted-foreground"
-                      />
-                      <p className="text-xs text-amber-700 dark:text-amber-400">
-                        Esta mensagem é obrigatória e será exibida para o cliente no painel do pedido.
-                      </p>
                     </div>
-                  )}
-
-                  {currentPedidoStatus === PEDIDO_STATUS.CANCELADO && (
-                    <div className="space-y-2 mt-4">
-                      <Label htmlFor="admin-cancel-reason" className="text-sm font-medium text-foreground">
-                        Justificativa do Cancelamento <span className="text-destructive">*</span>
-                      </Label>
-                      <Textarea
-                        id="admin-cancel-reason"
-                        placeholder="Explique o motivo do cancelamento para o cliente..."
-                        value={adminCancelReason}
-                        onChange={(e) => setAdminCancelReason(e.target.value)}
-                        rows={3}
-                        required
-                        disabled={isUpdatingPedido}
-                        className="text-foreground placeholder:text-muted-foreground"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Esta justificativa será registrada e visível no histórico do pedido.
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                      <Label htmlFor="audio-file-principal">Enviar Áudio Finalizado:</Label>
-                      <Input 
-                          id="audio-file-principal" 
-                          type="file" 
-                          onChange={handleFileChange} 
-                          disabled={selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado' || isUpdatingPedido}
-                      />
-                      {selectedFile && <p className="text-xs text-muted-foreground mt-1">Arquivo selecionado: {selectedFile.name}</p>}
+                    <Textarea
+                      id="admin-aguardando-cliente-message"
+                      placeholder="Ex: O áudio guia está com ruído. Por favor, envie um novo arquivo com mais clareza para continuarmos."
+                      value={adminAguardandoClienteMessage}
+                      onChange={(e) => setAdminAguardandoClienteMessage(e.target.value)}
+                      rows={4}
+                      required
+                      disabled={isUpdatingPedido}
+                      className="bg-white dark:bg-background placeholder:text-muted-foreground"
+                    />
+                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                      ⚠️ Esta mensagem é obrigatória e será exibida para o cliente no painel do pedido.
+                    </p>
                   </div>
-              </div>
+                )}
 
-              <div className="space-y-2">
-                    <Label htmlFor="admin-cancel-reason" className="text-sm font-medium text-foreground">
-                      Justificativa do Cancelamento <span className="text-destructive">*</span>
-                    </Label>
+                {/* PAINEL CONDICIONAL: CANCELAMENTO */}
+                {currentPedidoStatus === PEDIDO_STATUS.CANCELADO && (
+                  <div className="p-4 border-l-4 border-red-500 bg-red-50 dark:bg-red-900/20 rounded-r-lg space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <MessageSquareWarning className="h-5 w-5 text-red-600 dark:text-red-400" />
+                      <Label htmlFor="admin-cancel-reason" className="text-base font-semibold text-red-800 dark:text-red-300">
+                        Justificativa do Cancelamento
+                      </Label>
+                    </div>
                     <Textarea
                       id="admin-cancel-reason"
-                      placeholder="Explique o motivo do cancelamento para o cliente..."
+                      placeholder="Explique detalhadamente o motivo do cancelamento para o cliente..."
                       value={adminCancelReason}
                       onChange={(e) => setAdminCancelReason(e.target.value)}
                       rows={3}
                       required
                       disabled={isUpdatingPedido}
-                      className="text-foreground placeholder:text-muted-foreground"
+                      className="bg-white dark:bg-background placeholder:text-muted-foreground"
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Esta justificativa será registrada e visível no histórico do pedido.
+                    <p className="text-xs text-red-700 dark:text-red-400">
+                      ⚠️ Esta justificativa é obrigatória e será registrada no histórico do pedido.
                     </p>
                   </div>
+                )}
 
-              <div className="space-y-2">
-                    <Label htmlFor="audio-file-principal" className="text-sm font-medium text-foreground">Enviar Áudio Finalizado (Principal):</Label>
-                <Input 
+                {/* PAINEL CONDICIONAL: UPLOAD DE ÁUDIO */}
+                {(currentPedidoStatus === PEDIDO_STATUS.CONCLUIDO || (!currentPedidoStatus || currentPedidoStatus === selectedPedido.status)) && (
+                  <div className="space-y-3">
+                    <Label htmlFor="audio-file-principal" className="text-sm font-medium text-foreground">
+                      Enviar Áudio Finalizado:
+                    </Label>
+                    <Input 
                       id="audio-file-principal" 
-                  type="file" 
-                  accept=".mp3,.wav,.ogg,.aac" 
-                  onChange={handleFileChange} 
-                  className="w-full h-10 px-3 text-foreground placeholder:text-muted-foreground file:bg-gradient-to-r from-startt-blue to-startt-purple file:text-white" 
+                      type="file" 
+                      accept=".mp3,.wav,.ogg,.aac" 
+                      onChange={handleFileChange} 
+                      className="w-full h-10 px-3 text-foreground placeholder:text-muted-foreground file:bg-gradient-to-r from-startt-blue to-startt-purple file:text-white" 
                       disabled={selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado' || isUpdatingPedido}
-                />
-                {selectedFile && <p className="text-xs text-muted-foreground mt-1">Arquivo selecionado: {selectedFile.name}</p>}
-                {selectedPedido.audio_final_url && (
-                  <a
-                    href={selectedPedido.audio_final_url}
-                    download
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center mt-2 px-3 py-1 bg-status-green text-white rounded hover:bg-status-green/90 text-xs font-medium transition-colors"
-                  >
-                        <DownloadCloud className="h-4 w-4 mr-1" /> Baixar Áudio Principal Atual
-                  </a>
+                    />
+                    {selectedFile && (
+                      <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                        <FileAudio className="h-4 w-4" />
+                        <span>Arquivo selecionado: {selectedFile.name}</span>
+                      </div>
+                    )}
+                    {selectedPedido.audio_final_url && (
+                      <a
+                        href={selectedPedido.audio_final_url}
+                        download
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center px-3 py-1.5 bg-status-green text-white rounded hover:bg-status-green/90 text-xs font-medium transition-colors"
+                      >
+                        <DownloadCloud className="h-4 w-4 mr-2" /> 
+                        Baixar Áudio Atual
+                      </a>
+                    )}
+                    {currentPedidoStatus === PEDIDO_STATUS.CONCLUIDO && !selectedFile && (
+                      <p className="text-xs text-orange-600 dark:text-orange-400">
+                        ⚠️ Um arquivo de áudio é obrigatório para concluir o pedido.
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -1813,11 +1844,16 @@ function AdminDashboardPage() {
                     isUpdatingPedido || 
                     updateStatusMutation.isPending || 
                     isProcessingAutoStatusChange ||
-                    (currentPedidoStatus === PEDIDO_STATUS.AGUARDANDO_CLIENTE && !adminAguardandoClienteMessage.trim())
+                    (currentPedidoStatus === PEDIDO_STATUS.AGUARDANDO_CLIENTE && !adminAguardandoClienteMessage.trim()) ||
+                    (currentPedidoStatus === PEDIDO_STATUS.CANCELADO && !adminCancelReason.trim()) ||
+                    (currentPedidoStatus === PEDIDO_STATUS.CONCLUIDO && !selectedFile && !selectedPedido.audio_final_url)
                   }
                 >
                   {isUpdatingPedido || updateStatusMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} 
-                  {currentPedidoStatus === PEDIDO_STATUS.AGUARDANDO_CLIENTE ? 'Enviar Mensagem e Pausar Pedido' : 'Salvar Alterações'}
+                  {currentPedidoStatus === PEDIDO_STATUS.AGUARDANDO_CLIENTE ? 'Enviar Mensagem e Pausar Pedido' :
+                   currentPedidoStatus === PEDIDO_STATUS.CANCELADO ? 'Cancelar Pedido' :
+                   currentPedidoStatus === PEDIDO_STATUS.CONCLUIDO ? 'Concluir Pedido' :
+                   'Salvar Alterações'}
                 </Button>
               )}
               

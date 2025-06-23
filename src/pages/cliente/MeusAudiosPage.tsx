@@ -420,7 +420,8 @@ function MeusAudiosPage() {
       .select(`
         id, id_pedido_serial, created_at, texto_roteiro, titulo, creditos_debitados, status,
         audio_final_url, downloaded_at, cliente_notificado_em, tipo_audio, estilo_locucao,
-        orientacoes, admin_cancel_reason, admin_message,
+        orientacoes, admin_cancel_reason, admin_message, cliente_resposta_info, 
+        data_resposta_cliente, cliente_audio_resposta_url,
         locutores ( nome ),
         solicitacoes_revisao ( id, status_revisao )
       `)
@@ -494,7 +495,7 @@ function MeusAudiosPage() {
         setIsUploadingGuiaRevisao(true);
         const uploadFormData = new FormData();
         uploadFormData.append('audioGuia', audioGuiaRevisaoFile);
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/upload-guia-revisao`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/upload-guia-revisao`, {
           method: 'POST',
           body: uploadFormData,
         });
@@ -560,15 +561,49 @@ function MeusAudiosPage() {
     }
 
     setSubmittingRevisao(true);
+    let uploadedAudioRespostaUrl: string | null = null;
+
     try {
-      // Atualizar o pedido com a resposta do cliente e mudar status para "em_analise"
+      // 1. Fazer upload do arquivo de áudio se houver
+      if (audioGuiaRevisaoFile) {
+        setIsUploadingGuiaRevisao(true);
+        const uploadFormData = new FormData();
+        uploadFormData.append('audioGuia', audioGuiaRevisaoFile);
+        
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/upload-guia-revisao`, {
+          method: 'POST',
+          body: uploadFormData,
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido no upload.' }));
+          throw new Error(errorData.message);
+        }
+        
+        const result = await response.json();
+        if (result.success && result.filePath) {
+          uploadedAudioRespostaUrl = result.filePath;
+          console.log("Áudio de resposta enviado com sucesso:", uploadedAudioRespostaUrl);
+        } else {
+          throw new Error(result.message || "Servidor não retornou o caminho do arquivo.");
+        }
+      }
+
+      // 2. Atualizar o pedido com a resposta do cliente e mudar status para "em_analise"
+      const updateData: any = {
+        cliente_resposta_info: descricaoRevisao.trim(),
+        status: PEDIDO_STATUS.EM_ANALISE,
+        data_resposta_cliente: new Date().toISOString()
+      };
+
+      // Adicionar URL do áudio se foi feito upload
+      if (uploadedAudioRespostaUrl) {
+        updateData.cliente_audio_resposta_url = uploadedAudioRespostaUrl;
+      }
+
       const { error } = await supabase
         .from('pedidos')
-        .update({
-          cliente_resposta_info: descricaoRevisao.trim(),
-          status: PEDIDO_STATUS.EM_ANALISE,
-          data_resposta_cliente: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', pedidoParaRevisao.id);
 
       if (error) {
@@ -577,21 +612,26 @@ function MeusAudiosPage() {
         return;
       }
 
-      // Atualizar o estado local
+      // 3. Atualizar o estado local
       setPedidos(prev => prev.map(p => 
         p.id === pedidoParaRevisao.id 
           ? { ...p, status: PEDIDO_STATUS.EM_ANALISE as TipoStatusPedido }
           : p
       ));
 
-      toast.success("Resposta Enviada", { description: "Sua resposta foi enviada com sucesso e o administrador foi notificado." });
+      const successMessage = uploadedAudioRespostaUrl 
+        ? "Sua resposta e arquivo de áudio foram enviados com sucesso!"
+        : "Sua resposta foi enviada com sucesso!";
+      
+      toast.success("Resposta Enviada", { description: successMessage });
       setIsRevisaoModalOpen(false);
 
     } catch (error: any) {
       console.error("Erro ao responder mensagem do admin:", error);
-      toast.error("Erro", { description: "Ocorreu um erro inesperado ao enviar sua resposta." });
+      toast.error("Erro", { description: error.message || "Ocorreu um erro inesperado ao enviar sua resposta." });
     } finally {
       setSubmittingRevisao(false);
+      setIsUploadingGuiaRevisao(false);
     }
   };
 
@@ -856,8 +896,8 @@ function MeusAudiosPage() {
                 const isEmRevisaoComAudio = pedido.status === PEDIDO_STATUS.EM_REVISAO && pedido.audio_final_url;
 
                 return (
-                  <>
-                    <TableRow key={pedido.id} className={cn(
+                  <React.Fragment key={pedido.id}>
+                    <TableRow className={cn(
                       "hover:bg-muted/10 odd:bg-card even:bg-muted/5 dark:odd:bg-card dark:even:bg-muted/10 transition-colors",
                       idx === pedidos.length - 1 ? "border-0" : undefined,
                       pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && pedido.admin_message && "bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500"
@@ -1077,7 +1117,7 @@ function MeusAudiosPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                  </>
+                  </React.Fragment>
                 );
               })}
             </TableBody>

@@ -54,6 +54,7 @@ export interface AdminPedido {
   admin_message?: string | null;
   cliente_resposta_info?: string | null;
   data_resposta_cliente?: string | null;
+  cliente_audio_resposta_url?: string | null;
 }
 
 export interface Pedido {
@@ -72,6 +73,9 @@ export interface Pedido {
   orientacoes: string | null;
   admin_cancel_reason: string | null;
   admin_message?: string;
+  cliente_resposta_info?: string | null;
+  data_resposta_cliente?: string | null;
+  cliente_audio_resposta_url?: string | null;
   locutores: { nome: string } | null;
   solicitacoes_revisao?: { id: string; status_revisao: string; }[];
   solicitacoes_revisao_count?: number;
