@@ -24,7 +24,7 @@ export const PEDIDO_STATUS: PedidoStatus = {
   ESTORNADO: 'estornado',
 };
 
-export type TipoStatusPedido = PedidoStatus[keyof PedidoStatus];
+export type TipoStatusPedido = typeof PEDIDO_STATUS[keyof typeof PEDIDO_STATUS] | 'estornado' | 'cancelado_pelo_usuario';
 
 // Interface para o perfil do usuário, usada em AdminPedido
 export interface ProfileInPedido {
@@ -55,21 +55,23 @@ export interface AdminPedido {
 
 export interface Pedido {
   id: string;
-  id_pedido_serial: string;
+  id_pedido_serial?: string;
   created_at: string;
-  texto_roteiro: string;
+  texto_roteiro: string | null;
+  titulo: string | null;
   creditos_debitados: number;
   status: TipoStatusPedido;
-  audio_final_url?: string | null;
+  audio_final_url: string | null;
   downloaded_at: string | null;
   cliente_notificado_em: string | null;
+  tipo_audio: string | null;
+  estilo_locucao: string | null;
+  orientacoes: string | null;
+  admin_cancel_reason: string | null;
+  admin_message?: string;
   locutores: { nome: string } | null;
-  titulo?: string | null;
-  tipo_audio?: string | null;
-  estilo_locucao?: string | null;
-  orientacoes?: string | null;
+  solicitacoes_revisao?: { id: string; status_revisao: string; }[];
   solicitacoes_revisao_count?: number;
-  admin_cancel_reason?: string | null;
 }
 
 // Tipos para o Histórico Detalhado do Pedido e Revisões

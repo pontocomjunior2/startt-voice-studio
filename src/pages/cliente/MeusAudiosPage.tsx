@@ -452,6 +452,15 @@ function MeusAudiosPage() {
     setAudioGuiaRevisaoFile(null);
 
     if (modoResposta) {
+      // Verificar se é resposta a solicitação de informações do admin (via admin_message)
+      if (pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && pedido.admin_message) {
+        // Fluxo de resposta a mensagem do admin - não precisa buscar na tabela solicitacoes_revisao
+        setSolicitacaoParaResponderId('admin_message_response'); // Identificador especial
+        setIsRevisaoModalOpen(true);
+        return;
+      }
+
+      // Fluxo normal de resposta a solicitação de revisão
       const { data, error } = await supabase
         .from('solicitacoes_revisao')
         .select('id')
@@ -527,12 +536,62 @@ function MeusAudiosPage() {
         toast.error("Erro", { description: "ID da solicitação não encontrado." });
         return;
       }
+
+      // Verificar se é resposta a mensagem do admin (via admin_message)
+      if (solicitacaoParaResponderId === 'admin_message_response' && pedidoParaRevisao) {
+        handleResponderMensagemAdmin();
+        return;
+      }
+
+      // Fluxo normal de resposta a solicitação de revisão
       executarEnviarResposta({
         solicitacaoId: solicitacaoParaResponderId,
         respostaCliente: descricaoRevisao,
       });
     } else {
       handleSolicitarRevisao();
+    }
+  };
+
+  const handleResponderMensagemAdmin = async () => {
+    if (!pedidoParaRevisao || !descricaoRevisao.trim()) {
+      toast.error("Resposta Obrigatória", { description: "Por favor, forneça as informações solicitadas pelo admin." });
+      return;
+    }
+
+    setSubmittingRevisao(true);
+    try {
+      // Atualizar o pedido com a resposta do cliente e mudar status para "em_analise"
+      const { error } = await supabase
+        .from('pedidos')
+        .update({
+          cliente_resposta_info: descricaoRevisao.trim(),
+          status: PEDIDO_STATUS.EM_ANALISE,
+          data_resposta_cliente: new Date().toISOString()
+        })
+        .eq('id', pedidoParaRevisao.id);
+
+      if (error) {
+        console.error("Erro ao salvar resposta do cliente:", error);
+        toast.error("Erro", { description: "Não foi possível salvar sua resposta." });
+        return;
+      }
+
+      // Atualizar o estado local
+      setPedidos(prev => prev.map(p => 
+        p.id === pedidoParaRevisao.id 
+          ? { ...p, status: PEDIDO_STATUS.EM_ANALISE as TipoStatusPedido }
+          : p
+      ));
+
+      toast.success("Resposta Enviada", { description: "Sua resposta foi enviada com sucesso e o administrador foi notificado." });
+      setIsRevisaoModalOpen(false);
+
+    } catch (error: any) {
+      console.error("Erro ao responder mensagem do admin:", error);
+      toast.error("Erro", { description: "Ocorreu um erro inesperado ao enviar sua resposta." });
+    } finally {
+      setSubmittingRevisao(false);
     }
   };
 

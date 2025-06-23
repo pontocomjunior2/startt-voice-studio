@@ -1,78 +1,72 @@
 'use server';
 
-import { z } from 'zod';
-import { createSafeActionClient } from 'next-safe-action';
-import { supabase } from '@/lib/supabaseClient';
-import { PEDIDO_STATUS } from '@/types/pedido.type';
-import { REVISAO_STATUS_ADMIN } from '@/types/revisao.type'; // Usaremos CLIENTE_RESPONDEU daqui
+import { createSafeActionClient } from "next-safe-action";
+import { z } from "zod";
+import { supabase } from "@/lib/supabaseClient";
+import { PEDIDO_STATUS } from "@/types/pedido.type";
+import { REVISAO_STATUS_ADMIN } from "@/types/revisao.type";
 
 const actionClient = createSafeActionClient();
 
-export const clienteResponderInfoSchema = z.object({
-  solicitacaoId: z.string().uuid("ID da solicitação inválido."),
-  respostaCliente: z.string().min(1, "A resposta não pode estar vazia.").max(2000, "A resposta não pode exceder 2000 caracteres."),
-  pedidoId: z.string().uuid("ID do pedido inválido."),
+const responderInfoSchema = z.object({
+  solicitacaoId: z.string().uuid(),
+  respostaCliente: z.string().min(10, { message: "Sua resposta precisa ter pelo menos 10 caracteres." }),
 });
 
 export const clienteResponderInfoAction = actionClient
-  .schema(clienteResponderInfoSchema)
+  .schema(responderInfoSchema)
   .action(async ({ parsedInput }) => {
-    const { solicitacaoId, respostaCliente, pedidoId } = parsedInput;
-
+    const { solicitacaoId, respostaCliente } = parsedInput;
     const { data: { user } } = await supabase.auth.getUser();
+
     if (!user) {
-      return { failure: 'Usuário não autenticado.' };
+      throw new Error("Usuário não autenticado.");
     }
 
-    // Verificar se a solicitação pertence ao usuário e ao pedido corretos
-    const { data: solicitacaoData, error: solicitacaoError } = await supabase
+    // 1. Encontrar a solicitação de revisão
+    const { data: solicitacao, error: solicitacaoError } = await supabase
       .from('solicitacoes_revisao')
-      .select('id, user_id, pedido_id, status_revisao')
+      .select('id, pedido_id, user_id, status_revisao')
       .eq('id', solicitacaoId)
-      .eq('pedido_id', pedidoId)
-      .eq('user_id', user.id)
       .single();
 
-    if (solicitacaoError || !solicitacaoData) {
-      console.error('[clienteResponderInfoAction] Erro ao buscar solicitação ou não pertence ao usuário/pedido:', solicitacaoError);
-      return { failure: 'Solicitação de revisão não encontrada ou acesso negado.' };
+    if (solicitacaoError || !solicitacao) {
+      return { failure: "Solicitação de revisão não encontrada." };
     }
 
-    if (solicitacaoData.status_revisao !== REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE) {
-      return { failure: 'Esta solicitação não está aguardando sua resposta.' };
+    if (solicitacao.user_id !== user.id) {
+      return { failure: "Você não tem permissão para responder a esta solicitação." };
     }
 
-    const updatesSolicitacao = {
-      cliente_info_response_details: respostaCliente,
-      status_revisao: REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU,
-      data_resposta_cliente: new Date().toISOString(),
-    };
+    if (solicitacao.status_revisao !== REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE) {
+      return { failure: "Esta solicitação não está mais aguardando sua resposta." };
+    }
 
-    const { error: updateSolError } = await supabase
+    // 2. Atualizar a solicitação de revisão com a resposta
+    const { error: updateSolicitacaoError } = await supabase
       .from('solicitacoes_revisao')
-      .update(updatesSolicitacao)
+      .update({
+        cliente_resposta_info: respostaCliente,
+        data_resposta_cliente: new Date().toISOString(),
+        status_revisao: REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU,
+      })
       .eq('id', solicitacaoId);
 
-    if (updateSolError) {
-      console.error('[clienteResponderInfoAction] Erro ao atualizar solicitação de revisão:', updateSolError);
-      return { failure: `Erro ao salvar sua resposta: ${updateSolError.message}` };
+    if (updateSolicitacaoError) {
+      console.error("Erro ao atualizar a solicitação com a resposta do cliente:", updateSolicitacaoError);
+      return { failure: "Não foi possível salvar sua resposta." };
     }
 
-    // Atualizar o status do pedido principal para EM_REVISAO
+    // 3. Atualizar o status do pedido principal para notificar o admin
     const { error: updatePedidoError } = await supabase
       .from('pedidos')
-      .update({ 
-        status: PEDIDO_STATUS.EM_REVISAO,
-        // Poderíamos também atualizar uma data de "última interação do cliente" no pedido se existisse
-      })
-      .eq('id', pedidoId);
+      .update({ status: PEDIDO_STATUS.EM_ANALISE })
+      .eq('id', solicitacao.pedido_id);
 
     if (updatePedidoError) {
-      console.error('[clienteResponderInfoAction] Erro ao atualizar status do pedido principal:', updatePedidoError);
-      // Não vamos falhar a action inteira aqui, mas logar o erro é importante.
-      // A resposta do cliente na solicitação foi salva, o que é o principal.
-      // O admin verá o status CLIENTE_RESPONDEU na revisão de qualquer forma.
+      console.error("Erro ao atualizar o status do pedido principal para EM_ANALISE:", updatePedidoError);
+      return { failure: "Sua resposta foi salva, mas não foi possível notificar o administrador." };
     }
-
-    return { success: 'Resposta enviada com sucesso.', solicitacaoId, novoStatusRevisao: REVISAO_STATUS_ADMIN.CLIENTE_RESPONDEU, pedidoId, novoStatusPedido: PEDIDO_STATUS.EM_REVISAO };
+    
+    return { success: "Sua resposta foi enviada com sucesso e o administrador foi notificado." };
   }); 
