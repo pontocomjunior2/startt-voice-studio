@@ -61,32 +61,32 @@ async function handler(req, res) {
         return res.status(400).json({ success: false, message: 'Dados de pagamento incompletos.' });
     }
     try {
-        // PRIORIZAR: Se temos dados do cartão (formulário manual), processar pagamento
+        // FLUXO PRINCIPAL: Processar pagamento via Mercado Pago
         if (card_data && card_data.number) {
-            console.log("🔧 [FLUXO MANUAL] Processando pagamento manual com dados do cartão");
-            // Buscar informações do pacote
+            console.log("🔧 [MP OFICIAL] Enviando pagamento para Mercado Pago");
+            // Buscar informações do pacote APENAS para metadados
             const { data: pacote, error: pacoteError } = await supabaseAdmin_1.supabaseAdmin
                 .from('pacotes')
                 .select('creditos_oferecidos, nome')
                 .eq('id', pacoteId)
                 .single();
             if (pacoteError || !pacote) {
-                console.error("❌ [FLUXO MANUAL] Pacote não encontrado:", pacoteError);
+                console.error("❌ [MP OFICIAL] Pacote não encontrado:", pacoteError);
                 throw new Error('Pacote não encontrado.');
             }
-            console.log("📦 [FLUXO MANUAL] Pacote encontrado:", pacote);
-            // ✅ Detectar automaticamente payment_method_id e issuer_id
+            console.log("📦 [MP OFICIAL] Pacote encontrado para metadados:", pacote.nome);
+            // Detectar automaticamente payment_method_id e issuer_id
             const detectedPaymentMethod = detectPaymentMethod(card_data.number);
             const issuerId = getIssuerId(detectedPaymentMethod);
-            console.log("🔄 [MERCADO PAGO API] Processamento com configuração corrigida:", {
+            console.log("🔄 [MP OFICIAL] Configuração detectada:", {
                 paymentMethod: detectedPaymentMethod,
                 issuerId: issuerId
             });
-            // Preparar dados do pagamento CORRIGIDOS para a API do Mercado Pago
+            // Preparar dados do pagamento para a API do Mercado Pago
             const payment_data = {
                 transaction_amount: Number(valorTotal),
                 payment_method_id: detectedPaymentMethod,
-                issuer_id: issuerId, // ✅ CAMPO OBRIGATÓRIO ADICIONADO
+                issuer_id: issuerId,
                 installments: Number(installments),
                 payer: {
                     email: payer.email,
@@ -98,7 +98,7 @@ async function handler(req, res) {
                 card: {
                     number: card_data.number.replace(/\s/g, ''),
                     expiration_month: card_data.expiry_date.split('/')[0],
-                    expiration_year: `20${card_data.expiry_date.split('/')[1]}`, // ✅ ANO COMPLETO
+                    expiration_year: `20${card_data.expiry_date.split('/')[1]}`,
                     security_code: card_data.security_code,
                     cardholder: {
                         name: card_data.cardholder_name,
@@ -114,87 +114,73 @@ async function handler(req, res) {
                 },
                 description: descricao || 'Compra de créditos PontoComAudio',
                 notification_url: `${process.env.API_URL}/api/webhook-mp-pagamentos`,
-                // ✅ CAMPOS ADICIONAIS PARA MELHOR COMPATIBILIDADE
                 binary_mode: false,
                 capture: true
             };
-            console.log("📤 [MERCADO PAGO API] Enviando dados corrigidos:", {
+            console.log("📤 [MP OFICIAL] Enviando para Mercado Pago:", {
                 transaction_amount: payment_data.transaction_amount,
                 payment_method_id: payment_data.payment_method_id,
                 issuer_id: payment_data.issuer_id,
                 installments: payment_data.installments,
-                card: {
-                    number: payment_data.card.number.slice(0, 4) + '****',
-                    expiration_month: payment_data.card.expiration_month,
-                    expiration_year: payment_data.card.expiration_year,
-                    security_code: '***'
-                }
+                cardholder_name: card_data.cardholder_name
             });
-            // Chamar API real do Mercado Pago
+            // ✅ ENVIAR PARA MERCADO PAGO - SEM VALIDAÇÃO LOCAL
             const mpResult = await payment.create({
                 body: payment_data,
                 requestOptions: {
-                    idempotencyKey: `${userIdCliente}-${pacoteId}-${Date.now()}` // ✅ CHAVE DE IDEMPOTÊNCIA
+                    idempotencyKey: `${userIdCliente}-${pacoteId}-${Date.now()}`
                 }
             });
-            console.log("📨 [MERCADO PAGO API] Resposta recebida:", {
+            console.log("📨 [MP OFICIAL] Resposta do Mercado Pago:", {
                 id: mpResult.id,
                 status: mpResult.status,
                 status_detail: mpResult.status_detail,
                 payment_method_id: mpResult.payment_method_id
             });
-            // Verificar se o pagamento foi processado corretamente
-            if (!mpResult.id) {
-                throw new Error('Erro no processamento: ID do pagamento não retornado pelo Mercado Pago');
-            }
-            const isApproved = mpResult.status === 'approved';
-            if (isApproved) {
-                console.log("✅ [MERCADO PAGO API] Pagamento aprovado! ID:", mpResult.id);
-                // Usar a RPC para criar entrada em lotes_creditos com validade
-                console.log(`🔧 [MERCADO PAGO API] Chamando RPC adicionar_creditos_por_pacote`);
-                try {
-                    const { data: rpcResult, error: rpcError } = await supabaseAdmin_1.supabaseAdmin.rpc('adicionar_creditos_por_pacote', {
-                        p_user_id: userIdCliente,
-                        p_pacote_id: pacoteId,
-                        p_pagamento_id_externo: mpResult.id.toString(),
-                        p_metodo_pagamento: 'credit_card'
+            // ✅ IMPORTANTE: NÃO ADICIONAR CRÉDITOS AQUI!
+            // Os créditos serão adicionados APENAS pelo webhook quando o MP confirmar
+            if (mpResult.id) {
+                // Retornar resposta baseada apenas no status do Mercado Pago
+                if (mpResult.status === 'approved') {
+                    console.log("✅ [MP OFICIAL] Pagamento APROVADO pelo MP - Webhook adicionará créditos");
+                    return res.status(200).json({
+                        success: true,
+                        message: 'Pagamento aprovado! Créditos serão adicionados em instantes.',
+                        status: mpResult.status,
+                        status_detail: mpResult.status_detail,
+                        paymentId: mpResult.id,
+                        // NÃO retornar creditsAdded - será feito pelo webhook
                     });
-                    if (rpcError) {
-                        console.error("❌ [MERCADO PAGO API] Erro na RPC:", rpcError);
-                        throw new Error(`Erro ao processar créditos: ${rpcError.message}`);
-                    }
-                    console.log("✅ [MERCADO PAGO API] RPC executada com sucesso:", rpcResult);
                 }
-                catch (rpcErr) {
-                    console.error("❌ [MERCADO PAGO API] Erro na RPC:", rpcErr);
-                    throw new Error(`Erro ao processar créditos: ${rpcErr.message}`);
+                else if (mpResult.status === 'pending' || mpResult.status === 'in_process') {
+                    console.log("⏳ [MP OFICIAL] Pagamento PENDENTE - Aguardando confirmação");
+                    return res.status(200).json({
+                        success: true,
+                        message: 'Pagamento em processamento. Aguarde a confirmação.',
+                        status: mpResult.status,
+                        status_detail: mpResult.status_detail,
+                        paymentId: mpResult.id,
+                    });
                 }
-                console.log(`🎉 [MERCADO PAGO API] Pagamento CONCLUÍDO! Usuário ${userIdCliente} recebeu ${pacote.creditos_oferecidos} créditos via RPC.`);
-                return res.status(200).json({
-                    success: true,
-                    message: 'Pagamento processado com sucesso!',
-                    status: mpResult.status,
-                    status_detail: mpResult.status_detail,
-                    paymentId: mpResult.id,
-                    creditsAdded: pacote.creditos_oferecidos
-                });
+                else {
+                    // Pagamento rejeitado
+                    console.log(`❌ [MP OFICIAL] Pagamento REJEITADO: ${mpResult.status} - ${mpResult.status_detail}`);
+                    return res.status(400).json({
+                        success: false,
+                        message: mpResult.status_detail || 'Pagamento recusado pelo Mercado Pago.',
+                        status: mpResult.status,
+                        status_detail: mpResult.status_detail,
+                        paymentId: mpResult.id
+                    });
+                }
             }
             else {
-                // Pagamento rejeitado pelo Mercado Pago
-                const errorMessage = mpResult.status_detail || 'Pagamento recusado. Verifique os dados do cartão e tente novamente.';
-                console.log(`❌ [MERCADO PAGO API] Pagamento rejeitado: ${mpResult.status} - ${errorMessage}`);
-                return res.status(400).json({
-                    success: false,
-                    message: errorMessage,
-                    status: mpResult.status,
-                    status_detail: mpResult.status_detail,
-                    paymentId: mpResult.id
-                });
+                throw new Error('Erro: Mercado Pago não retornou ID do pagamento');
             }
         }
-        // Fluxo original com token do MP (para compatibilidade futura - apenas se NÃO houver card_data)
+        // Fluxo com token (para compatibilidade futura)
         if (token && !card_data) {
-            console.log("🔄 [FLUXO MP] Processando via Mercado Pago...");
+            console.log("🔄 [TOKEN MP] Processando via token do Mercado Pago...");
             const payment_data = {
                 transaction_amount: Number(valorTotal),
                 token: token,
@@ -214,37 +200,41 @@ async function handler(req, res) {
                 },
                 notification_url: `${process.env.API_URL}/api/webhook-mp-pagamentos`
             };
-            console.log("Enviando para o Mercado Pago:", payment_data);
             const result = await payment.create({ body: payment_data });
-            console.log("Resposta do Mercado Pago:", result);
-            if (result.id && (result.status === 'approved' || result.status === 'in_process')) {
-                if (result.status === 'approved') {
-                    // Aqui seria implementada a mesma lógica de adição de créditos
-                    // Por enquanto, retorna sucesso
-                }
+            console.log("📨 [TOKEN MP] Resposta:", {
+                id: result.id,
+                status: result.status,
+                status_detail: result.status_detail
+            });
+            if (result.id) {
                 return res.status(200).json({
                     success: true,
-                    message: 'Pagamento processado com sucesso!',
+                    message: result.status === 'approved' ?
+                        'Pagamento aprovado! Créditos serão adicionados em instantes.' :
+                        'Pagamento em processamento.',
                     status: result.status,
+                    status_detail: result.status_detail,
                     paymentId: result.id
                 });
             }
             else {
-                throw new Error(result.status_detail || 'O pagamento não pôde ser processado.');
+                throw new Error(result.status_detail || 'Erro no processamento do pagamento.');
             }
         }
-        console.error("❌ Nenhum fluxo de pagamento válido encontrado");
+        console.error("❌ Nenhum método de pagamento válido encontrado");
         throw new Error('Dados de pagamento inválidos.');
     }
     catch (error) {
-        console.error('💥 [ERRO] Erro ao processar pagamento com cartão:', error);
-        // ✅ TRATAMENTO ESPECÍFICO PARA ERROS DE POLÍTICA
+        console.error('💥 [ERRO] Erro no processamento:', error);
+        // Tratamento específico para erros de autorização
         if (error.message && error.message.includes('unauthorized')) {
-            const errorMessage = 'Erro de autorização. Verifique as credenciais do Mercado Pago.';
-            return res.status(401).json({ success: false, message: errorMessage });
+            return res.status(401).json({
+                success: false,
+                message: 'Erro de autorização nas credenciais do Mercado Pago.'
+            });
         }
-        const errorMessage = ((_j = (_h = error.cause) === null || _h === void 0 ? void 0 : _h.error) === null || _j === void 0 ? void 0 : _j.message) || error.message || 'Erro desconhecido.';
-        res.status(500).json({ success: false, message: errorMessage });
+        const errorMessage = ((_j = (_h = error.cause) === null || _h === void 0 ? void 0 : _h.error) === null || _j === void 0 ? void 0 : _j.message) || error.message || 'Erro no processamento do pagamento.';
+        return res.status(500).json({ success: false, message: errorMessage });
     }
 }
 //# sourceMappingURL=processar-pagamento-cartao-mp.js.map
