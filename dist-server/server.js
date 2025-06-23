@@ -30,7 +30,7 @@ console.log('[Servidor Express] SUPABASE_SERVICE_ROLE_KEY lido:', process.env.SU
 const gerar_roteiro_ia_1 = __importDefault(require("./api/gerar-roteiro-ia"));
 const gerar_pagamento_pix_mp_1 = __importDefault(require("./api/gerar-pagamento-pix-mp"));
 const webhook_mp_pagamentos_1 = __importDefault(require("./api/webhook-mp-pagamentos"));
-const processar_pagamento_cartao_mp_1 = __importDefault(require("./api/processar-pagamento-cartao-mp"));
+const processar_pagamento_cartao_mp_1 = require("./api/processar-pagamento-cartao-mp");
 const teste_creditos_1 = __importDefault(require("./api/teste-creditos"));
 const verificar_creditos_1 = __importDefault(require("./api/verificar-creditos"));
 const app = (0, express_1.default)();
@@ -917,7 +917,7 @@ app.get('/health', (req, res) => {
 // ROTA: Geração de roteiro com IA Gemini
 app.post('/api/gerar-roteiro-ia', gerar_roteiro_ia_1.default);
 // ROTA: Processamento de pagamento com cartão
-app.post('/api/processar-pagamento-cartao-mp', processar_pagamento_cartao_mp_1.default);
+app.post('/api/processar-pagamento-cartao-mp', processar_pagamento_cartao_mp_1.processarPagamentoCartaoMP);
 // ROTA: Teste de créditos direto
 app.post('/api/teste-creditos', teste_creditos_1.default);
 // ROTA: Verificar créditos do usuário

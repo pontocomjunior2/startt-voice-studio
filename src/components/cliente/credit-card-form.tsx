@@ -136,34 +136,34 @@ const CreditCardForm = memo(({ pacote, onPaymentSuccess }: CreditCardFormProps) 
     }
   }, [user?.id, pacote.id]);
 
-  // Função para criar token usando SDK oficial do MP
+  // Função para criar token usando método DIRETO do MP (sem fields)
   const createCardToken = async () => {
     if (!mpInstance) {
       throw new Error('SDK do Mercado Pago não foi inicializado');
     }
 
-    // Preparar dados para criação do token
+    // Preparar dados para criação do token (método direto)
     const [month, year] = cardData.expiryDate.split('/');
     
     const cardTokenData = {
-      cardNumber: cardData.cardNumber.replace(/\s/g, ''),
-      expirationMonth: month,
-      expirationYear: `20${year}`, // Converte para ano completo
-      securityCode: cardData.securityCode,
+      cardNumber: cardData.cardNumber.replace(/\s/g, ''), // Remove espaços
       cardholderName: cardData.cardholderName,
+      cardExpirationMonth: month,
+      cardExpirationYear: `20${year}`, // Ano completo (2025)
+      securityCode: cardData.securityCode,
       identificationType: 'CPF',
       identificationNumber: '11111111111' // CPF padrão para teste
     };
 
-    console.log('🔧 [MP SDK] Criando token com dados:', {
+    console.log('🔧 [MP SDK] Criando token com método DIRETO:', {
       cardNumber: cardTokenData.cardNumber.slice(0, 6) + '...',
-      expirationMonth: cardTokenData.expirationMonth,
-      expirationYear: cardTokenData.expirationYear,
+      cardExpirationMonth: cardTokenData.cardExpirationMonth,
+      cardExpirationYear: cardTokenData.cardExpirationYear,
       cardholderName: cardTokenData.cardholderName
     });
 
     try {
-      // Usar método correto do SDK para criar token
+      // ✅ MÉTODO CORRETO: mp.createCardToken() (método direto)
       const response = await mpInstance.createCardToken(cardTokenData);
       console.log('✅ [MP SDK] Token criado com sucesso:', response.id);
       return response;
@@ -193,7 +193,7 @@ const CreditCardForm = memo(({ pacote, onPaymentSuccess }: CreditCardFormProps) 
     setIsCreatingToken(true);
 
     try {
-      // 1. Criar token usando SDK oficial do MP
+      // 1. Criar token usando método DIRETO do MP
       const tokenResponse = await createCardToken();
       
       if (!tokenResponse || !tokenResponse.id) {
