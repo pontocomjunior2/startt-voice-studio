@@ -193,7 +193,36 @@ function AdminDashboardPage() {
   const [totalCreditosAtivos, setTotalCreditosAtivos] = useState<number | null>(null);
   const [loadingCreditosAtivos, setLoadingCreditosAtivos] = useState(true);
 
-  // Função para buscar créditos ativos via RPC
+  // CORREÇÃO: Somar profiles.credits diretamente em vez da RPC
+  const fetchCreditosAtivos = async () => {
+    setLoadingCreditosAtivos(true);
+    try {
+      console.log("AdminDashboard: CORREÇÃO - Calculando total de créditos via profiles.credits");
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('credits')
+        .eq('role', 'cliente');
+      
+      if (error) {
+        console.error("Erro ao buscar créditos dos clientes:", error);
+        setTotalCreditosAtivos(null);
+        return;
+      }
+      
+      const total = data?.reduce((sum, profile) => sum + (profile.credits || 0), 0) || 0;
+      console.log("AdminDashboard: Total de créditos calculado:", total);
+      setTotalCreditosAtivos(total);
+      
+    } catch (err) {
+      console.error("Erro ao calcular créditos ativos:", err);
+      setTotalCreditosAtivos(null);
+    } finally {
+      setLoadingCreditosAtivos(false);
+    }
+  };
+
+  /* CÓDIGO ORIGINAL (comentado para correção):
   const fetchCreditosAtivos = async () => {
     setLoadingCreditosAtivos(true);
     try {
@@ -213,6 +242,7 @@ function AdminDashboardPage() {
       setLoadingCreditosAtivos(false);
     }
   };
+  */
 
   // Buscar créditos ativos ao montar
   useEffect(() => {

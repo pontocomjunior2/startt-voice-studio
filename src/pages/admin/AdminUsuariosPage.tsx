@@ -84,6 +84,21 @@ function AdminUsuariosPage() {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
   useEffect(() => {
+    // CORREÇÃO: Usar profiles.credits diretamente em vez da RPC
+    if (initialUsers && initialUsers.length > 0) {
+      setIsCalculatingBalances(true);
+      console.log("AdminUsuariosPage: CORREÇÃO - Usando profiles.credits diretamente para sincronizar com cliente");
+      
+      const usersWithBalances = initialUsers.map(user => ({
+        ...user, 
+        saldoCalculadoCreditos: user.credits || 0
+      }));
+      
+      setUsersWithCalculatedCredit(usersWithBalances);
+      setIsCalculatingBalances(false);
+    }
+
+    /* CÓDIGO ORIGINAL (comentado para correção):
     const fetchBalancesForUsers = async () => {
       if (initialUsers && initialUsers.length > 0) {
         setIsCalculatingBalances(true);
@@ -109,6 +124,7 @@ function AdminUsuariosPage() {
     };
 
     fetchBalancesForUsers();
+    */
   }, [initialUsers]);
 
   const openCreditModal = (user: UserProfile) => {
