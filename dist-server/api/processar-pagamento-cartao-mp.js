@@ -6,8 +6,9 @@ const supabaseAdmin_1 = require("../lib/supabaseAdmin");
 // Inicializa o cliente do Mercado Pago com o Access Token
 const client = new mercadopago_1.MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN });
 const payment = new mercadopago_1.Payment(client);
+const cardToken = new mercadopago_1.CardToken(client);
 const processarPagamentoCartaoMP = async (req, res) => {
-    var _a, _b;
+    var _a, _b, _c, _d;
     try {
         console.log('🔍 [DEBUG] Dados recebidos no backend:', {
             token: req.body.token ? 'PRESENTE' : 'AUSENTE',
@@ -21,12 +22,12 @@ const processarPagamentoCartaoMP = async (req, res) => {
             ambiente: 'development',
             tokenPrefix: req.body.token ? req.body.token.substring(0, 10) + '...' : 'N/A'
         });
-        const { token, valorTotal, descricao, installments = 1, paymentMethodId = 'visa', payer, userIdCliente, pacoteId } = req.body;
+        const { token, valorTotal, descricao, installments = 1, paymentMethodId, issuerId, payer, userIdCliente, pacoteId, card_data } = req.body;
         // Validações básicas
-        if (!token) {
+        if (!token && !card_data) {
             return res.status(400).json({
                 success: false,
-                message: 'Token do cartão é obrigatório'
+                message: 'Token do cartão ou dados do cartão são obrigatórios'
             });
         }
         if (!userIdCliente || !pacoteId) {
@@ -52,9 +53,8 @@ const processarPagamentoCartaoMP = async (req, res) => {
         // Chave de idempotência para evitar duplicações
         const idempotencyKey = `${userIdCliente}-${pacoteId}-${Date.now()}`;
         // Criar dados do pagamento para o Mercado Pago
-        const paymentData = {
+        let paymentData = {
             transaction_amount: valorTotal,
-            token: token, // ✅ Token oficial criado pelo SDK
             description: descricao,
             installments: installments,
             payment_method_id: paymentMethodId,
@@ -73,6 +73,50 @@ const processarPagamentoCartaoMP = async (req, res) => {
                 source: 'pontocomaudio-frontend'
             }
         };
+        if (issuerId) {
+            paymentData.issuer_id = issuerId;
+            console.log('✅ [MP OFICIAL] Usando issuer_id:', issuerId);
+        }
+        // Se temos token válido, usar token. Senão, criar token dos dados do cartão
+        if (token && !token.startsWith('token_')) {
+            // Token oficial do MP
+            paymentData.token = token;
+            console.log('🔧 [MP] Usando token oficial');
+        }
+        else if (card_data) {
+            // Criar Card Token com dados do cartão via API MP
+            console.log('🔧 [MP] Criando Card Token com dados do cartão');
+            const [month, year] = card_data.expiry_date.split('/');
+            const cardTokenData = {
+                card_number: card_data.number,
+                security_code: card_data.security_code,
+                expiration_month: month,
+                expiration_year: `20${year}`,
+                cardholder: {
+                    name: card_data.cardholder_name,
+                    identification: {
+                        type: ((_c = payer === null || payer === void 0 ? void 0 : payer.identification) === null || _c === void 0 ? void 0 : _c.type) || 'CPF',
+                        number: ((_d = payer === null || payer === void 0 ? void 0 : payer.identification) === null || _d === void 0 ? void 0 : _d.number) || '11111111111'
+                    }
+                }
+            };
+            // Criar o Card Token via API
+            const tokenResponse = await cardToken.create({ body: cardTokenData });
+            if (!tokenResponse.id) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Erro ao criar token do cartão'
+                });
+            }
+            console.log('✅ [MP] Card Token criado:', tokenResponse.id);
+            paymentData.token = tokenResponse.id;
+        }
+        else {
+            return res.status(400).json({
+                success: false,
+                message: 'Token inválido e dados do cartão não fornecidos'
+            });
+        }
         console.log('📤 [MP OFICIAL] Enviando para Mercado Pago (método oficial)');
         // Criar o pagamento via API oficial
         const mpResult = await payment.create({

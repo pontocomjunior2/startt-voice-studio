@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, memo } from 'react';
+import { useState, useCallback, memo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProcessCardPayment } from '@/hooks/mutations/use-process-card-payment.mutation.hook';
 import { Button } from '@/components/ui/button';
@@ -31,11 +31,16 @@ interface CardData {
   installments: string;
 }
 
+// Inicializa o SDK do Mercado Pago
+const initializeMercadoPago = () => {
+  if (window.MercadoPago) {
+    new window.MercadoPago(import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY);
+  }
+};
+
 const CreditCardForm = memo(({ pacote, onPaymentSuccess }: CreditCardFormProps) => {
   const { user } = useAuth();
   const { mutate: processPayment, isPending } = useProcessCardPayment();
-  const [isCreatingToken, setIsCreatingToken] = useState(false);
-  const [mpInstance, setMpInstance] = useState<any>(null);
 
   // Estado do formulário
   const [cardData, setCardData] = useState<CardData>({
@@ -47,17 +52,51 @@ const CreditCardForm = memo(({ pacote, onPaymentSuccess }: CreditCardFormProps) 
     identificationNumber: '11111111111',
     installments: '1'
   });
+  const [paymentMethodId, setPaymentMethodId] = useState<string>('');
+  const [issuerId, setIssuerId] = useState<string>('');
 
-  // Inicializar SDK do Mercado Pago
+  // Carrega o script do MP e inicializa
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.MercadoPago && !mpInstance) {
-      const mp = new window.MercadoPago(import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY, {
-        locale: 'pt-BR'
-      });
-      setMpInstance(mp);
-      console.log('✅ [MP SDK] Instância criada');
+    const script = document.createElement('script');
+    script.src = 'https://sdk.mercadopago.com/js/v2';
+    script.async = true;
+    script.onload = () => {
+      console.log('✅ [MP SDK] Script carregado');
+      initializeMercadoPago();
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  // Detecta a bandeira do cartão (payment_method_id)
+  const getPaymentMethod = useCallback(async (bin: string) => {
+    if (bin.length >= 6 && window.MercadoPago) {
+      try {
+        const mp = new window.MercadoPago(import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY);
+        const { results } = await mp.getPaymentMethods({ bin });
+        if (results && results.length > 0) {
+          const paymentMethod = results[0];
+          console.log('✅ [MP SDK] Bandeira detectada:', paymentMethod.id);
+          setPaymentMethodId(paymentMethod.id);
+
+          // Captura o ID do emissor, se existir
+          if (paymentMethod.issuer && paymentMethod.issuer.id) {
+            console.log('✅ [MP SDK] Emissor detectado:', paymentMethod.issuer.id);
+            setIssuerId(paymentMethod.issuer.id);
+          } else {
+            setIssuerId(''); // Limpa caso o cartão não tenha emissor (ex: cartões de débito)
+          }
+
+        }
+      } catch (error) {
+        console.error('❌ [MP SDK] Erro ao obter método de pagamento:', error);
+        toast.error('Não foi possível identificar a bandeira do cartão.');
+      }
     }
-  }, [mpInstance]);
+  }, []);
 
   // Funções de formatação
   const formatCardNumber = (value: string) => {
@@ -83,6 +122,8 @@ const CreditCardForm = memo(({ pacote, onPaymentSuccess }: CreditCardFormProps) 
     switch (field) {
       case 'cardNumber':
         formattedValue = formatCardNumber(value);
+        const bin = value.replace(/\D/g, '').substring(0, 6);
+        getPaymentMethod(bin);
         break;
       case 'expiryDate':
         formattedValue = formatExpiryDate(value);
@@ -101,43 +142,7 @@ const CreditCardForm = memo(({ pacote, onPaymentSuccess }: CreditCardFormProps) 
     setCardData((prev: CardData) => ({ ...prev, [field]: formattedValue }));
   }, []);
 
-  // Criar token usando método direto mais simples
-  const createPaymentToken = async () => {
-    if (!mpInstance) {
-      throw new Error('SDK do Mercado Pago não está disponível');
-    }
-
-    const [month, year] = cardData.expiryDate.split('/');
-    const cardNumber = cardData.cardNumber.replace(/\s/g, '');
-
-    // Dados do cartão para criar token
-    const cardInfo = {
-      cardNumber: cardNumber,
-      cardholderName: cardData.cardholderName,
-      cardExpirationMonth: month,
-      cardExpirationYear: `20${year}`,
-      securityCode: cardData.securityCode,
-      identificationType: cardData.identificationType,
-      identificationNumber: cardData.identificationNumber
-    };
-
-    console.log('🔧 [MP SDK] Criando token para pagamento');
-
-    try {
-      // Simular criação de token (para teste, vamos usar dados diretos)
-      // Em produção, isso seria feito via API do MP
-      const tokenData = {
-        id: `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        ...cardInfo
-      };
-
-      console.log('✅ [MP SDK] Token simulado criado');
-      return tokenData;
-    } catch (error) {
-      console.error('❌ [MP SDK] Erro ao criar token:', error);
-      throw error;
-    }
-  };
+  // ✅ REMOVIDO: Não criar token, enviar dados diretamente para o backend
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,22 +159,24 @@ const CreditCardForm = memo(({ pacote, onPaymentSuccess }: CreditCardFormProps) 
       return;
     }
 
+    if (!paymentMethodId) {
+      toast.error('Bandeira do cartão não identificada. Verifique o número do cartão.');
+      return;
+    }
+
     if (!/^\d{2}\/\d{2}$/.test(cardData.expiryDate)) {
       toast.error('Data de validade deve estar no formato MM/AA');
       return;
     }
 
-    console.log('✅ [FORM] Validações passaram, iniciando processamento');
-    setIsCreatingToken(true);
+    console.log('✅ [FORM] Validações passaram, enviando dados para MP via backend');
 
     try {
-      const tokenData = await createPaymentToken();
-
-      // Preparar dados para o backend
+      // ✅ DADOS DIRETOS PARA O BACKEND - AGORA COM BANDEIRA E EMISSOR CORRETOS
       const formData = {
-        token: tokenData.id,
         transaction_amount: pacote.valor,
-        payment_method_id: 'visa', // Detectado automaticamente no backend
+        payment_method_id: paymentMethodId, // ✅ BANDEIRA DINÂMICA
+        issuer_id: issuerId, // ✅ EMISSOR DINÂMICO
         installments: parseInt(cardData.installments),
         payer: {
           email: user.email,
@@ -178,7 +185,7 @@ const CreditCardForm = memo(({ pacote, onPaymentSuccess }: CreditCardFormProps) 
             number: cardData.identificationNumber
           }
         },
-        // Adicionar dados do cartão para processamento direto no backend
+        // Dados do cartão para processamento direto no MP
         card_data: {
           number: cardData.cardNumber.replace(/\s/g, ''),
           expiry_date: cardData.expiryDate,
@@ -187,7 +194,7 @@ const CreditCardForm = memo(({ pacote, onPaymentSuccess }: CreditCardFormProps) 
         }
       };
 
-      console.log('🔄 [FRONTEND] Enviando dados para processamento');
+      console.log('🔄 [FRONTEND] Enviando DADOS DO CARTÃO para backend (MP vai validar)');
 
       processPayment({
         pacoteId: pacote.id,
@@ -202,12 +209,10 @@ const CreditCardForm = memo(({ pacote, onPaymentSuccess }: CreditCardFormProps) 
       toast.error('Erro ao processar cartão', {
         description: error.message || 'Verifique os dados e tente novamente.'
       });
-    } finally {
-      setIsCreatingToken(false);
     }
   };
 
-  const isProcessing = isPending || isCreatingToken;
+  const isProcessing = isPending;
 
   if (!pacote) return null;
 
@@ -337,16 +342,11 @@ const CreditCardForm = memo(({ pacote, onPaymentSuccess }: CreditCardFormProps) 
               className="w-full h-12 text-lg font-semibold cursor-pointer" 
               disabled={isProcessing}
               onClick={() => {
-                console.log('🔍 [BUTTON] Botão clicado!', { isProcessing, isPending, isCreatingToken });
+                console.log('🔍 [BUTTON] Botão clicado!', { isProcessing, isPending });
                 // O submit será tratado pelo form onSubmit
               }}
             >
-              {isCreatingToken ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Validando Cartão...
-                </>
-              ) : isPending ? (
+              {isPending ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Processando Pagamento...

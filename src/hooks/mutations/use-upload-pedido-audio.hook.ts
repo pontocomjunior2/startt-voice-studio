@@ -10,7 +10,8 @@ interface UploadPedidoAudioResponse {
   filePath: string; // Caminho relativo retornado pelo backend, ex: /uploads/audios/username/arquivo.mp3
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// A constante API_URL foi removida, pois o proxy do Vite cuidará do redirecionamento.
+// As chamadas fetch agora usarão caminhos relativos.
 
 // Função para upload em chunks (fallback para arquivos grandes)
 const uploadFileInChunks = async (file: File, username: string): Promise<UploadPedidoAudioResponse> => {
@@ -25,7 +26,7 @@ const uploadFileInChunks = async (file: File, username: string): Promise<UploadP
     const end = Math.min(start + chunkSize, file.size);
     const chunk = file.slice(start, end);
 
-    const response = await fetch(`${API_URL}/api/upload-chunked/${username}`, {
+    const response = await fetch(`/api/upload-chunked/${username}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/octet-stream',
@@ -60,7 +61,7 @@ const uploadPedidoAudio = async ({ file, username }: UploadPedidoAudioVariables)
 
   try {
     // Tentar upload normal primeiro
-    const response = await fetch(`${API_URL}/api/upload/${username}`, {
+    const response = await fetch(`/api/upload/${username}`, {
       method: 'POST',
       body: formData,
     });

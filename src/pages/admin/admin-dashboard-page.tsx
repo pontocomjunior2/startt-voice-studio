@@ -795,8 +795,8 @@ function AdminDashboardPage() {
       console.log(`[handleDeletePedido] Tentando excluir pedido ID: ${selectedPedido.id}, Serial: ${selectedPedido.id_pedido_serial}`); // Log adicionado
       // Verificar se supabaseClient está definido ou se supabase (global) deve ser usado
       // Assumindo que supabase (importado de @/lib/supabaseClient) é o correto
-      console.log('[handleDeletePedido] Chamando RPC excluir_pedido_e_estornar_creditos...'); // Log adicionado
-      const { data: result, error } = await supabase.rpc('excluir_pedido_e_estornar_creditos', {
+      console.log('[handleDeletePedido] Chamando RPC excluir_pedido_e_estornar_creditos_real...'); // Log adicionado e nome corrigido
+      const { data: result, error } = await supabase.rpc('excluir_pedido_e_estornar_creditos_real', { // <<< CORREÇÃO AQUI
         p_pedido_id: selectedPedido.id
       });
 
@@ -809,7 +809,7 @@ function AdminDashboardPage() {
       }
       
       if (result?.status === 'error') {
-        console.error("[handleDeletePedido] Erro retornado pela RPC excluir_pedido_e_estornar_creditos:", result.message);
+        console.error("[handleDeletePedido] Erro retornado pela RPC excluir_pedido_e_estornar_creditos_real:", result.message); // Corrigido nome da RPC na mensagem de erro
         throw new Error(result?.message || 'Falha ao excluir pedido conforme resposta da RPC.');
       }
 

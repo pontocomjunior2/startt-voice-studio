@@ -28,7 +28,7 @@ console.log('[Servidor Express] VITE_SUPABASE_ANON_KEY lido:', process.env.VITE_
 console.log('[Servidor Express] SUPABASE_SERVICE_ROLE_KEY lido:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Definido' : 'NÃO DEFINIDO');
 // IMPORTS DOS HANDLERS/ROUTERS DEVEM VIR APÓS O dotenv.config!
 const gerar_roteiro_ia_1 = __importDefault(require("./api/gerar-roteiro-ia"));
-const gerar_pagamento_pix_mp_1 = __importDefault(require("./api/gerar-pagamento-pix-mp"));
+const gerar_pagamento_pix_mp_1 = require("./api/gerar-pagamento-pix-mp");
 const webhook_mp_pagamentos_1 = __importDefault(require("./api/webhook-mp-pagamentos"));
 const processar_pagamento_cartao_mp_1 = require("./api/processar-pagamento-cartao-mp");
 const teste_creditos_1 = __importDefault(require("./api/teste-creditos"));
@@ -922,7 +922,8 @@ app.post('/api/processar-pagamento-cartao-mp', processar_pagamento_cartao_mp_1.p
 app.post('/api/teste-creditos', teste_creditos_1.default);
 // ROTA: Verificar créditos do usuário
 app.get('/api/verificar-creditos', verificar_creditos_1.default);
-app.use(gerar_pagamento_pix_mp_1.default);
+// ROTA: Geração de pagamento PIX com MP SDK
+app.post('/api/criar-pagamento-pix-mp', gerar_pagamento_pix_mp_1.gerarPagamentoPixMP);
 const webhookLimiter = (0, express_rate_limit_1.default)({
     windowMs: 1 * 60 * 1000, // 1 minuto
     max: 30, // 30 requests por minuto

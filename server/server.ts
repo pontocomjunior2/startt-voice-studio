@@ -29,7 +29,7 @@ console.log('[Servidor Express] SUPABASE_SERVICE_ROLE_KEY lido:', process.env.SU
 
 // IMPORTS DOS HANDLERS/ROUTERS DEVEM VIR APÓS O dotenv.config!
 import gerarRoteiroIAHandler from './api/gerar-roteiro-ia';
-import gerarPagamentoPixMpRouter from './api/gerar-pagamento-pix-mp';
+import { gerarPagamentoPixMP } from './api/gerar-pagamento-pix-mp';
 import webhookMpPagamentosRouter from './api/webhook-mp-pagamentos';
 import { processarPagamentoCartaoMP } from './api/processar-pagamento-cartao-mp';
 import testeCreditosHandler from './api/teste-creditos';
@@ -1002,7 +1002,8 @@ app.post('/api/teste-creditos', testeCreditosHandler);
 // ROTA: Verificar créditos do usuário
 app.get('/api/verificar-creditos', verificarCreditosHandler);
 
-app.use(gerarPagamentoPixMpRouter);
+// ROTA: Geração de pagamento PIX com MP SDK
+app.post('/api/criar-pagamento-pix-mp', gerarPagamentoPixMP);
 
 const webhookLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minuto

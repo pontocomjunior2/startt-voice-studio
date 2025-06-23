@@ -14,68 +14,18 @@ import { cn } from "@/lib/utils";
 import CreditCardForm from '@/components/cliente/credit-card-form';
 import { initMercadoPago } from '@mercadopago/sdk-react';
 
-// Hook personalizado para detectar visibilidade da página
-const usePageVisibility = () => {
-  const [isVisible, setIsVisible] = useState(!document.hidden);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      setIsVisible(!document.hidden);
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    // Também escutar eventos de foco da janela
-    window.addEventListener('focus', () => setIsVisible(true));
-    window.addEventListener('blur', () => setIsVisible(false));
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', () => setIsVisible(true));
-      window.removeEventListener('blur', () => setIsVisible(false));
-    };
-  }, []);
-
-  return isVisible;
-};
-
 export default function ComprarCreditosPage() {
   const { profile, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const isPageVisible = usePageVisibility();
   
-  // Chaves para localStorage
-  const STORAGE_KEY = 'pontocom-compra-creditos-state';
   const FORM_STATE_KEY = 'pontocom-card-form-state';
   
-  // Estados com inicialização do localStorage
-  const [pacoteSelecionado, setPacoteSelecionado] = useState<Pacote | null>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved).pacoteSelecionado : null;
-    } catch {
-      return null;
-    }
-  });
-  
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved).selectedPaymentMethod : null;
-    } catch {
-      return null;
-    }
-  });
-  
-  const [lastSelectedPaymentMethod, setLastSelectedPaymentMethod] = useState<string | null>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved).lastSelectedPaymentMethod : null;
-    } catch {
-      return null;
-    }
-  });
+  // ✅ CORREÇÃO: Estados iniciam como nulos para garantir o fluxo step-by-step.
+  // A restauração a partir do localStorage foi removida.
+  const [pacoteSelecionado, setPacoteSelecionado] = useState<Pacote | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
+  const [lastSelectedPaymentMethod, setLastSelectedPaymentMethod] = useState<string | null>(null);
   
   const [isLoadingQrCode, setIsLoadingQrCode] = useState(false);
   const [qrCodeBase64MP, setQrCodeBase64MP] = useState<string | null>(null);
@@ -86,62 +36,8 @@ export default function ComprarCreditosPage() {
 
   const { data: pacotes = [], isLoading, isError } = useFetchListablePacotes();
 
-  // Detectar quando o usuário volta à página e restaurar estado se necessário
-  useEffect(() => {
-    if (isPageVisible) {
-      // Usuário voltou à página, verificar se precisa restaurar estado
-      try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const savedState = JSON.parse(saved);
-          
-          // Verificar se o estado local está desatualizado
-          if (savedState.pacoteSelecionado && !pacoteSelecionado) {
-            setPacoteSelecionado(savedState.pacoteSelecionado);
-          }
-          
-          if (savedState.selectedPaymentMethod && !selectedPaymentMethod) {
-            setSelectedPaymentMethod(savedState.selectedPaymentMethod);
-          }
-          
-          if (savedState.lastSelectedPaymentMethod && !lastSelectedPaymentMethod) {
-            setLastSelectedPaymentMethod(savedState.lastSelectedPaymentMethod);
-          }
-        }
-      } catch (error) {
-        console.warn('Erro ao restaurar estado:', error);
-      }
-    }
-  }, [isPageVisible, pacoteSelecionado, selectedPaymentMethod, lastSelectedPaymentMethod]);
-
-  // Salvar estado no localStorage sempre que mudarem
-  useEffect(() => {
-    const stateToSave = {
-      pacoteSelecionado,
-      selectedPaymentMethod,
-      lastSelectedPaymentMethod,
-      timestamp: Date.now()
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
-  }, [pacoteSelecionado, selectedPaymentMethod, lastSelectedPaymentMethod]);
-
-  // Limpar estado expirado (24 horas)
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const { timestamp } = JSON.parse(saved);
-        const isExpired = Date.now() - timestamp > 24 * 60 * 60 * 1000; // 24 horas
-        if (isExpired) {
-          localStorage.removeItem(STORAGE_KEY);
-          localStorage.removeItem(FORM_STATE_KEY);
-        }
-      }
-    } catch {
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(FORM_STATE_KEY);
-    }
-  }, []);
+  // ⛔️ REMOVIDO: Todos os `useEffect` que lidavam com `localStorage` para `pacoteSelecionado`
+  // e `selectedPaymentMethod` foram removidos para garantir um estado limpo a cada visita.
 
   // Inicializa o SDK do MP apenas uma vez
   useEffect(() => {
@@ -151,36 +47,8 @@ export default function ComprarCreditosPage() {
     }
   }, [isMPSdkReady]);
 
-  // Função para lidar com mudança de método de pagamento
-  const handlePaymentMethodChange = useCallback((method: string) => {
-    setSelectedPaymentMethod(method);
-    setLastSelectedPaymentMethod(method);
-  }, []);
-
-  const handleSelectPacote = (pacote: Pacote) => {
-    if (!user) {
-      navigate('/login', { state: { from: location.pathname } });
-      return;
-    }
-    
-    const isChangingPackage = pacoteSelecionado && pacoteSelecionado.id !== pacote.id;
-    setPacoteSelecionado(pacote);
-    
-    // Se estivermos mudando de pacote, limpar dados PIX mas manter o método selecionado
-    if (isChangingPackage) {
-      setQrCodeBase64MP(null);
-      setQrCodePayloadMP(null);
-      setTempoRestanteSegundosMP(null);
-      // Limpar também o estado do formulário de cartão quando mudar de pacote
-      localStorage.removeItem(FORM_STATE_KEY);
-    } else if (!pacoteSelecionado && lastSelectedPaymentMethod) {
-      // Se é a primeira seleção e temos um método lembrado, restaurá-lo
-      setSelectedPaymentMethod(lastSelectedPaymentMethod);
-    }
-  };
-
-  const generatePix = async () => {
-    if (!pacoteSelecionado || !profile) return;
+  const generatePix = useCallback(async () => {
+    if (!pacoteSelecionado || !profile || !user) return;
     setIsLoadingQrCode(true);
     try {
       const response = await fetch('/api/criar-pagamento-pix-mp', {
@@ -191,6 +59,7 @@ export default function ComprarCreditosPage() {
           valorTotal: pacoteSelecionado.valor,
           emailCliente: user?.email,
           userIdCliente: profile.id,
+          pacoteId: pacoteSelecionado.id,
         }),
       });
       const result = await response.json();
@@ -203,18 +72,40 @@ export default function ComprarCreditosPage() {
     } finally {
       setIsLoadingQrCode(false);
     }
-  };
-  
-  // useEffect para gerar o PIX só quando o método for selecionado
-  useEffect(() => {
-    if (pacoteSelecionado && selectedPaymentMethod === 'pix' && !qrCodeBase64MP) {
+  }, [pacoteSelecionado, profile, user]);
+
+  // Função para lidar com mudança de método de pagamento
+  const handlePaymentMethodChange = useCallback((method: string) => {
+    setSelectedPaymentMethod(method);
+    setLastSelectedPaymentMethod(method);
+    
+    if (method === 'pix' && pacoteSelecionado && !qrCodeBase64MP) {
       generatePix();
     }
-  }, [pacoteSelecionado, selectedPaymentMethod]);
+  }, [pacoteSelecionado, qrCodeBase64MP, generatePix]);
+
+  const handleSelectPacote = (pacote: Pacote) => {
+    if (!user) {
+      navigate('/login', { state: { from: location.pathname } });
+      return;
+    }
+
+    if (pacoteSelecionado?.id === pacote.id) {
+      return;
+    }
+    
+    // Sempre que um novo pacote é selecionado, reinicia o estado do pagamento.
+    setPacoteSelecionado(pacote);
+    setSelectedPaymentMethod(null);
+    setQrCodeBase64MP(null);
+    setQrCodePayloadMP(null);
+    setTempoRestanteSegundosMP(null);
+    localStorage.removeItem(FORM_STATE_KEY); 
+  };
   
   // Contador regressivo Mercado Pago
   useEffect(() => {
-    if (isLoadingQrCode && tempoRestanteSegundosMP !== null && tempoRestanteSegundosMP > 0) {
+    if (tempoRestanteSegundosMP !== null && tempoRestanteSegundosMP > 0) {
       const timer = setInterval(() => {
         setTempoRestanteSegundosMP((prev) => {
           if (prev === null || prev <= 1) {
@@ -227,7 +118,7 @@ export default function ComprarCreditosPage() {
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [isLoadingQrCode, tempoRestanteSegundosMP]);
+  }, [tempoRestanteSegundosMP]);
 
   const formatarTempoRestante = (segundos: number | null): string => {
     if (segundos === null || segundos < 0) return "00:00";
@@ -238,8 +129,7 @@ export default function ComprarCreditosPage() {
 
   // Função para limpar todo o estado (útil para pagamento bem-sucedido)
   const clearAllState = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(FORM_STATE_KEY);
+    // Não precisa mais limpar localStorage, apenas o estado local
     setPacoteSelecionado(null);
     setSelectedPaymentMethod(null);
     setLastSelectedPaymentMethod(null);
@@ -249,7 +139,7 @@ export default function ComprarCreditosPage() {
   }, []);
 
   const handlePaymentSuccess = useCallback(() => {
-    clearAllState(); // Limpar todo o estado salvo
+    clearAllState(); 
     toast.success("Pagamento realizado com sucesso!", {
       description: "Seus créditos foram adicionados. Você será redirecionado em breve.",
     });
