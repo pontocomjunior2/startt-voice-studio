@@ -97,7 +97,7 @@ function AdminUsuariosPage() {
              console.log(`AdminUsuariosPage: DEBUGGING - Processando usuário ${user.id} (${user.username})`);
              
              // Primeiro, vamos verificar TODOS os lotes deste usuário
-             const { data: todosLotes, error: todoLotesError } = await supabase
+             const { data: todosLotes } = await supabase
                .from('lotes_creditos')
                .select('*')
                .eq('user_id', user.id);

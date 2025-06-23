@@ -301,7 +301,7 @@ export default function TesteCreditosPage() {
       }
 
       // 3. Verificar créditos após inserção
-      const { data: lotesDepois, error: lotesDepoisError } = await supabase
+      const { data: lotesDepois } = await supabase
         .from('lotes_creditos')
         .select('quantidade_adicionada, quantidade_usada')
         .eq('user_id', user.id)

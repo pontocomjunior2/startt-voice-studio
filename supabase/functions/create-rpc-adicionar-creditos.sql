@@ -18,7 +18,7 @@ DECLARE
   v_result JSON;
 BEGIN
   -- 1. Buscar informações do pacote
-  SELECT creditos, validade_dias 
+  SELECT creditos_oferecidos, validade_dias 
   INTO v_pacote_creditos, v_pacote_validade_dias
   FROM pacotes
   WHERE id = p_pacote_id AND ativo = true;
