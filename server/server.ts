@@ -31,7 +31,7 @@ console.log('[Servidor Express] SUPABASE_SERVICE_ROLE_KEY lido:', process.env.SU
 import gerarRoteiroIAHandler from './api/gerar-roteiro-ia';
 import gerarPagamentoPixMpRouter from './api/gerar-pagamento-pix-mp';
 import webhookMpPagamentosRouter from './api/webhook-mp-pagamentos';
-import processarPagamentoCartaoMpHandler from './api/processar-pagamento-cartao-mp';
+import { processarPagamentoCartaoMP } from './api/processar-pagamento-cartao-mp';
 import testeCreditosHandler from './api/teste-creditos';
 import verificarCreditosHandler from './api/verificar-creditos';
 
@@ -994,7 +994,7 @@ app.get('/health', (req, res) => {
 app.post('/api/gerar-roteiro-ia', gerarRoteiroIAHandler);
 
 // ROTA: Processamento de pagamento com cartão
-app.post('/api/processar-pagamento-cartao-mp', processarPagamentoCartaoMpHandler);
+app.post('/api/processar-pagamento-cartao-mp', processarPagamentoCartaoMP);
 
 // ROTA: Teste de créditos direto
 app.post('/api/teste-creditos', testeCreditosHandler);
