@@ -186,31 +186,29 @@ export const excluirPedidoAction = actionClient
         return { failure: `Este pedido não pode ser excluído pois seu status é "${pedido.status}". Apenas pedidos pendentes podem ser excluídos.` };
       }
 
-      console.log(`[excluirPedidoAction] Chamando RPC excluir_pedido_e_estornar_creditos para o pedido: ${pedidoId}`);
-      // Substituir a deleção direta pela chamada RPC
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('excluir_pedido_e_estornar_creditos', {
+      console.log(`[excluirPedidoAction] Chamando RPC excluir_pedido_e_estornar_creditos_real para o pedido: ${pedidoId}`);
+      // Usar a nova função que realmente estorna créditos
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('excluir_pedido_e_estornar_creditos_real', {
         p_pedido_id: pedidoId
       });
 
       if (rpcError) {
-        console.error("[excluirPedidoAction] Erro ao chamar RPC excluir_pedido_e_estornar_creditos:", JSON.stringify(rpcError, null, 2));
+        console.error("[excluirPedidoAction] Erro ao chamar RPC excluir_pedido_e_estornar_creditos_real:", JSON.stringify(rpcError, null, 2));
         return { failure: "Erro ao tentar comunicar com o serviço de exclusão.", details: rpcError.message };
       }
 
       console.log('[excluirPedidoAction] Resultado da RPC:', rpcResult);
 
-      // CORREÇÃO: A RPC retorna um array, então pegamos o primeiro item.
-      const rpcResponse = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
+      // A nova RPC retorna JSON diretamente
+      const rpcResponse = rpcResult;
 
-      if (rpcResponse?.status === 'error') {
-        console.error("[excluirPedidoAction] Erro retornado pela RPC excluir_pedido_e_estornar_creditos:", rpcResponse.message);
-        // A mensagem da RPC já deve ser amigável, mas podemos adicionar um prefixo se necessário.
-        return { failure: rpcResponse.message || "Falha ao excluir o pedido e estornar créditos." };
+      if (!rpcResponse?.success) {
+        console.error("[excluirPedidoAction] Erro retornado pela RPC excluir_pedido_e_estornar_creditos_real:", rpcResponse?.error);
+        return { failure: rpcResponse?.error || "Falha ao excluir o pedido e estornar créditos." };
       }
       
-      if (rpcResponse?.status === 'success') {
+      if (rpcResponse?.success) {
         console.log(`[excluirPedidoAction] Pedido ${pedidoId} excluído e créditos estornados com sucesso via RPC.`);
-        // A mensagem de sucesso da RPC pode ser usada, ou uma padrão.
         return { success: true, message: rpcResponse.message || "Pedido excluído e créditos estornados.", pedidoId };
       }
 

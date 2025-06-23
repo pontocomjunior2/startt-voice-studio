@@ -167,6 +167,169 @@ export default function TesteCreditosPage() {
     }
   };
 
+  // NOVA FUNÇÃO: Migrar créditos de profiles para lotes_creditos
+  const migrarCreditosParaLotes = async () => {
+    setIsLoading(true);
+    setResult(null);
+
+    try {
+      console.log('🔄 MIGRAÇÃO: Iniciando migração de profiles.credits para lotes_creditos...');
+      
+      // 1. Buscar todos os usuários com créditos > 0
+      const { data: usersComCreditos, error: usersError } = await supabase
+        .from('profiles')
+        .select('id, username, credits, email')
+        .gt('credits', 0);
+
+      if (usersError) {
+        throw new Error(`Erro ao buscar usuários: ${usersError.message}`);
+      }
+
+      console.log(`📊 Encontrados ${usersComCreditos?.length || 0} usuários com créditos`);
+
+      if (!usersComCreditos || usersComCreditos.length === 0) {
+        setResult({
+          sucesso: true,
+          message: 'Nenhum usuário com créditos encontrado para migrar',
+          usuariosMigrados: 0
+        });
+        return;
+      }
+
+      // 2. Para cada usuário, criar um lote em lotes_creditos
+      const migracoesPromises = usersComCreditos.map(async (user) => {
+        const { error: insertError } = await supabase
+          .from('lotes_creditos')
+          .insert({
+            user_id: user.id,
+            quantidade_adicionada: user.credits,
+            quantidade_usada: 0,
+            data_validade: null, // Sem validade para créditos migrados
+            status: 'ativo',
+            admin_id_que_adicionou: null,
+            observacao_admin: 'Migração automática de profiles.credits para lotes_creditos'
+          });
+
+        if (insertError) {
+          console.error(`❌ Erro ao migrar usuário ${user.username}:`, insertError);
+          return { usuario: user.username, sucesso: false, erro: insertError.message };
+        }
+
+        console.log(`✅ Migrado usuário ${user.username}: ${user.credits} créditos`);
+        return { usuario: user.username, sucesso: true, creditosMigrados: user.credits };
+      });
+
+      const resultadosMigracoes = await Promise.all(migracoesPromises);
+      const sucessos = resultadosMigracoes.filter(r => r.sucesso);
+      const falhas = resultadosMigracoes.filter(r => !r.sucesso);
+
+      setResult({
+        sucesso: true,
+        message: `Migração concluída: ${sucessos.length} sucessos, ${falhas.length} falhas`,
+        usuariosMigrados: sucessos.length,
+        usuariosComFalha: falhas.length,
+        detalhes: resultadosMigracoes
+      });
+
+      if (sucessos.length > 0) {
+        toast.success(`Migração concluída! ${sucessos.length} usuários migrados.`);
+      }
+
+      if (falhas.length > 0) {
+        toast.error(`${falhas.length} falhas na migração. Verifique os detalhes.`);
+      }
+
+    } catch (err: any) {
+      console.error('💥 Erro na migração:', err);
+      setResult({
+        sucesso: false,
+        erro: 'Erro na migração',
+        detalhes: err.message
+      });
+      toast.error('Erro na migração', { description: err.message });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // NOVA FUNÇÃO: Adicionar créditos usando lotes_creditos
+  const adicionarCreditosViaLotes = async () => {
+    if (!user?.id) {
+      toast.error('Usuário não logado');
+      return;
+    }
+
+    setIsLoading(true);
+    setResultado(null);
+
+    try {
+      console.log(`🧪 [TESTE LOTES] Adicionando ${creditosParaAdicionar} créditos via lotes_creditos`);
+
+      // 1. Buscar créditos atuais via lotes_creditos
+      const currentDate = new Date().toISOString();
+      const { data: lotes, error: lotesError } = await supabase
+        .from('lotes_creditos')
+        .select('quantidade_adicionada, quantidade_usada')
+        .eq('user_id', user.id)
+        .eq('status', 'ativo')
+        .or(`data_validade.is.null,data_validade.gt.${currentDate}`);
+
+      if (lotesError) {
+        throw new Error(`Erro ao buscar lotes atuais: ${lotesError.message}`);
+      }
+
+      const creditosAtuais = lotes?.reduce((sum, lote) => 
+        sum + (lote.quantidade_adicionada - (lote.quantidade_usada || 0)), 0) || 0;
+
+      console.log(`💰 Créditos atuais (via lotes): ${creditosAtuais}`);
+
+      // 2. Adicionar novo lote
+      const { error: insertError } = await supabase
+        .from('lotes_creditos')
+        .insert({
+          user_id: user.id,
+          quantidade_adicionada: creditosParaAdicionar,
+          quantidade_usada: 0,
+          data_validade: null, // Sem validade para testes
+          status: 'ativo',
+                     admin_id_que_adicionou: null,
+          observacao_admin: 'Teste manual de adição de créditos'
+        });
+
+      if (insertError) {
+        throw new Error(`Erro ao inserir lote: ${insertError.message}`);
+      }
+
+      // 3. Verificar créditos após inserção
+      const { data: lotesDepois, error: lotesDepoisError } = await supabase
+        .from('lotes_creditos')
+        .select('quantidade_adicionada, quantidade_usada')
+        .eq('user_id', user.id)
+        .eq('status', 'ativo')
+        .or(`data_validade.is.null,data_validade.gt.${currentDate}`);
+
+      const creditosDepois = lotesDepois?.reduce((sum, lote) => 
+        sum + (lote.quantidade_adicionada - (lote.quantidade_usada || 0)), 0) || 0;
+
+      setResultado({
+        beforeCredits: creditosAtuais,
+        addedCredits: creditosParaAdicionar,
+        afterCredits: creditosDepois,
+        verification: creditosDepois === creditosAtuais + creditosParaAdicionar ? 'SUCESSO' : 'FALHA'
+      });
+
+      toast.success('Créditos adicionados via lotes_creditos!', {
+        description: `${creditosParaAdicionar} créditos adicionados`
+      });
+
+    } catch (error: any) {
+      toast.error('Erro no teste via lotes', { description: error.message });
+      console.error('Erro:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto py-10 max-w-2xl">
       <Card>
@@ -196,13 +359,23 @@ export default function TesteCreditosPage() {
             />
           </div>
 
-          <Button 
-            onClick={handleTesteCreditos}
-            disabled={isLoading || !user?.id}
-            className="w-full"
-          >
-            {isLoading ? 'Testando...' : 'Executar Teste de Créditos'}
-          </Button>
+          <div className="grid gap-2">
+            <Button 
+              onClick={handleTesteCreditos}
+              disabled={isLoading || !user?.id}
+              variant="outline"
+            >
+              {isLoading ? 'Testando...' : 'Teste Antigo (profiles.credits)'}
+            </Button>
+
+            <Button 
+              onClick={adicionarCreditosViaLotes}
+              disabled={isLoading || !user?.id}
+              className="w-full"
+            >
+              {isLoading ? 'Testando...' : 'Teste Novo (lotes_creditos)'}
+            </Button>
+          </div>
 
           {resultado && (
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg dark:bg-green-950 dark:border-green-800">
@@ -223,7 +396,7 @@ export default function TesteCreditosPage() {
             <h4 className="font-semibold mb-2">📋 Como usar:</h4>
             <ol className="text-sm space-y-1 list-decimal list-inside">
               <li>Digite quantos créditos quer adicionar</li>
-              <li>Clique "Executar Teste"</li>
+              <li>Clique "Teste Novo (lotes_creditos)"</li>
               <li>Verifique o resultado</li>
               <li>Recarregue a página principal para ver na interface</li>
             </ol>
@@ -246,6 +419,14 @@ export default function TesteCreditosPage() {
           variant="outline"
         >
           {isLoading ? 'Testando...' : 'Testar Usuário Específico'}
+        </Button>
+
+        <Button 
+          onClick={migrarCreditosParaLotes}
+          disabled={isLoading}
+          variant="destructive"
+        >
+          {isLoading ? 'Migrando...' : '🔄 Migrar profiles.credits → lotes_creditos'}
         </Button>
       </div>
 
