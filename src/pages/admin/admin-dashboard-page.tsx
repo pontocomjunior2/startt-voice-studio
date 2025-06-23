@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, CreditCard, ListChecks, Loader2, FileText, Eye, Save, RotateCcw, RefreshCw, MessageSquare, DownloadCloud } from 'lucide-react';
+import { Users, CreditCard, ListChecks, Loader2, FileText, Eye, Save, RotateCcw, RefreshCw, MessageSquare, DownloadCloud, MessageSquareWarning } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   Table,
@@ -381,6 +381,7 @@ function AdminDashboardPage() {
           id, created_at, status, texto_roteiro, creditos_debitados, titulo,
           estilo_locucao, tipo_audio, orientacoes, id_pedido_serial,
           audio_final_url, audio_guia_url, downloaded_at, cliente_notificado_em,
+          admin_message, cliente_resposta_info, data_resposta_cliente,
           profile:profiles ( id, full_name, email, username ),
           locutores ( id, nome )
         `)
@@ -440,10 +441,10 @@ function AdminDashboardPage() {
             estilo_locucao: p.estilo_locucao,
             orientacoes: p.orientacoes,
             tipo_audio: p.tipo_audio,
-            creditos_debitados: p.creditos_debitados, // Adicionar esta linha
-            // creditos_debitados e cliente_notificado_em não estão em AdminPedido, mas estão na query.
-            // Se forem necessários em AdminPedido, devem ser adicionados ao tipo.
-            // Por ora, não são incluídos no objeto mapeado para AdminPedido para evitar erros de tipo.
+            creditos_debitados: p.creditos_debitados,
+            admin_message: p.admin_message,
+            cliente_resposta_info: p.cliente_resposta_info,
+            data_resposta_cliente: p.data_resposta_cliente,
           };
         }) as AdminPedido[];
         console.log('[AdminDashboardPage] Pedidos (paginados) recebidos e formatados:', pedidosFormatados);
@@ -1383,6 +1384,46 @@ function AdminDashboardPage() {
               )}
 
               <Separator className="my-4" />
+
+              {/* SEÇÃO DE COMUNICAÇÃO ADMIN-CLIENTE */}
+              {(selectedPedido.admin_message || selectedPedido.cliente_resposta_info) && (
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium text-foreground">Comunicação Admin ↔ Cliente:</h4>
+                  
+                  {/* Mensagem do Admin */}
+                  {selectedPedido.admin_message && (
+                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-md border-l-4 border-amber-500">
+                      <h5 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-1 flex items-center">
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Sua Mensagem para o Cliente:
+                      </h5>
+                      <div className="text-sm text-amber-700 dark:text-amber-200 whitespace-pre-wrap">
+                        {selectedPedido.admin_message}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Resposta do Cliente */}
+                  {selectedPedido.cliente_resposta_info && (
+                    <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-md border-l-4 border-green-500">
+                      <h5 className="text-sm font-semibold text-green-800 dark:text-green-300 mb-1 flex items-center">
+                        <MessageSquareWarning className="h-4 w-4 mr-2" />
+                        Resposta do Cliente:
+                        {selectedPedido.data_resposta_cliente && (
+                          <span className="ml-2 text-xs font-normal text-green-600 dark:text-green-400">
+                            ({format(new Date(selectedPedido.data_resposta_cliente), "dd/MM/yy HH:mm", { locale: ptBR })})
+                          </span>
+                        )}
+                      </h5>
+                      <div className="text-sm text-green-700 dark:text-green-200 whitespace-pre-wrap">
+                        {selectedPedido.cliente_resposta_info}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(selectedPedido.admin_message || selectedPedido.cliente_resposta_info) && <Separator className="my-4" />}
 
               {/* SEÇÃO DE AÇÕES DO ADMIN */}
               <div className="space-y-4">

@@ -51,6 +51,9 @@ export interface AdminPedido {
   tipo_audio?: string | null;
   creditos_debitados?: number | null;
   audio_guia_url?: string | null;
+  admin_message?: string | null;
+  cliente_resposta_info?: string | null;
+  data_resposta_cliente?: string | null;
 }
 
 export interface Pedido {
