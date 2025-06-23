@@ -21,7 +21,16 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogClose
+  DialogClose,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
@@ -91,16 +100,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Importar AlertDialog e ícones
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Trash2 } from 'lucide-react'; // Loader2 já importado
 
 // Tipo para status de revisão que podem ser acionados pelo admin
@@ -808,9 +807,12 @@ function AdminDashboardPage() {
         throw new Error(error.message || 'Falha ao chamar RPC para excluir pedido.');
       }
       
-      if (result?.status === 'error') {
-        console.error("[handleDeletePedido] Erro retornado pela RPC excluir_pedido_e_estornar_creditos_real:", result.message); // Corrigido nome da RPC na mensagem de erro
-        throw new Error(result?.message || 'Falha ao excluir pedido conforme resposta da RPC.');
+      // CORREÇÃO: A RPC `_real` retorna um objeto { success: boolean, message?: string, error?: string }.
+      // A verificação deve ser baseada na propriedade `success`.
+      if (!result?.success) {
+        const errorMessage = result?.error || result?.message || 'Falha ao excluir o pedido. A RPC não retornou sucesso.';
+        console.error("[handleDeletePedido] Erro retornado pela RPC excluir_pedido_e_estornar_creditos_real:", errorMessage);
+        throw new Error(errorMessage);
       }
 
       toast.success(result?.message || "Pedido excluído e créditos estornados com sucesso.");
@@ -1475,21 +1477,16 @@ function AdminDashboardPage() {
               {/* Seção de Ações de Risco */}
               <div className="mt-6 border-t pt-6">
                 <h4 className="mb-3 text-md font-semibold text-destructive">Ações de Risco</h4>
-                <AlertDialog open={isDeleteAlertOpen} onOpenChange={(open) => {
-                  console.log('[AlertDialog Excluir] onOpenChange. Novo estado:', open);
-                  setIsDeleteAlertOpen(open);
-                }}>
-                  <Button 
-                    variant="destructive" 
-                    className="w-full sm:w-auto disabled:opacity-50"
-                    disabled={isUpdatingPedido}
-                    onClick={() => {
-                      console.log('[Excluir Pedido BUTTON] Clicado!');
-                      setIsDeleteAlertOpen(true);
-                    }}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> Excluir Pedido e Estornar Créditos
-                  </Button>
+                <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="destructive" 
+                      className="w-full sm:w-auto"
+                      disabled={isUpdatingPedido}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Excluir Pedido e Estornar Créditos
+                    </Button>
+                  </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
