@@ -165,32 +165,30 @@ function GravarLocucaoPage() {
     if (!user) {
       setLocutores([]);
       setLoadingLocutores(false);
-      setIdsLocutoresFavoritos([]);
       return;
     }
     setLoadingLocutores(true);
     setErrorLocutores(null);
     try {
+      // CHAMADA CORRIGIDA PARA A RPC
       const { data: locutoresData, error: locutoresError } = await supabase
-        .from('locutores')
-        .select('*')
-        .eq('ativo', true)
-        .order('nome');
-      
+        .rpc('get_locutores_disponiveis_para_cliente', { p_user_id: user.id });
+
       if (locutoresError) throw locutoresError;
-      // Buscar demos para cada locutor
-      const locutoresComDemos = await Promise.all((locutoresData || []).map(async (locutor) => {
+      
+      const locutoresComDemos = await Promise.all((locutoresData || []).map(async (locutor: any) => {
         try {
-          const res = await fetch(`/api/locutor/${locutor.id}/demos`); // CORRIGIDO: Usar caminho relativo absoluto
+          const res = await fetch(`/api/locutor/${locutor.id}/demos`);
           if (!res.ok) return { ...locutor, demos: [] };
           const json = await res.json();
-          return { ...locutor, demos: json.demos || [] } as Locutor & { demos: { url: string; estilo?: string }[] };
+          return { ...locutor, demos: json.demos || [] };
         } catch (e) {
-          return { ...locutor, demos: [] } as Locutor & { demos: { url: string; estilo?: string }[] };
+          return { ...locutor, demos: [] };
         }
       }));
-      setLocutores(locutoresComDemos);
+      setLocutores(locutoresComDemos as Locutor[]);
 
+      // Busca de favoritos continua igual
       if (user.id) {
         const { data: favoritosData, error: favoritosError } = await supabase
           .from('locutores_favoritos')
@@ -198,21 +196,20 @@ function GravarLocucaoPage() {
           .eq('user_id', user.id);
 
         if (favoritosError) {
-          // console.error("Erro ao buscar locutores favoritos:", favoritosError);
+          console.error("Erro ao buscar locutores favoritos:", favoritosError);
         } else {
           setIdsLocutoresFavoritos(favoritosData?.map(f => f.locutor_id) || []);
         }
       }
 
-    } catch (error) {
-      // console.error('Erro ao buscar locutores e/ou favoritos:', error);
-      setErrorLocutores('Não foi possível carregar os locutores. Tente novamente mais tarde.');
+    } catch (error: any) {
+      console.error('Erro ao buscar locutores disponíveis:', error);
+      setErrorLocutores('Não foi possível carregar os locutores. Verifique se você possui créditos válidos.');
       setLocutores([]);
-      setIdsLocutoresFavoritos([]);
     } finally {
       setLoadingLocutores(false);
     }
-  }, [user, supabase]);
+  }, [user]); // Removido supabase das dependências pois é estável
 
   const fetchPedidoParaEdicao = useCallback(async (pedidoId: string) => {
     if (!user) {

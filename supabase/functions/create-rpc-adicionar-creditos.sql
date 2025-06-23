@@ -41,6 +41,7 @@ BEGIN
   -- 3. Inserir lote de créditos
   INSERT INTO lotes_creditos (
     user_id,
+    pacote_id,
     quantidade_adicionada,
     quantidade_usada,
     data_validade,
@@ -49,6 +50,7 @@ BEGIN
     observacao_admin
   ) VALUES (
     p_user_id,
+    p_pacote_id,
     v_pacote_creditos,
     0,
     v_data_validade,
@@ -92,12 +94,26 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
+  v_admin_id UUID := auth.uid();
+  v_is_admin BOOLEAN;
   v_creditos_disponiveis INTEGER;
   v_lotes_para_debitar RECORD;
   v_quantidade_restante INTEGER;
   v_quantidade_a_debitar INTEGER;
 BEGIN
-  -- 1. Verificar créditos disponíveis
+  -- 1. VERIFICAR SE O CHAMADOR É ADMIN
+  SELECT EXISTS (
+    SELECT 1 FROM profiles WHERE id = v_admin_id AND role = 'admin'
+  ) INTO v_is_admin;
+
+  IF NOT v_is_admin THEN
+    RETURN json_build_object(
+      'success', false,
+      'error', 'Acesso negado. Apenas administradores podem executar esta ação.'
+    );
+  END IF;
+
+  -- 2. Verificar créditos disponíveis
   SELECT COALESCE(SUM(quantidade_adicionada - quantidade_usada), 0)
   INTO v_creditos_disponiveis
   FROM lotes_creditos
@@ -114,7 +130,7 @@ BEGIN
     );
   END IF;
 
-  -- 2. Debitar créditos dos lotes (FIFO - os que vencem primeiro)
+  -- 3. Debitar créditos dos lotes (FIFO)
   v_quantidade_restante := p_quantidade;
   
   FOR v_lotes_para_debitar IN
@@ -128,48 +144,25 @@ BEGIN
       CASE WHEN data_validade IS NULL THEN '2099-12-31'::timestamp ELSE data_validade END ASC,
       data_adicao ASC
   LOOP
-    -- Calcular quanto pode ser debitado deste lote
     v_quantidade_a_debitar := LEAST(
       v_quantidade_restante,
       v_lotes_para_debitar.quantidade_adicionada - v_lotes_para_debitar.quantidade_usada
     );
     
-    -- Atualizar o lote
     UPDATE lotes_creditos
-    SET quantidade_usada = quantidade_usada + v_quantidade_a_debitar
+    SET 
+      quantidade_usada = quantidade_usada + v_quantidade_a_debitar,
+      observacao_admin = COALESCE(observacao_admin, '') || ' | Débito Admin: ' || v_quantidade_a_debitar || ' por ' || p_observacao
     WHERE id = v_lotes_para_debitar.id;
     
-    -- Diminuir quantidade restante
     v_quantidade_restante := v_quantidade_restante - v_quantidade_a_debitar;
     
-    -- Se já debitou tudo, sair do loop
     EXIT WHEN v_quantidade_restante <= 0;
   END LOOP;
 
-  -- 3. Criar registro de observação (adicionar lote negativo)
-  INSERT INTO lotes_creditos (
-    user_id,
-    quantidade_adicionada,
-    quantidade_usada,
-    data_validade,
-    status,
-    admin_id_que_adicionou,
-    observacao_admin
-  ) VALUES (
-    p_user_id,
-    0,
-    0,
-    NULL,
-    'ativo',
-    NULL,
-    'DÉBITO ADMIN: ' || p_quantidade || ' créditos removidos. Motivo: ' || p_observacao
-  );
-
   RETURN json_build_object(
     'success', true,
-    'user_id', p_user_id,
-    'creditos_debitados', p_quantidade,
-    'observacao', p_observacao
+    'message', p_quantidade || ' crédito(s) foram debitados do usuário ' || p_user_id
   );
 
 EXCEPTION

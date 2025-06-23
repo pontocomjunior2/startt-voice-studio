@@ -25,6 +25,15 @@ const processarPagamentoCartaoMP = async (req, res) => {
             tokenPrefix: req.body.token ? req.body.token.substring(0, 10) + '...' : 'N/A'
         });
         const { token, valorTotal, descricao, installments = 1, paymentMethodId, issuerId, payer, userIdCliente, pacoteId, card_data } = req.body;
+        // VALIDAÇÃO DE VALOR MÍNIMO
+        const MINIMUM_TRANSACTION_VALUE = 0.50; // R$ 0,50
+        if (valorTotal < MINIMUM_TRANSACTION_VALUE) {
+            console.error(`💥 [ERRO] Tentativa de pagamento abaixo do valor mínimo. Valor: ${valorTotal}`);
+            return res.status(400).json({
+                success: false,
+                message: `O valor do pagamento deve ser de no mínimo R$ ${MINIMUM_TRANSACTION_VALUE.toFixed(2)}.`
+            });
+        }
         // Validações básicas
         if (!token && !card_data) {
             return res.status(400).json({
