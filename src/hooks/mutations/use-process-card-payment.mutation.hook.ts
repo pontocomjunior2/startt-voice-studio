@@ -10,30 +10,30 @@ declare global {
 interface CardPaymentParams {
   pacoteId: string;
   userIdCliente: string;
-  formData: any; // O objeto completo vindo do Brick do Mercado Pago
+  formData: any; // O objeto completo vindo do formulário com token oficial do MP
 }
 
-// Esta função orquestra a criação do token e a chamada ao backend
+// Esta função orquestra o envio do token oficial para o backend
 const processCardPayment = async ({ pacoteId, userIdCliente, formData }: CardPaymentParams) => {
-  const { token, transaction_amount, payment_method_id, installments, payer, card_data } = formData;
+  const { token, transaction_amount, payment_method_id, installments, payer } = formData;
   const description = `Compra de créditos PontoComAudio`; // Descrição genérica
 
   console.log('🔍 [FRONTEND] Enviando dados para o backend:', {
-    token,
+    token: token ? `${token.substring(0, 10)}...` : 'AUSENTE',
     transaction_amount,
     payment_method_id,
     installments,
-    payer,
-    card_data: card_data ? 'PRESENTE' : 'AUSENTE',
+    payer: payer ? 'PRESENTE' : 'AUSENTE',
     pacoteId,
-    userIdCliente
+    userIdCliente,
+    ambiente: 'development'
   });
 
   const response = await fetch('/api/processar-pagamento-cartao-mp', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      token,
+      token, // ✅ Token oficial do MP
       valorTotal: transaction_amount,
       descricao: description,
       installments,
@@ -41,7 +41,7 @@ const processCardPayment = async ({ pacoteId, userIdCliente, formData }: CardPay
       payer,
       userIdCliente,
       pacoteId,
-      card_data,
+      // ❌ NÃO enviamos mais card_data!
     }),
   });
 
