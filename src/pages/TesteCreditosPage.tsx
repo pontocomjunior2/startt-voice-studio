@@ -5,12 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { supabase } from '../lib/supabaseClient';
 
 export default function TesteCreditosPage() {
   const { user } = useAuth();
   const [creditosParaAdicionar, setCreditosParaAdicionar] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
+  const [result, setResult] = useState<any>(null);
 
   const handleTesteCreditos = async () => {
     if (!user?.id) {
@@ -46,6 +48,120 @@ export default function TesteCreditosPage() {
         description: error.message
       });
       console.error('Erro:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const testarTabelaLotes = async () => {
+    setIsLoading(true);
+    setResult(null);
+
+    try {
+      console.log('Teste 1: Verificando se tabela lotes_creditos existe...');
+      
+      // Teste 1: Verificar se a tabela existe
+      const { data: countData, error: countError } = await supabase
+        .from('lotes_creditos')
+        .select('*', { count: 'exact', head: true });
+
+      console.log('Resultado contagem:', { countData, countError });
+
+      if (countError) {
+        setResult({
+          erro: 'Erro ao acessar tabela lotes_creditos',
+          detalhes: countError
+        });
+        return;
+      }
+
+      console.log('Teste 2: Buscando todos os lotes...');
+      
+      // Teste 2: Buscar todos os lotes
+      const { data: todosLotes, error: todoLotesError } = await supabase
+        .from('lotes_creditos')
+        .select('*')
+        .limit(10);
+
+      console.log('Todos os lotes:', { todosLotes, todoLotesError });
+
+      if (todoLotesError) {
+        setResult({
+          erro: 'Erro ao buscar lotes',
+          detalhes: todoLotesError
+        });
+        return;
+      }
+
+      console.log('Teste 3: Testando query com filtros...');
+      
+      // Teste 3: Query com filtros (como no código original)
+      const currentDate = new Date().toISOString();
+      const { data: lotesValidosGeral, error: lotesValidosError } = await supabase
+        .from('lotes_creditos')
+        .select('*')
+        .eq('status', 'ativo')
+        .or(`data_validade.is.null,data_validade.gt.${currentDate}`);
+
+      console.log('Lotes válidos geral:', { lotesValidosGeral, lotesValidosError });
+
+      setResult({
+        totalLotes: countData,
+        todosLotes: todosLotes,
+        lotesValidos: lotesValidosGeral,
+        dataAtual: currentDate,
+        erros: {
+          count: countError,
+          todos: todoLotesError,
+          validos: lotesValidosError
+        }
+      });
+
+    } catch (err) {
+      console.error('Erro no teste:', err);
+      setResult({
+        erro: 'Erro inesperado',
+        detalhes: err
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const testarUsuarioEspecifico = async () => {
+    setIsLoading(true);
+    
+    try {
+      // Buscar um usuário aleatório
+      const { data: users } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .limit(1);
+
+      if (!users || users.length === 0) {
+        setResult({ erro: 'Nenhum usuário encontrado' });
+        return;
+      }
+
+      const userId = users[0].id;
+      console.log('Testando com usuário:', userId);
+
+      // Testar lotes deste usuário
+      const { data: lotesUsuario, error: lotesUsuarioError } = await supabase
+        .from('lotes_creditos')
+        .select('*')
+        .eq('user_id', userId);
+
+      console.log('Lotes do usuário:', { lotesUsuario, lotesUsuarioError });
+
+      setResult({
+        usuario: users[0],
+        lotesUsuario: lotesUsuario,
+        erro: lotesUsuarioError
+      });
+
+    } catch (err) {
+      setResult({ erro: 'Erro no teste de usuário', detalhes: err });
     } finally {
       setIsLoading(false);
     }
@@ -114,6 +230,38 @@ export default function TesteCreditosPage() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="grid gap-4 mb-6 mt-6">
+        <Button 
+          onClick={testarTabelaLotes}
+          disabled={isLoading}
+          variant="outline"
+        >
+          {isLoading ? 'Testando...' : 'Testar Tabela lotes_creditos'}
+        </Button>
+        
+        <Button 
+          onClick={testarUsuarioEspecifico}
+          disabled={isLoading}
+          variant="outline"
+        >
+          {isLoading ? 'Testando...' : 'Testar Usuário Específico'}
+        </Button>
+      </div>
+
+      {result && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Resultado do Teste</CardTitle>
+            <CardDescription>Informações detalhadas sobre a tabela lotes_creditos</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <pre className="bg-muted p-4 rounded-md overflow-auto text-sm">
+              {JSON.stringify(result, null, 2)}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 } 

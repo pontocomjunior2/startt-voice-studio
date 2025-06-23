@@ -67,71 +67,37 @@ export default async function handler(req: any, res: any) {
         
         console.log("✅ [FLUXO MANUAL] Pagamento aprovado! ID:", simulatedPaymentId);
         
-        // Buscar créditos atuais do usuário
-        const { data: profile, error: profileError } = await supabaseAdmin
-          .from('profiles')
-          .select('credits')
-          .eq('id', userIdCliente)
-          .single();
-
-        if (profileError) {
-          console.error("❌ [FLUXO MANUAL] Usuário não encontrado:", profileError);
-          throw new Error('Usuário não encontrado.');
-        }
-
-        const currentCredits = profile.credits || 0;
-        const newCredits = currentCredits + pacote.creditos_oferecidos;
-
-        console.log(`💰 [FLUXO MANUAL] Créditos: ${currentCredits} + ${pacote.creditos_oferecidos} = ${newCredits}`);
-
-        // Atualizar créditos do usuário
-        const { error: updateError } = await supabaseAdmin
-          .from('profiles')
-          .update({ credits: newCredits })
-          .eq('id', userIdCliente);
-
-        if (updateError) {
-          console.error("❌ [FLUXO MANUAL] Erro ao atualizar créditos:", updateError);
-          throw new Error('Erro ao processar créditos. Tente novamente.');
-        }
-
-        console.log("✅ [FLUXO MANUAL] Créditos atualizados com sucesso!");
-
-        // Registrar a transação na tabela lotes_creditos (temporariamente desabilitado)
-        // Erro: coluna 'metodo_pagamento' não existe - será corrigido depois
-        /*
-        const { error: loteError } = await supabaseAdmin
-          .from('lotes_creditos')
-          .insert({
-            user_id: userIdCliente,
-            quantidade: pacote.creditos_oferecidos,
-            metodo_pagamento: 'credit_card_manual',
-            valor_pago: valorTotal,
-            pacote_id: pacoteId,
-            pagamento_id_externo: simulatedPaymentId,
-            status: 'ativo'
+        // CORREÇÃO: Usar a RPC para criar entrada em lotes_creditos com validade
+        console.log(`🔧 [FLUXO MANUAL] Chamando RPC adicionar_creditos_por_pacote`);
+        
+        try {
+          const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc('adicionar_creditos_por_pacote', {
+            p_user_id: userIdCliente,
+            p_pacote_id: pacoteId,
+            p_pagamento_id_externo: simulatedPaymentId,
+            p_metodo_pagamento: 'credit_card_manual'
           });
-        */
 
-        // Simular sucesso na auditoria por enquanto
-        const loteError = null;
+          if (rpcError) {
+            console.error("❌ [FLUXO MANUAL] Erro na RPC:", rpcError);
+            throw new Error(`Erro ao processar créditos: ${rpcError.message}`);
+          }
 
-        if (loteError) {
-          console.warn("⚠️ [FLUXO MANUAL] Erro ao registrar lote de créditos:", loteError);
-          // Não falha a transação, apenas loga o aviso
-        } else {
-          console.log("✅ [FLUXO MANUAL] Transação registrada em lotes_creditos");
+          console.log("✅ [FLUXO MANUAL] RPC executada com sucesso:", rpcResult);
+          
+        } catch (rpcErr: any) {
+          console.error("❌ [FLUXO MANUAL] Erro na RPC:", rpcErr);
+          throw new Error(`Erro ao processar créditos: ${rpcErr.message}`);
         }
 
-        console.log(`🎉 [FLUXO MANUAL] Pagamento CONCLUÍDO! Usuário ${userIdCliente} recebeu ${pacote.creditos_oferecidos} créditos. Total: ${newCredits}`);
+        console.log(`🎉 [FLUXO MANUAL] Pagamento CONCLUÍDO! Usuário ${userIdCliente} recebeu ${pacote.creditos_oferecidos} créditos via RPC.`);
 
         return res.status(200).json({
           success: true,
           message: 'Pagamento processado com sucesso!',
           status: 'approved',
           paymentId: simulatedPaymentId,
-          creditsAdded: pacote.creditos_oferecidos,
-          totalCredits: newCredits
+          creditsAdded: pacote.creditos_oferecidos
         });
       } else {
         console.log("❌ [FLUXO MANUAL] Pagamento simulado foi recusado");

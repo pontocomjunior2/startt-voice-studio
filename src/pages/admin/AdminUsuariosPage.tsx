@@ -84,19 +84,65 @@ function AdminUsuariosPage() {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
   useEffect(() => {
-    // CORREÇÃO: Usar profiles.credits diretamente em vez da RPC
-    if (initialUsers && initialUsers.length > 0) {
-      setIsCalculatingBalances(true);
-      console.log("AdminUsuariosPage: CORREÇÃO - Usando profiles.credits diretamente para sincronizar com cliente");
-      
-      const usersWithBalances = initialUsers.map(user => ({
-        ...user, 
-        saldoCalculadoCreditos: user.credits || 0
-      }));
-      
-      setUsersWithCalculatedCredit(usersWithBalances);
-      setIsCalculatingBalances(false);
-    }
+    // CORREÇÃO: Somar profiles.credits + lotes_creditos válidos
+    const fetchBalancesForUsers = async () => {
+      if (initialUsers && initialUsers.length > 0) {
+        setIsCalculatingBalances(true);
+        console.log("AdminUsuariosPage: CORREÇÃO - Somando profiles.credits + lotes_creditos válidos");
+        
+                 try {
+           console.log("AdminUsuariosPage: DEBUGGING - Iniciando cálculo de saldos para usuários:", initialUsers.length);
+           
+           const usersWithBalances = await Promise.all(initialUsers.map(async (user) => {
+             console.log(`AdminUsuariosPage: DEBUGGING - Processando usuário ${user.id} (${user.username})`);
+             
+             // Primeiro, vamos verificar TODOS os lotes deste usuário
+             const { data: todosLotes, error: todoLotesError } = await supabase
+               .from('lotes_creditos')
+               .select('*')
+               .eq('user_id', user.id);
+             
+             console.log(`AdminUsuariosPage: DEBUGGING - Todos os lotes do usuário ${user.id}:`, todosLotes);
+             
+             // Buscar APENAS créditos de lotes_creditos válidos (não expirados)
+             const currentDate = new Date().toISOString();
+             const { data: lotes, error: lotesError } = await supabase
+               .from('lotes_creditos')
+               .select('quantidade_adicionada, quantidade_usada, data_validade, data_adicao, status')
+               .eq('user_id', user.id)
+               .eq('status', 'ativo')
+               .or(`data_validade.is.null,data_validade.gt.${currentDate}`);
+             
+             console.log(`AdminUsuariosPage: DEBUGGING - Lotes válidos do usuário ${user.id}:`, lotes);
+             
+             if (lotesError) {
+               console.error(`AdminUsuariosPage: Erro ao buscar lotes para usuário ${user.id}:`, lotesError);
+               return { ...user, saldoCalculadoCreditos: 0 };
+             }
+             
+             // Somar APENAS lotes_creditos válidos não usados
+             const creditosValidos = lotes?.reduce((sum, lote) => {
+               const saldoLote = lote.quantidade_adicionada - (lote.quantidade_usada || 0);
+               console.log(`AdminUsuariosPage: DEBUGGING - Usuário ${user.id} Lote - adicionado: ${lote.quantidade_adicionada}, usado: ${lote.quantidade_usada}, saldo: ${saldoLote}`);
+               return sum + saldoLote;
+             }, 0) || 0;
+             
+             console.log(`AdminUsuariosPage: DEBUGGING - Usuário ${user.id} - Total créditos válidos: ${creditosValidos}`);
+             
+             return { ...user, saldoCalculadoCreditos: creditosValidos };
+           }));
+          
+          setUsersWithCalculatedCredit(usersWithBalances);
+        } catch (error) {
+          console.error("AdminUsuariosPage: Erro ao processar saldos de usuários:", error);
+          setUsersWithCalculatedCredit(initialUsers.map(u => ({...u, saldoCalculadoCreditos: u.credits || 0 })));
+        } finally {
+          setIsCalculatingBalances(false);
+        }
+      }
+    };
+
+    fetchBalancesForUsers();
 
     /* CÓDIGO ORIGINAL (comentado para correção):
     const fetchBalancesForUsers = async () => {
@@ -158,7 +204,8 @@ function AdminUsuariosPage() {
         quantidade_usada: 0, 
         data_validade: parseInt(quantidadeLote, 10) < 0 ? null : (semPrazoValidade || !dataValidadeLote ? null : dataValidadeLote.toISOString()),
         admin_id_que_adicionou: adminProfile?.id, 
-        observacao_admin: observacaoLote.trim() || null
+        observacao_admin: observacaoLote.trim() || null,
+        status: 'ativo'
       };
 
       console.log('Enviando para lotes_creditos:', dadosLote);

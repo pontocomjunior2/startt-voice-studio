@@ -193,26 +193,33 @@ function AdminDashboardPage() {
   const [totalCreditosAtivos, setTotalCreditosAtivos] = useState<number | null>(null);
   const [loadingCreditosAtivos, setLoadingCreditosAtivos] = useState(true);
 
-  // CORREÇÃO: Somar profiles.credits diretamente em vez da RPC
+  // CORREÇÃO: Somar profiles.credits + lotes_creditos válidos
   const fetchCreditosAtivos = async () => {
     setLoadingCreditosAtivos(true);
     try {
-      console.log("AdminDashboard: CORREÇÃO - Calculando total de créditos via profiles.credits");
+            console.log("AdminDashboard: CORREÇÃO - Calculando total via APENAS lotes_creditos válidos");
       
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('credits')
-        .eq('role', 'cliente');
+      // Buscar APENAS créditos de lotes válidos (não expirados)
+      const currentDate = new Date().toISOString();
+      const { data: lotes, error: lotesError } = await supabase
+        .from('lotes_creditos')
+        .select('quantidade_adicionada, quantidade_usada, data_validade, data_adicao')
+        .eq('status', 'ativo')
+        .or(`data_validade.is.null,data_validade.gt.${currentDate}`);
       
-      if (error) {
-        console.error("Erro ao buscar créditos dos clientes:", error);
+      if (lotesError) {
+        console.error("Erro ao buscar lotes de créditos:", lotesError);
         setTotalCreditosAtivos(null);
         return;
       }
       
-      const total = data?.reduce((sum, profile) => sum + (profile.credits || 0), 0) || 0;
-      console.log("AdminDashboard: Total de créditos calculado:", total);
-      setTotalCreditosAtivos(total);
+      // Somar APENAS lotes válidos
+      const totalValidos = lotes?.reduce((sum, lote) => 
+        sum + (lote.quantidade_adicionada - (lote.quantidade_usada || 0)), 0) || 0;
+      
+      console.log("AdminDashboard: Total de créditos válidos:", totalValidos);
+      console.log("AdminDashboard: Lotes válidos encontrados:", lotes?.length);
+      setTotalCreditosAtivos(totalValidos);
       
     } catch (err) {
       console.error("Erro ao calcular créditos ativos:", err);

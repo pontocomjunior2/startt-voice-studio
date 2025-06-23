@@ -156,9 +156,53 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Mantém o perfil básico por enquanto
           let updatedProfileData: Profile = { ...userData } as Profile;
 
-          // CORREÇÃO TEMPORÁRIA: Usar diretamente profiles.credits até RPC ser corrigida
-          console.log(`[AuthContext] CORREÇÃO: Usando profiles.credits diretamente (${userData.credits}) em vez da RPC`);
-          updatedProfileData.saldoCalculadoCreditos = userData.credits || 0;
+                    // CORREÇÃO COMPLETA: Usar APENAS lotes_creditos válidos (com validade e FIFO)
+          console.log(`[AuthContext] CORREÇÃO: Calculando apenas créditos válidos de lotes_creditos`);
+          
+          try {
+            console.log(`[AuthContext] DEBUGGING: Iniciando busca de lotes para userId: ${userId}`);
+            
+            // Primeiro, vamos verificar TODOS os lotes deste usuário sem filtros
+            const { data: todosLotes, error: todoLotesError } = await supabase
+              .from('lotes_creditos')
+              .select('*')
+              .eq('user_id', userId);
+            
+            console.log(`[AuthContext] DEBUGGING: Todos os lotes do usuário:`, todosLotes);
+            console.log(`[AuthContext] DEBUGGING: Erro ao buscar todos os lotes:`, todoLotesError);
+            
+            // Agora buscar apenas os lotes válidos (não expirados) e ativos
+            const currentDate = new Date().toISOString();
+            console.log(`[AuthContext] DEBUGGING: Data atual ISO: ${currentDate}`);
+            
+            const { data: lotes, error: lotesError } = await supabase
+              .from('lotes_creditos')
+              .select('quantidade_adicionada, quantidade_usada, data_validade, data_adicao, status')
+              .eq('user_id', userId)
+              .eq('status', 'ativo')
+              .or(`data_validade.is.null,data_validade.gt.${currentDate}`);
+            
+            console.log(`[AuthContext] DEBUGGING: Lotes válidos encontrados:`, lotes);
+            console.log(`[AuthContext] DEBUGGING: Erro ao buscar lotes válidos:`, lotesError);
+            
+            if (lotesError) {
+              console.error("[AuthContext] Erro ao buscar lotes de créditos:", lotesError);
+              updatedProfileData.saldoCalculadoCreditos = 0;
+            } else {
+              // Somar APENAS lotes_creditos válidos não usados
+              const creditosValidos = lotes?.reduce((sum, lote) => {
+                const saldoLote = lote.quantidade_adicionada - (lote.quantidade_usada || 0);
+                console.log(`[AuthContext] DEBUGGING: Lote - adicionado: ${lote.quantidade_adicionada}, usado: ${lote.quantidade_usada}, saldo: ${saldoLote}`);
+                return sum + saldoLote;
+              }, 0) || 0;
+              
+              console.log(`[AuthContext] Usuário ${userId} - Total créditos válidos: ${creditosValidos}`);
+              updatedProfileData.saldoCalculadoCreditos = creditosValidos;
+            }
+          } catch (err) {
+            console.error("[AuthContext] Erro ao calcular créditos totais:", err);
+            updatedProfileData.saldoCalculadoCreditos = 0;
+          }
           
           // Código original da RPC (comentado para correção)
           /*
