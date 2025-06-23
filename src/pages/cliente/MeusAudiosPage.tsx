@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { supabase } from '../../lib/supabaseClient'; // Ajustar caminho se necessário
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, Edit3, History, Eye, MoreVertical, Trash2, MessageSquare, FileAudio, XCircle, Paperclip, ThumbsUp, MessageSquareWarning, Send } from 'lucide-react'; // Ícones necessários, Edit3 ou History para revisão, Adicionado Trash2 e MessageSquare
+import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, Edit3, History, Eye, MoreVertical, Trash2, MessageSquare, FileAudio, XCircle, Paperclip, ThumbsUp, MessageSquareWarning, Send, RotateCcw } from 'lucide-react'; // Ícones necessários, Edit3 ou History para revisão, Adicionado Trash2 e MessageSquare
 import { Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom'; // Link para o botão de novo pedido
 import { solicitarRevisaoAction, excluirPedidoAction } from '@/actions/pedido-actions'; // Importar a action
@@ -365,6 +365,9 @@ function MeusAudiosPage() {
   const [pedidoParaExcluir, setPedidoParaExcluir] = useState<Pedido | null>(null);
   const [submittingExclusao, setSubmittingExclusao] = useState(false);
 
+  // NOVO ESTADO: Armazena a mensagem correta a ser exibida no modal
+  const [mensagemAdminParaExibir, setMensagemAdminParaExibir] = useState<string | null>(null);
+
   const [filtroTitulo, setFiltroTitulo] = useState("");
   const debouncedFiltroTitulo = useDebounce(filtroTitulo, 400);
   const [filtroStatus, setFiltroStatus] = useState<string>("__all__");
@@ -423,7 +426,7 @@ function MeusAudiosPage() {
         orientacoes, admin_cancel_reason, admin_message, cliente_resposta_info, 
         data_resposta_cliente, cliente_audio_resposta_url,
         locutores ( nome ),
-        solicitacoes_revisao ( id, status_revisao )
+        solicitacoes_revisao ( id, status_revisao, admin_feedback )
       `)
       .eq('user_id', profile.id)
       .order('created_at', { ascending: false });
@@ -451,33 +454,34 @@ function MeusAudiosPage() {
     setDescricaoRevisao("");
     setIsModoResposta(modoResposta);
     setAudioGuiaRevisaoFile(null);
+    setMensagemAdminParaExibir(null); // Limpa o estado anterior
 
     if (modoResposta) {
-      // Verificar se é resposta a solicitação de informações do admin (via admin_message)
+      // CENÁRIO 1: A pendência vem de uma SOLICITAÇÃO DE REVISÃO
+      const revisaoPendente = pedido.solicitacoes_revisao?.find(
+        (r) => r.status_revisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE
+      );
+
+      if (revisaoPendente) {
+        setMensagemAdminParaExibir(revisaoPendente.admin_feedback || "O admin solicitou mais informações sobre a revisão, mas a mensagem não foi encontrada.");
+        setSolicitacaoParaResponderId(revisaoPendente.id);
+        setIsRevisaoModalOpen(true);
+        return; // Encerra aqui para não cair no próximo `if`
+      }
+
+      // CENÁRIO 2: A pendência vem do PEDIDO ORIGINAL
       if (pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && pedido.admin_message) {
-        // Fluxo de resposta a mensagem do admin - não precisa buscar na tabela solicitacoes_revisao
+        setMensagemAdminParaExibir(pedido.admin_message);
         setSolicitacaoParaResponderId('admin_message_response'); // Identificador especial
         setIsRevisaoModalOpen(true);
         return;
       }
+      
+      // Se chegou aqui, não há pendência válida para responder
+      toast.error("Nenhuma pendência encontrada", { description: "Não há solicitações de informação ativas para este pedido." });
 
-      // Fluxo normal de resposta a solicitação de revisão
-      const { data, error } = await supabase
-        .from('solicitacoes_revisao')
-        .select('id')
-        .eq('pedido_id', pedido.id)
-        .eq('status_revisao', REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE)
-        .order('data_solicitacao', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error || !data) {
-        toast.error("Erro", { description: "Não foi possível encontrar uma pendência para responder." });
-        return;
-      }
-      setSolicitacaoParaResponderId(data.id);
-      setIsRevisaoModalOpen(true);
     } else {
+      // Abre o modal para uma NOVA solicitação de revisão
       setSolicitacaoParaResponderId(null);
       setIsRevisaoModalOpen(true);
     }
@@ -895,17 +899,21 @@ function MeusAudiosPage() {
                 const isConcluido = pedido.status === PEDIDO_STATUS.CONCLUIDO;
                 const isEmRevisaoComAudio = pedido.status === PEDIDO_STATUS.EM_REVISAO && pedido.audio_final_url;
 
+                const precisaDeResposta = 
+                  (pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && pedido.admin_message) ||
+                  (pedido.solicitacoes_revisao && pedido.solicitacoes_revisao.some(r => r.status_revisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE));
+
                 return (
                   <React.Fragment key={pedido.id}>
                     <TableRow className={cn(
                       "hover:bg-muted/10 odd:bg-card even:bg-muted/5 dark:odd:bg-card dark:even:bg-muted/10 transition-colors",
                       idx === pedidos.length - 1 ? "border-0" : undefined,
-                      pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && pedido.admin_message && "bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500"
+                      precisaDeResposta && "bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500"
                     )}>
                       <TableCell className="px-4 py-3 whitespace-nowrap text-sm font-medium text-foreground">
                         <div className="flex items-center gap-2">
                           {pedido.id_pedido_serial}
-                          {pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && pedido.admin_message && (
+                          {precisaDeResposta && (
                             <Badge variant="outline" className="bg-amber-500 text-white border-amber-500 text-xs animate-pulse">
                               <MessageSquareWarning className="h-3 w-3 mr-1" />
                               Nova
@@ -927,7 +935,7 @@ function MeusAudiosPage() {
                           <p title={pedido.titulo || 'Título não disponível'} className="truncate">
                             {pedido.titulo || <span className="italic">Título não disponível</span>}
                           </p>
-                          {pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && pedido.admin_message && (
+                          {precisaDeResposta && (
                             <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-1 flex items-center">
                               <MessageSquareWarning className="h-3 w-3 mr-1" />
                               Mensagem do admin aguardando resposta
@@ -1010,39 +1018,15 @@ function MeusAudiosPage() {
                           </DropdownMenu>
                         )}
 
-                        {pedido && pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && (
-                          <>
-                            {pedido.admin_message && (
-                              <Button
-                                size="sm"
-                                onClick={() => handleOpenRevisaoModal(pedido, true)}
-                                className="bg-amber-500 hover:bg-amber-600 text-white flex items-center animate-pulse"
-                              >
-                                <MessageSquareWarning className="mr-2 h-4 w-4" />
-                                Responder
-                              </Button>
-                            )}
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="icon" className="h-9 w-9 shrink-0">
-                                  <MoreVertical className="h-4 w-4" />
-                                  <span className="sr-only">Mais ações</span>
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleOpenHistoricoRevisoesModal(pedido)}>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  Ver Detalhes
-                                </DropdownMenuItem>
-                                {!pedido.admin_message && (
-                                  <DropdownMenuItem onClick={() => handleOpenRevisaoModal(pedido, true)}>
-                                    <MessageSquare className="mr-2 h-4 w-4" />
-                                    Responder
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </>
+                        {precisaDeResposta && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleOpenRevisaoModal(pedido, true)}
+                            className="bg-amber-500 hover:bg-amber-600 text-white flex items-center animate-pulse"
+                          >
+                            <MessageSquareWarning className="mr-2 h-4 w-4" />
+                            Responder
+                          </Button>
                         )}
 
                         {isConcluido && (
@@ -1068,9 +1052,14 @@ function MeusAudiosPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleOpenRevisaoModal(pedido, true)}>
-                                  <MessageSquare className="mr-2 h-4 w-4" />
-                                  Responder
+                                <DropdownMenuItem onClick={() => handleOpenHistoricoRevisoesModal(pedido)}>
+                                  <History className="mr-2 h-4 w-4" />
+                                  Ver Detalhes e Histórico
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleOpenRevisaoModal(pedido, false)}>
+                                  <RotateCcw className="mr-2 h-4 w-4" />
+                                  Solicitar Revisão
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -1137,14 +1126,14 @@ function MeusAudiosPage() {
             </DialogDescription>
           </DialogHeader>
           
-          {isModoResposta && pedidoParaRevisao?.admin_message && (
+          {isModoResposta && mensagemAdminParaExibir && (
             <div className="my-4 p-4 border-l-4 border-amber-500 bg-amber-900/20 rounded-r-lg">
               <div className="flex items-center mb-2">
                 <MessageSquareWarning className="h-5 w-5 text-amber-400 mr-2" />
                 <Label className="font-semibold text-amber-300">Mensagem do Admin:</Label>
               </div>
               <div className="p-3 bg-amber-950/30 rounded text-sm border border-amber-800 whitespace-pre-wrap">
-                {pedidoParaRevisao.admin_message}
+                {mensagemAdminParaExibir}
               </div>
               <p className="text-xs text-amber-400 mt-2">
                 ⚠️ Por favor, leia com atenção e forneça as informações solicitadas.

@@ -135,7 +135,7 @@ export const processarRevisaoAdminAction = actionClientAdmin
       formData.append('pedidoId', pedidoId); 
 
       try {
-        const apiUrlComUsername = `${API_URL}/api/revisoes/processar-upload/${encodeURIComponent(clientUsername)}`;
+        const apiUrlComUsername = `${API_URL}/revisoes/processar-upload/${encodeURIComponent(clientUsername)}`;
         console.log(`[Action processarRevisaoAdmin] Chamando API: ${apiUrlComUsername}`);
         const response = await fetch(apiUrlComUsername, {
           method: 'POST',
