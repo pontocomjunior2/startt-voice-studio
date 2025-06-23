@@ -7,8 +7,8 @@ import { toast } from 'sonner';
 import { supabase } from '../../lib/supabaseClient'; // Ajustar caminho se necessário
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, Edit3, History, Eye, MoreVertical, Trash2, MessageSquare, FileAudio, XCircle, Paperclip, ThumbsUp } from 'lucide-react'; // Ícones necessários, Edit3 ou History para revisão, Adicionado Trash2 e MessageSquare
-import { Clock, CheckCircle, MessageSquareWarning, AlertCircle } from 'lucide-react';
+import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, Edit3, History, Eye, MoreVertical, Trash2, MessageSquare, FileAudio, XCircle, Paperclip, ThumbsUp, MessageSquareWarning, Send } from 'lucide-react'; // Ícones necessários, Edit3 ou History para revisão, Adicionado Trash2 e MessageSquare
+import { Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom'; // Link para o botão de novo pedido
 import { solicitarRevisaoAction, excluirPedidoAction } from '@/actions/pedido-actions'; // Importar a action
 import {
@@ -29,29 +29,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Send } from "lucide-react"
 import { PEDIDO_STATUS } from '@/types/pedido.type'; // Manter PEDIDO_STATUS aqui
 import { REVISAO_STATUS_ADMIN } from '@/types/revisao.type'; // Garantir que esta importação esteja correta
 import type { Pedido, TipoStatusPedido } from '@/types/pedido.type'; // Importar tipos com type
 import { startOfDay, endOfDay } from 'date-fns';
 import { DetalhesPedidoDownloadDialog } from '@/components/cliente/detalhes-pedido-download-dialog';
-
-
-// Importações para o histórico de revisões
-import { useFetchRevisoesParaCliente } from '@/hooks/cliente/use-fetch-revisoes-para-cliente.hook';
-
-// import { clienteResponderInfoAction } from '@/actions/cliente-actions'; // <<< IMPORTAR A NOVA ACTION
-// import { useAction } from 'next-safe-action/hooks'; // <<< Corrigir import para useAction e remover ActionError
-import { Input } from '@/components/ui/input';
-import { DatePickerSingle } from '@/components/ui/date-picker-single';
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from '@/components/ui/select';
 import { useDropzone } from 'react-dropzone';
+import { useFetchRevisoesParaCliente } from '@/hooks/cliente/use-fetch-revisoes-para-cliente.hook';
+import { clienteResponderInfoAction } from '@/actions/cliente-actions';
+import { useAction } from 'next-safe-action/hooks';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DatePickerSingle } from '@/components/ui/date-picker-single';
+import { Input } from '@/components/ui/input';
 
 // Componente para o Dialog de Histórico de Revisões
 interface HistoricoRevisoesDialogProps {
@@ -86,51 +75,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
     refetch: refetchHistorico
   } = useFetchRevisoesParaCliente(pedido?.id);
 
-    // Estados e handlers para o ResponderInfoModal (temporariamente desabilitados)
-
-  // Funcionalidade de resposta temporariamente desabilitada
-  // const {
-  //   execute: executarEnviarResposta,
-  //   status: statusEnvioResposta,
-  //   reset: resetEnvioResposta
-  // } = useAction(clienteResponderInfoAction, {
-  //   onExecute: () => {
-  //     toast.loading("Enviando resposta...");
-  //   },
-  //   onSuccess: (data) => {
-  //     toast.dismiss();
-  //     if (data?.data?.success) { 
-  //       toast.success("Resposta Enviada", { description: data.data.success });
-  //       setIsResponderInfoModalOpen(false); 
-  //       refetchHistorico(); 
-  //     } else if (data?.data?.failure) {
-  //       toast.error("Falha ao Enviar", { description: data.data.failure });
-  //     } else {
-  //       toast.error("Erro Inesperado", { description: "A resposta do servidor não teve o formato esperado." });
-  //     }
-  //   },
-  //   onError: (error: any) => {
-  //     toast.dismiss();
-  //     let errorMsg = "Ocorreu um erro desconhecido ao enviar sua resposta.";
-  //     if (error.serverError) {
-  //       errorMsg = error.serverError;
-  //     } else if (error.validationErrors) {
-  //       const ve = error.validationErrors;
-  //       if (ve.respostaCliente && Array.isArray(ve.respostaCliente)) errorMsg = ve.respostaCliente.join(', ');
-  //       else errorMsg = "Erro de validação nos dados enviados.";
-  //     }
-  //     toast.error("Erro ao Enviar", { description: errorMsg });
-  //   },
-  // });
-
   if (!pedido) return null;
-
-
-
-  // const handleEnviarRespostaCliente = () => {
-  //   // TODO: Implementar funcionalidade de resposta
-  //   toast.error("Funcionalidade temporariamente desabilitada");
-  // };
 
   const formatarDataHora = (dataString: string | undefined | null) => {
     if (!dataString) return 'Data não disponível';
@@ -377,7 +322,6 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
         </div>
         
         <DialogFooter className="mt-auto pt-4 border-t border-border">
-          {/* Modal para Responder Informação Solicitada (temporariamente desabilitado) */}
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Fechar</Button>
         </DialogFooter>
       </DialogContent>
@@ -396,40 +340,37 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 function MeusAudiosPage() {
-  const { profile, refreshNotifications } = useAuth();
+  const { profile } = useAuth();
   const navigate = useNavigate();
 
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loadingPedidos, setLoadingPedidos] = useState(true);
   const [errorLoadingPedidos, setErrorLoadingPedidos] = useState<string | null>(null);
 
-  // Estados para o modal de revisão
   const [isRevisaoModalOpen, setIsRevisaoModalOpen] = useState(false);
   const [pedidoParaRevisao, setPedidoParaRevisao] = useState<Pedido | null>(null);
   const [descricaoRevisao, setDescricaoRevisao] = useState("");
-  const [submittingRevisao, setSubmittingRevisao] = useState(false); // Similar ao loadingRevisao, mas para o submit do modal
+  const [submittingRevisao, setSubmittingRevisao] = useState(false);
+  
+  const [isModoResposta, setIsModoResposta] = useState(false);
+  const [solicitacaoParaResponderId, setSolicitacaoParaResponderId] = useState<string | null>(null);
 
-  // Estados para o modal de HISTÓRICO de revisões
   const [isHistoricoRevisoesModalOpen, setIsHistoricoRevisoesModalOpen] = useState(false);
   const [pedidoParaHistoricoRevisoes, setPedidoParaHistoricoRevisoes] = useState<Pedido | null>(null);
 
-  // NOVOS ESTADOS para o modal de Detalhes e Download
   const [isDetalhesDownloadModalOpen, setIsDetalhesDownloadModalOpen] = useState(false);
   const [pedidoParaDetalhesDownload, setPedidoParaDetalhesDownload] = useState<Pedido | null>(null);
 
-  // Estados para o modal de CONFIRMAÇÃO DE EXCLUSÃO
   const [isConfirmarExclusaoModalOpen, setIsConfirmarExclusaoModalOpen] = useState(false);
   const [pedidoParaExcluir, setPedidoParaExcluir] = useState<Pedido | null>(null);
   const [submittingExclusao, setSubmittingExclusao] = useState(false);
 
-  // Filtros
   const [filtroTitulo, setFiltroTitulo] = useState("");
   const debouncedFiltroTitulo = useDebounce(filtroTitulo, 400);
   const [filtroStatus, setFiltroStatus] = useState<string>("__all__");
   const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined);
   const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
 
-  // Dentro do componente MeusAudiosPage:
   const [audioGuiaRevisaoFile, setAudioGuiaRevisaoFile] = useState<File | null>(null);
   const [isUploadingGuiaRevisao, setIsUploadingGuiaRevisao] = useState(false);
 
@@ -438,6 +379,7 @@ function MeusAudiosPage() {
       setAudioGuiaRevisaoFile(acceptedFiles[0]);
     }
   }, []);
+
   const {
     getRootProps: getRootPropsGuiaRevisao,
     getInputProps: getInputPropsGuiaRevisao,
@@ -448,225 +390,151 @@ function MeusAudiosPage() {
     multiple: false,
   });
 
-  // Definir handleConfirmarExclusao AQUI, logo após os states e antes de fetchAllPedidos
-  const handleConfirmarExclusao = async () => {
-    if (!pedidoParaExcluir) return;
-
-    setSubmittingExclusao(true);
-    try {
-      const resultado = await excluirPedidoAction({ pedidoId: pedidoParaExcluir.id });
-
-      if (!resultado) {
-        console.error('Resultado inesperado (undefined) da action de exclusão.');
-        toast.error("Erro Desconhecido", { description: "Falha ao comunicar com o servidor." });
-        setSubmittingExclusao(false);
-        return;
+  const { execute: executarEnviarResposta, status: statusEnvioResposta } = useAction(clienteResponderInfoAction, {
+    onExecute: () => toast.loading("Enviando sua resposta..."),
+    onSuccess: (data) => {
+      toast.dismiss();
+      if (data?.data?.success) {
+        toast.success("Resposta Enviada", { description: data.data.success });
+        setIsRevisaoModalOpen(false);
+        fetchAllPedidos();
+      } else if (data?.data?.failure) {
+        toast.error("Falha ao Enviar", { description: data.data.failure });
       }
-      if (resultado.data && resultado.data.success === true && typeof resultado.data.pedidoId === 'string') {
-        toast.success("Pedido Excluído", { description: "Seu pedido foi excluído com sucesso." });
-        const pedidoExcluidoId = resultado.data.pedidoId;
-        setPedidos(prevPedidos => prevPedidos.filter(p => p.id !== pedidoExcluidoId));
-        setIsConfirmarExclusaoModalOpen(false);
-        setPedidoParaExcluir(null);
-      } else {
-        if (resultado.validationErrors) {
-            let errorMsg = "Erro de validação.";
-            const ve = resultado.validationErrors;
-            if (ve.pedidoId && Array.isArray(ve.pedidoId) && ve.pedidoId.length > 0) { errorMsg = ve.pedidoId.join(', '); }
-            else if (ve._errors && Array.isArray(ve._errors) && ve._errors.length > 0) { errorMsg = ve._errors.join(', '); }
-            toast.error("Erro de Validação", { description: errorMsg });
-        } else if (resultado.serverError) {
-            toast.error("Erro no Servidor", { description: resultado.serverError });
-        } else if (resultado.data?.failure) {
-            toast.error("Falha na Exclusão", { description: resultado.data.failure });
-        } else {
-            console.error('Estrutura de resultado inesperada da action de exclusão:', resultado);
-            toast.error("Erro Desconhecido", { description: "Ocorreu um erro ao processar sua solicitação de exclusão." });
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao excluir pedido (catch geral):', error);
-      toast.error("Erro na Exclusão", { description: "Ocorreu um erro inesperado ao tentar excluir o pedido." });
-    } finally {
-      setSubmittingExclusao(false);
+    },
+    onError: ({ error }) => {
+      toast.dismiss();
+      const message = error.serverError || "Ocorreu um erro desconhecido.";
+      toast.error("Erro ao Enviar", { description: message });
     }
-  };
+  });
 
   const fetchAllPedidos = async () => {
     if (!profile?.id) {
-      setErrorLoadingPedidos("Perfil do usuário não encontrado para buscar pedidos.");
       setLoadingPedidos(false);
       return;
     }
     setLoadingPedidos(true);
-    setErrorLoadingPedidos(null);
-    try {
-      const { data, error } = await supabase
-        .from('pedidos')
-        .select(`
-          id,
-          id_pedido_serial,
-          created_at,
-          texto_roteiro,
-          titulo,
-          creditos_debitados,
-          status,
-          audio_final_url,
-          downloaded_at,
-          cliente_notificado_em,
-          tipo_audio,
-          estilo_locucao,
-          orientacoes,
-          admin_cancel_reason,
-          locutores ( nome ),
-          solicitacoes_revisao ( id, status_revisao )
-        `)
-        .eq('user_id', profile.id)
-        .order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('pedidos')
+      .select(`
+        id, id_pedido_serial, created_at, texto_roteiro, titulo, creditos_debitados, status,
+        audio_final_url, downloaded_at, cliente_notificado_em, tipo_audio, estilo_locucao,
+        orientacoes, admin_cancel_reason, admin_message,
+        locutores ( nome ),
+        solicitacoes_revisao ( id, status_revisao )
+      `)
+      .eq('user_id', profile.id)
+      .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Erro detalhado ao buscar todos os pedidos:', error);
-        setErrorLoadingPedidos(error.message || "Ocorreu um erro ao buscar seus áudios.");
-        throw error;
-      }
-
-      const mappedPedidos: Pedido[] = (data || []).map((item: any) => {
-        return {
-          ...item,
-          admin_cancel_reason: item.admin_cancel_reason,
-          locutores: Array.isArray(item.locutores) ? item.locutores[0] : item.locutores,
-          solicitacoes_revisao_count: (item.solicitacoes_revisao?.filter((r: any) => 
-            r.status_revisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO || 
-            r.status_revisao === REVISAO_STATUS_ADMIN.NEGADA
-          ).length) || 0,
-          tem_info_solicitada_admin: item.solicitacoes_revisao?.some((r: any) => r.status_revisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE) || false,
-          estilo_locucao: item.estilo_locucao,
-          orientacoes: item.orientacoes,
-        };
-      });
-
-      setPedidos(mappedPedidos);
-
-      if (mappedPedidos && mappedPedidos.length > 0 && refreshNotifications) {
-        const now = new Date().toISOString();
-        const pedidosToMarkAsNotified = mappedPedidos
-          .filter(p => p.status === 'concluido' && p.cliente_notificado_em === null)
-          .map(p => p.id);
-
-        if (pedidosToMarkAsNotified.length > 0) {
-          const { error: updateError } = await supabase
-            .from('pedidos')
-            .update({ cliente_notificado_em: now })
-            .in('id', pedidosToMarkAsNotified);
-          if (updateError) {
-            console.warn("MeusAudiosPage: Erro ao marcar pedidos como notificados:", updateError);
-          } else {
-            refreshNotifications();
-          }
-        }
-      }
-
-    } catch (err: any) {
-      console.error('Erro no bloco try/catch ao buscar todos os pedidos:', err);
-      if (!errorLoadingPedidos) {
-        setErrorLoadingPedidos("Não foi possível carregar seu histórico de áudios.");
-      }
-    } finally {
-      setLoadingPedidos(false);
+    if (error) {
+      setErrorLoadingPedidos(error.message);
+    } else {
+      const mappedPedidos = (data || []).map((item: any) => ({
+        ...item,
+        locutores: Array.isArray(item.locutores) ? item.locutores[0] : item.locutores,
+      }));
+      setPedidos(mappedPedidos as Pedido[]);
     }
+    setLoadingPedidos(false);
   };
-
-  // Função para limpar filtros
-  const handleLimparFiltros = () => {
-    setFiltroTitulo("");
-    setFiltroStatus("__all__");
-    setDataInicio(undefined);
-    setDataFim(undefined);
-    fetchAllPedidos();
-  };
-
-  // Função para buscar pedidos com filtros
-  const fetchPedidosFiltrados = async () => {
-    if (!profile?.id) return;
-    setLoadingPedidos(true);
-    setErrorLoadingPedidos(null);
-    try {
-      let query = supabase
-        .from('pedidos')
-        .select(`
-          id,
-          id_pedido_serial,
-          created_at,
-          texto_roteiro,
-          titulo,
-          creditos_debitados,
-          status,
-          audio_final_url,
-          downloaded_at,
-          cliente_notificado_em,
-          tipo_audio,
-          estilo_locucao,
-          orientacoes,
-          admin_cancel_reason,
-          locutores ( nome ),
-          solicitacoes_revisao ( id, status_revisao )
-        `)
-        .eq('user_id', profile.id);
-      if (debouncedFiltroTitulo.trim()) {
-        query = query.ilike('titulo', `%${debouncedFiltroTitulo.trim()}%`);
-      }
-      if (filtroStatus && filtroStatus !== "__all__") {
-        query = query.eq('status', filtroStatus);
-      }
-      if (dataInicio) {
-        query = query.gte('created_at', startOfDay(dataInicio).toISOString());
-      }
-      if (dataFim) {
-        query = query.lte('created_at', endOfDay(dataFim).toISOString());
-      }
-      query = query.order('created_at', { ascending: false });
-      const { data, error } = await query;
-      if (error) {
-        setErrorLoadingPedidos(error.message || "Ocorreu um erro ao buscar seus áudios.");
-        throw error;
-      }
-      const mappedPedidos: Pedido[] = (data || []).map((item: any) => {
-        return {
-          ...item,
-          admin_cancel_reason: item.admin_cancel_reason,
-          locutores: Array.isArray(item.locutores) ? item.locutores[0] : item.locutores,
-          solicitacoes_revisao_count: (item.solicitacoes_revisao?.filter((r: any) => 
-            r.status_revisao === REVISAO_STATUS_ADMIN.REVISADO_FINALIZADO || 
-            r.status_revisao === REVISAO_STATUS_ADMIN.NEGADA
-          ).length) || 0,
-          tem_info_solicitada_admin: item.solicitacoes_revisao?.some((r: any) => r.status_revisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE) || false,
-          estilo_locucao: item.estilo_locucao,
-          orientacoes: item.orientacoes,
-        };
-      });
-      setPedidos(mappedPedidos);
-    } catch (err: any) {
-      if (!errorLoadingPedidos) {
-        setErrorLoadingPedidos("Não foi possível carregar seu histórico de áudios.");
-      }
-    } finally {
-      setLoadingPedidos(false);
-    }
-  };
-
-  // Atualizar pedidos ao alterar filtros
-  useEffect(() => {
-    if (profile?.id) {
-      fetchPedidosFiltrados();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedFiltroTitulo, filtroStatus, dataInicio, dataFim, profile?.id]);
 
   useEffect(() => {
     if (profile?.id) {
       fetchAllPedidos();
     }
   }, [profile?.id]);
+  
+  const handleOpenRevisaoModal = async (pedido: Pedido, modoResposta = false) => {
+    setPedidoParaRevisao(pedido);
+    setDescricaoRevisao("");
+    setIsModoResposta(modoResposta);
+    setAudioGuiaRevisaoFile(null);
+
+    if (modoResposta) {
+      const { data, error } = await supabase
+        .from('solicitacoes_revisao')
+        .select('id')
+        .eq('pedido_id', pedido.id)
+        .eq('status_revisao', REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE)
+        .order('data_solicitacao', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error || !data) {
+        toast.error("Erro", { description: "Não foi possível encontrar uma pendência para responder." });
+        return;
+      }
+      setSolicitacaoParaResponderId(data.id);
+      setIsRevisaoModalOpen(true);
+    } else {
+      setSolicitacaoParaResponderId(null);
+      setIsRevisaoModalOpen(true);
+    }
+  };
+  
+  const handleSolicitarRevisao = async () => {
+    if (!pedidoParaRevisao || !descricaoRevisao.trim()) {
+      toast.error("Descrição Necessária", { description: "Por favor, descreva o que precisa ser corrigido." });
+      return;
+    }
+    setSubmittingRevisao(true);
+    let uploadedAudioGuiaRevisaoUrl: string | null = null;
+    try {
+      if (audioGuiaRevisaoFile) {
+        setIsUploadingGuiaRevisao(true);
+        const uploadFormData = new FormData();
+        uploadFormData.append('audioGuia', audioGuiaRevisaoFile);
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/upload-guia-revisao`, {
+          method: 'POST',
+          body: uploadFormData,
+        });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido.' }));
+          throw new Error(errorData.message);
+        }
+        const result = await response.json();
+        if (result.success && result.filePath) {
+          uploadedAudioGuiaRevisaoUrl = result.filePath;
+        } else {
+          throw new Error(result.message || "Servidor não retornou o caminho do arquivo.");
+        }
+      }
+      const resultado = await solicitarRevisaoAction({
+        pedidoId: pedidoParaRevisao.id,
+        descricao: descricaoRevisao.trim(),
+        audioGuiaRevisaoUrl: uploadedAudioGuiaRevisaoUrl,
+      });
+
+      if (resultado?.data?.success) {
+        setPedidos(prev => prev.map(p => p.id === resultado.data.pedidoId ? { ...p, status: resultado.data.novoStatus as TipoStatusPedido } : p));
+        toast.success("Revisão Solicitada");
+        setIsRevisaoModalOpen(false);
+      } else {
+        toast.error("Erro na Solicitação", { description: resultado?.serverError || "Ocorreu um erro." });
+      }
+    } catch (error: any) {
+      toast.error("Erro na Solicitação", { description: error.message || "Ocorreu um erro inesperado." });
+    } finally {
+      setSubmittingRevisao(false);
+      setIsUploadingGuiaRevisao(false);
+    }
+  };
+
+  const handleAcaoPrincipalModalRevisao = () => {
+    if (isModoResposta) {
+      if (!solicitacaoParaResponderId) {
+        toast.error("Erro", { description: "ID da solicitação não encontrado." });
+        return;
+      }
+      executarEnviarResposta({
+        solicitacaoId: solicitacaoParaResponderId,
+        respostaCliente: descricaoRevisao,
+      });
+    } else {
+      handleSolicitarRevisao();
+    }
+  };
 
   const handleDownloadOriginal = async (pedido: Pedido) => {
     if (!pedido.audio_final_url) {
@@ -699,36 +567,21 @@ function MeusAudiosPage() {
     }
   };
 
-  // Modificada para nova lógica
   const handleAbrirModalDetalhesOuBaixar = (pedido: Pedido) => {
     console.log('DEBUG pedidoDisplay:', pedido);
     if (pedido.solicitacoes_revisao_count && pedido.solicitacoes_revisao_count > 0) {
       setPedidoParaDetalhesDownload(pedido);
       setIsDetalhesDownloadModalOpen(true);
     } else {
-      // Se não há revisões, executa o download direto do áudio principal (se existir)
       if (pedido.audio_final_url) {
         handleDownloadOriginal(pedido);
       } else {
-        // Se não há revisões E não há áudio final, pode abrir o modal de detalhes
-        // para mostrar as informações do pedido, mesmo que sem downloads.
-        // Ou exibir um toast informando que não há nada para baixar.
-        // Por ora, vamos abrir o modal de detalhes para consistência, ele mostrará "nenhuma revisão" e ausência de áudio original.
         setPedidoParaDetalhesDownload(pedido);
         setIsDetalhesDownloadModalOpen(true); 
-        // Alternativamente, poderia ser:
-        // toast.info("Informações do Pedido", { description: "Este pedido não possui áudios para download no momento." });
       }
     }
   };
 
-  const handleOpenRevisaoModal = (pedido: Pedido) => {
-    setPedidoParaRevisao(pedido);
-    setDescricaoRevisao("");
-    setIsRevisaoModalOpen(true);
-  };
-
-  // Função para abrir o modal de histórico de revisões
   const handleOpenHistoricoRevisoesModal = (pedido: Pedido) => {
     setPedidoParaHistoricoRevisoes(pedido);
     setIsHistoricoRevisoesModalOpen(true);
@@ -736,7 +589,6 @@ function MeusAudiosPage() {
 
   const handleNavigateToEdit = (pedidoId: string) => {
     navigate(`/gravar-locucao?pedidoId=${pedidoId}`);
-    // Futuramente, a página /gravar-locucao precisará carregar os dados do pedido com este ID.
   };
 
   const handleOpenConfirmarExclusaoModal = (pedido: Pedido) => {
@@ -744,84 +596,46 @@ function MeusAudiosPage() {
     setIsConfirmarExclusaoModalOpen(true);
   };
 
-  const handleSolicitarRevisao = async () => {
-    if (!pedidoParaRevisao || !descricaoRevisao.trim()) {
-      toast.error("Descrição Necessária", { description: "Por favor, descreva o que precisa ser corrigido." });
-      return;
-    }
-    setSubmittingRevisao(true);
-    let uploadedAudioGuiaRevisaoUrl: string | null = null;
+  const handleConfirmarExclusao = async () => {
+    if (!pedidoParaExcluir) return;
+
+    setSubmittingExclusao(true);
     try {
-      if (audioGuiaRevisaoFile) {
-        setIsUploadingGuiaRevisao(true);
-        const uploadFormData = new FormData();
-        uploadFormData.append('audioGuia', audioGuiaRevisaoFile);
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/upload-guia-revisao`, {
-          method: 'POST',
-          body: uploadFormData,
-        });
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido ao enviar áudio guia.' }));
-          throw new Error(errorData.message || `Falha no upload do áudio guia: ${response.statusText}`);
-        }
-        const result = await response.json();
-        if (result.success && result.filePath) {
-          uploadedAudioGuiaRevisaoUrl = result.filePath;
-        } else {
-          throw new Error(result.message || "Servidor não retornou o caminho do arquivo após upload do guia.");
-        }
+      const resultado = await excluirPedidoAction({ pedidoId: pedidoParaExcluir.id });
+
+      if (!resultado) {
+        console.error('Resultado inesperado (undefined) da action de exclusão.');
+        toast.error("Erro Desconhecido", { description: "Falha ao comunicar com o servidor." });
+        setSubmittingExclusao(false);
+        return;
       }
-      const resultado = await solicitarRevisaoAction({ 
-        pedidoId: pedidoParaRevisao.id,
-        descricao: descricaoRevisao.trim(),
-        audioGuiaRevisaoUrl: uploadedAudioGuiaRevisaoUrl,
-      });
-
-      console.log('Resultado COMPLETO da action solicitarRevisaoAction:', JSON.stringify(resultado, null, 2));
-
-      if (resultado?.serverError) {
-        console.error('Erro do servidor na action:', resultado.serverError);
-        toast.error("Erro no Servidor", { description: resultado.serverError });
-      } else if (resultado?.validationErrors) {
-        let errorMsg = "Erro de validação:";
-        if (resultado.validationErrors.descricao && Array.isArray(resultado.validationErrors.descricao) && resultado.validationErrors.descricao.length > 0) {
-          errorMsg = resultado.validationErrors.descricao.join(', ');
-        } else if (resultado.validationErrors._errors && Array.isArray(resultado.validationErrors._errors) && resultado.validationErrors._errors.length > 0) {
-          errorMsg = resultado.validationErrors._errors.join(', ');
-        }
-        console.error('Erro de validação na action:', resultado.validationErrors);
-        toast.error("Erro de Validação", { description: errorMsg });
-      } else if (resultado?.data?.failure) {
-        console.error('Falha retornada pela action:', resultado.data.failure);
-        toast.error("Falha na Solicitação", { description: resultado.data.failure });
-      } else if (resultado?.data && resultado.data.success && resultado.data.pedidoId && resultado.data.novoStatus) {
-        const { success, pedidoId, novoStatus } = resultado.data;
-        console.log('[handleSolicitarRevisao] Sucesso da action:', success);
-        console.log('[handleSolicitarRevisao] Pedido ID retornado:', pedidoId);
-        console.log('[handleSolicitarRevisao] Novo Status retornado:', novoStatus);
-
-        setPedidos(prevPedidos =>
-          prevPedidos.map(p =>
-            p.id === pedidoId 
-              ? { ...p, status: novoStatus as TipoStatusPedido } 
-              : p
-          )
-        );
-        
-        toast.success("Revisão Solicitada", { description: "Sua solicitação de revisão foi enviada com sucesso." });
-        setIsRevisaoModalOpen(false);
-        setDescricaoRevisao("");
-        setAudioGuiaRevisaoFile(null);
+      if (resultado?.data?.success === true && typeof resultado.data?.pedidoId === 'string') {
+        toast.success("Pedido Excluído", { description: "Seu pedido foi excluído com sucesso." });
+        const pedidoExcluidoId = resultado.data.pedidoId!
+        setPedidos(prevPedidos => prevPedidos.filter(p => p.id !== pedidoExcluidoId));
+        setIsConfirmarExclusaoModalOpen(false);
+        setPedidoParaExcluir(null);
       } else {
-        console.error('Resultado inesperado da action:', resultado);
-        toast.error("Erro Desconhecido", { description: "Ocorreu um erro ao processar sua solicitação." });
+        if (resultado.validationErrors) {
+            let errorMsg = "Erro de validação.";
+            const ve = resultado.validationErrors;
+            if (ve.pedidoId && Array.isArray(ve.pedidoId) && ve.pedidoId.length > 0) { errorMsg = ve.pedidoId.join(', '); }
+            else if (ve._errors && Array.isArray(ve._errors) && ve._errors.length > 0) { errorMsg = ve._errors.join(', '); }
+            toast.error("Erro de Validação", { description: errorMsg });
+        } else if (resultado.serverError) {
+            toast.error("Erro no Servidor", { description: resultado.serverError });
+        } else if (resultado.data?.failure) {
+            toast.error("Falha na Exclusão", { description: resultado.data.failure });
+        } else {
+            console.error('Estrutura de resultado inesperada da action de exclusão:', resultado);
+            toast.error("Erro Desconhecido", { description: "Ocorreu um erro ao processar sua solicitação de exclusão." });
+        }
       }
     } catch (error) {
-      console.error('Erro ao solicitar revisão (catch geral):', error);
-      toast.error("Erro na Solicitação", { description: "Ocorreu um erro inesperado." });
+      console.error('Erro ao excluir pedido (catch geral):', error);
+      toast.error("Erro na Exclusão", { description: "Ocorreu um erro inesperado ao tentar excluir o pedido." });
     } finally {
-      setSubmittingRevisao(false);
-      setIsUploadingGuiaRevisao(false);
+      setSubmittingExclusao(false);
     }
   };
 
@@ -925,7 +739,13 @@ function MeusAudiosPage() {
           </div>
           {/* Botão Limpar Filtros */}
           <div className="flex items-end">
-            <Button type="button" variant="outline" onClick={handleLimparFiltros} className="w-full md:w-auto whitespace-nowrap">Limpar Filtros</Button>
+            <Button type="button" variant="outline" onClick={() => {
+              setFiltroTitulo("");
+              setFiltroStatus("__all__");
+              setDataInicio(undefined);
+              setDataFim(undefined);
+              fetchAllPedidos();
+            }} className="w-full md:w-auto whitespace-nowrap">Limpar Filtros</Button>
           </div>
         </div>
       </div>
@@ -977,25 +797,45 @@ function MeusAudiosPage() {
                 const isEmRevisaoComAudio = pedido.status === PEDIDO_STATUS.EM_REVISAO && pedido.audio_final_url;
 
                 return (
-                  <TableRow key={pedido.id} className={cn(
-                    "hover:bg-muted/10 odd:bg-card even:bg-muted/5 dark:odd:bg-card dark:even:bg-muted/10 transition-colors",
-                    idx === pedidos.length - 1 ? "border-0" : undefined
-                  )}>
-                    <TableCell className="px-4 py-3 whitespace-nowrap text-sm font-medium text-foreground">{pedido.id_pedido_serial}</TableCell>
-                    <TableCell className="px-4 py-3 whitespace-nowrap text-sm font-medium text-foreground">
-                      {new Date(pedido.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                      <span className="block text-xs text-muted-foreground">
-                        {new Date(pedido.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' })}
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-4 py-3 font-medium whitespace-nowrap text-sm text-foreground">
-                      {pedido.locutores?.nome || <span className="text-muted-foreground italic">N/A</span>}
-                    </TableCell>
-                    <TableCell className="px-6 py-3 text-sm text-muted-foreground max-w-xs truncate">
-                      <p title={pedido.titulo || 'Título não disponível'}>
-                        {pedido.titulo || <span className="italic">Título não disponível</span>}
-                      </p>
-                    </TableCell>
+                  <>
+                    <TableRow key={pedido.id} className={cn(
+                      "hover:bg-muted/10 odd:bg-card even:bg-muted/5 dark:odd:bg-card dark:even:bg-muted/10 transition-colors",
+                      idx === pedidos.length - 1 ? "border-0" : undefined,
+                      pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && pedido.admin_message && "bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500"
+                    )}>
+                      <TableCell className="px-4 py-3 whitespace-nowrap text-sm font-medium text-foreground">
+                        <div className="flex items-center gap-2">
+                          {pedido.id_pedido_serial}
+                          {pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && pedido.admin_message && (
+                            <Badge variant="outline" className="bg-amber-500 text-white border-amber-500 text-xs animate-pulse">
+                              <MessageSquareWarning className="h-3 w-3 mr-1" />
+                              Nova
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-4 py-3 whitespace-nowrap text-sm font-medium text-foreground">
+                        {new Date(pedido.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        <span className="block text-xs text-muted-foreground">
+                          {new Date(pedido.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' })}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-4 py-3 font-medium whitespace-nowrap text-sm text-foreground">
+                        {pedido.locutores?.nome || <span className="text-muted-foreground italic">N/A</span>}
+                      </TableCell>
+                      <TableCell className="px-6 py-3 text-sm text-muted-foreground max-w-xs">
+                        <div>
+                          <p title={pedido.titulo || 'Título não disponível'} className="truncate">
+                            {pedido.titulo || <span className="italic">Título não disponível</span>}
+                          </p>
+                          {pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && pedido.admin_message && (
+                            <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-1 flex items-center">
+                              <MessageSquareWarning className="h-3 w-3 mr-1" />
+                              Mensagem do admin aguardando resposta
+                            </p>
+                          )}
+                        </div>
+                      </TableCell>
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center font-medium">
                       {pedido.tipo_audio ? (
                         <span className={cn(
@@ -1072,20 +912,38 @@ function MeusAudiosPage() {
                         )}
 
                         {pedido && pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && (
-                           <DropdownMenu>
-                           <DropdownMenuTrigger asChild>
-                             <Button variant="outline" size="icon" className="h-9 w-9 shrink-0">
-                               <MoreVertical className="h-4 w-4" />
-                               <span className="sr-only">Mais ações</span>
-                             </Button>
-                           </DropdownMenuTrigger>
-                           <DropdownMenuContent align="end">
-                             <DropdownMenuItem onClick={() => handleOpenHistoricoRevisoesModal(pedido)}>
-                               <MessageSquare className="mr-2 h-4 w-4" />
-                               Ver Solicitação do Admin
-                             </DropdownMenuItem>
-                           </DropdownMenuContent>
-                         </DropdownMenu>
+                          <>
+                            {pedido.admin_message && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleOpenRevisaoModal(pedido, true)}
+                                className="bg-amber-500 hover:bg-amber-600 text-white flex items-center animate-pulse"
+                              >
+                                <MessageSquareWarning className="mr-2 h-4 w-4" />
+                                Responder
+                              </Button>
+                            )}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="icon" className="h-9 w-9 shrink-0">
+                                  <MoreVertical className="h-4 w-4" />
+                                  <span className="sr-only">Mais ações</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenHistoricoRevisoesModal(pedido)}>
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  Ver Detalhes
+                                </DropdownMenuItem>
+                                {!pedido.admin_message && (
+                                  <DropdownMenuItem onClick={() => handleOpenRevisaoModal(pedido, true)}>
+                                    <MessageSquare className="mr-2 h-4 w-4" />
+                                    Responder
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </>
                         )}
 
                         {isConcluido && (
@@ -1111,9 +969,9 @@ function MeusAudiosPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleOpenRevisaoModal(pedido)}>
-                                  <Edit3 className="mr-2 h-4 w-4" />
-                                  Solicitar Revisão
+                                <DropdownMenuItem onClick={() => handleOpenRevisaoModal(pedido, true)}>
+                                  <MessageSquare className="mr-2 h-4 w-4" />
+                                  Responder
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -1160,6 +1018,7 @@ function MeusAudiosPage() {
                       </div>
                     </TableCell>
                   </TableRow>
+                  </>
                 );
               })}
             </TableBody>
@@ -1168,83 +1027,104 @@ function MeusAudiosPage() {
       )}
 
       <Dialog open={isRevisaoModalOpen} onOpenChange={setIsRevisaoModalOpen}>
-        <DialogContent className="sm:max-w-[480px] bg-neutral-900 text-white">
+        <DialogContent className="sm:max-w-[600px] bg-neutral-900 text-white">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white">Solicitar Revisão do Áudio</DialogTitle>
-            <DialogDescription className="text-neutral-300">
-              Pedido: #{pedidoParaRevisao?.id_pedido_serial} - {pedidoParaRevisao?.titulo || "Sem título"}
+            <DialogTitle className="text-xl">
+              {isModoResposta ? "Responder Solicitação do Admin" : "Solicitar Revisão do Áudio"}
+            </DialogTitle>
+            <DialogDescription>
+              Pedido: #{pedidoParaRevisao?.id_pedido_serial}
+              {pedidoParaRevisao?.titulo && ` - ${pedidoParaRevisao.titulo}`}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-5 py-4">
-            <div className="grid grid-cols-1 items-center gap-2">
-              <Label htmlFor="descricaoRevisaoTextarea" className="text-white font-medium">
-                Descreva seu problema
-              </Label>
-              <Textarea
-                id="descricaoRevisaoTextarea"
-                placeholder="Descreva em detalhes o que precisa ser corrigido no áudio..."
-                value={descricaoRevisao}
-                onChange={(e) => setDescricaoRevisao(e.target.value)}
-                rows={5}
-                className="min-h-[100px] bg-neutral-800 text-white border border-neutral-700 placeholder:text-neutral-400 focus:bg-neutral-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition-colors"
-              />
-            </div>
-            {/* Campo de upload de áudio guia da revisão */}
-            <div className="my-1">
-              <Label htmlFor="audio-guia-revisao-dropzone" className="text-white font-medium mb-2 block">
-                Áudio Guia para Revisão <span className="text-neutral-300 font-normal">(Opcional)</span>
-              </Label>
-              <div
-                {...getRootPropsGuiaRevisao()}
-                className={cn(
-                  "flex flex-col items-center justify-center p-5 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
-                  isDragActiveGuiaRevisao ? "border-blue-500 bg-neutral-800" : "border-neutral-700 bg-neutral-900",
-                  audioGuiaRevisaoFile ? "border-green-500 bg-green-500/5" : "",
-                  "hover:bg-neutral-800 text-white"
-                )}
-              >
-                <input {...getInputPropsGuiaRevisao()} id="audio-guia-revisao-dropzone" />
-                {audioGuiaRevisaoFile ? (
-                  <div className="text-center">
-                    <FileAudio className="mx-auto h-10 w-10 text-green-600 mb-2" />
-                    <p className="font-medium text-sm text-white">{audioGuiaRevisaoFile.name}</p>
-                    <p className="text-xs text-neutral-300">{(audioGuiaRevisaoFile.size / 1024).toFixed(1)} KB</p>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="mt-2 text-destructive hover:bg-destructive/10"
-                      onClick={e => { e.stopPropagation(); setAudioGuiaRevisaoFile(null); }}
-                    >
-                      <XCircle className="mr-1 h-4 w-4" /> Remover
-                    </Button>
-                  </div>
-                ) : isDragActiveGuiaRevisao ? (
-                  <div className="text-center text-blue-400">
-                    <FileAudio className="mx-auto h-10 w-10 mb-2 animate-bounce" />
-                    <p className="font-medium">Solte o arquivo aqui...</p>
-                  </div>
-                ) : (
-                  <div className="text-center text-neutral-400">
-                    <FileAudio className="mx-auto h-10 w-10 mb-2" />
-                    <p className="font-medium">Arraste e solte um arquivo de áudio ou clique para selecionar</p>
-                    <p className="text-xs">Formatos aceitos: mp3, wav, ogg, etc.</p>
-                  </div>
-                )}
+          
+          {isModoResposta && pedidoParaRevisao?.admin_message && (
+            <div className="my-4 p-4 border-l-4 border-amber-500 bg-amber-900/20 rounded-r-lg">
+              <div className="flex items-center mb-2">
+                <MessageSquareWarning className="h-5 w-5 text-amber-400 mr-2" />
+                <Label className="font-semibold text-amber-300">Mensagem do Admin:</Label>
               </div>
-              {isUploadingGuiaRevisao && <p className="text-sm text-blue-400 mt-2 animate-pulse">Enviando áudio guia...</p>}
+              <div className="p-3 bg-amber-950/30 rounded text-sm border border-amber-800 whitespace-pre-wrap">
+                {pedidoParaRevisao.admin_message}
+              </div>
+              <p className="text-xs text-amber-400 mt-2">
+                ⚠️ Por favor, leia com atenção e forneça as informações solicitadas.
+              </p>
             </div>
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="descricao-resposta" className="text-white font-medium">
+              {isModoResposta ? "Sua Resposta" : "Descrição da Revisão"} <span className="text-red-400">*</span>
+            </Label>
+            <Textarea
+              id="descricao-resposta"
+              placeholder={
+                isModoResposta 
+                  ? "Descreva as informações solicitadas pelo admin..." 
+                  : "Descreva o que precisa ser corrigido..."
+              }
+              value={descricaoRevisao}
+              onChange={(e) => setDescricaoRevisao(e.target.value)}
+              rows={4}
+              className="bg-neutral-800 border-neutral-700 text-white placeholder:text-neutral-400"
+            />
+            <p className="text-xs text-neutral-400">
+              {isModoResposta 
+                ? "Forneça todas as informações que o admin solicitou." 
+                : "Mínimo de 10 caracteres."}
+            </p>
           </div>
-          <DialogFooter className="gap-2 pt-2">
-            <DialogClose asChild>
-              <Button type="button" variant="outline" onClick={() => setIsRevisaoModalOpen(false)}>Cancelar</Button>
-            </DialogClose>
-            <Button 
-              onClick={handleSolicitarRevisao} 
-              disabled={submittingRevisao || !descricaoRevisao.trim() || isUploadingGuiaRevisao}
-              className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90"
+          <div className="my-1">
+            <Label htmlFor="audio-guia-revisao-dropzone" className="text-white font-medium mb-2 block">
+              Áudio Guia para Revisão <span className="text-neutral-300 font-normal">(Opcional)</span>
+            </Label>
+            <div
+              {...getRootPropsGuiaRevisao()}
+              className={cn(
+                "flex flex-col items-center justify-center p-5 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
+                isDragActiveGuiaRevisao ? "border-blue-500 bg-neutral-800" : "border-neutral-700 bg-neutral-900",
+                audioGuiaRevisaoFile ? "border-green-500 bg-green-500/5" : "",
+                "hover:bg-neutral-800 text-white"
+              )}
             >
-              {submittingRevisao ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-              Enviar Solicitação
+              <input {...getInputPropsGuiaRevisao()} id="audio-guia-revisao-dropzone" />
+              {audioGuiaRevisaoFile ? (
+                <div className="text-center">
+                  <FileAudio className="mx-auto h-10 w-10 text-green-600 mb-2" />
+                  <p className="font-medium text-sm text-white">{audioGuiaRevisaoFile.name}</p>
+                  <p className="text-xs text-neutral-300">{(audioGuiaRevisaoFile.size / 1024).toFixed(1)} KB</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 text-destructive hover:bg-destructive/10"
+                    onClick={e => { e.stopPropagation(); setAudioGuiaRevisaoFile(null); }}
+                  >
+                    <XCircle className="mr-1 h-4 w-4" /> Remover
+                  </Button>
+                </div>
+              ) : isDragActiveGuiaRevisao ? (
+                <div className="text-center text-blue-400">
+                  <FileAudio className="mx-auto h-10 w-10 mb-2 animate-bounce" />
+                  <p className="font-medium">Solte o arquivo aqui...</p>
+                </div>
+              ) : (
+                <div className="text-center text-neutral-400">
+                  <FileAudio className="mx-auto h-10 w-10 mb-2" />
+                  <p className="font-medium">Arraste e solte um arquivo de áudio ou clique para selecionar</p>
+                  <p className="text-xs">Formatos aceitos: mp3, wav, ogg, etc.</p>
+                </div>
+              )}
+            </div>
+            {isUploadingGuiaRevisao && <p className="text-sm text-blue-400 mt-2 animate-pulse">Enviando áudio guia...</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRevisaoModalOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={handleAcaoPrincipalModalRevisao}
+              disabled={submittingRevisao || statusEnvioResposta === 'executing' || descricaoRevisao.trim().length < 10}
+            >
+              {isModoResposta ? <Send className="mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />}
+              {isModoResposta ? "Enviar Resposta" : "Enviar Solicitação"}
             </Button>
           </DialogFooter>
         </DialogContent>
