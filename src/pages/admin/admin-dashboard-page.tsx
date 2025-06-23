@@ -22,6 +22,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogClose,
+} from "@/components/ui/dialog";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -31,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -516,6 +518,12 @@ function AdminDashboardPage() {
   const handleUpdatePedido = async () => {
     if (!selectedPedido) return;
 
+    // VALIDAÇÃO MOVIDA PARA DENTRO DO HANDLER
+    if (currentPedidoStatus === PEDIDO_STATUS.AGUARDANDO_CLIENTE && !adminAguardandoClienteMessage.trim()) {
+      toast.error("A mensagem para o cliente é obrigatória para este status.");
+      return;
+    }
+    
     // Verifica se houve mudança no status selecionado ou se um arquivo foi adicionado.
     const statusHasChanged = currentPedidoStatus !== selectedPedido.status;
     const fileHasBeenSelected = selectedFile !== null;
@@ -842,11 +850,14 @@ function AdminDashboardPage() {
   console.log('[AdminDashboardPage Render] isProcessingAutoStatusChange:', isProcessingAutoStatusChange);
   console.log('[AdminDashboardPage Render] isUpdatingPedido:', isUpdatingPedido);
 
+  const statusHasChanged = selectedPedido && currentPedidoStatus !== selectedPedido.status;
+
   const showSalvarButtonCondition = modalActiveTab === 'detalhesPedido' && selectedPedido &&
     selectedPedido.status !== PEDIDO_STATUS.PENDENTE &&
     selectedPedido.status !== PEDIDO_STATUS.CONCLUIDO &&
     selectedPedido.status !== PEDIDO_STATUS.CANCELADO &&
     ((currentPedidoStatus !== selectedPedido.status) || !!selectedFile);
+  
   console.log('[AdminDashboardPage Render] Condição para mostrar botão Salvar:', showSalvarButtonCondition);
 
   // Handler para mudança de arquivo de revisão
@@ -1372,70 +1383,102 @@ function AdminDashboardPage() {
               )}
 
               <Separator className="my-4" />
-                  {/* Campos para alterar status e enviar áudio do pedido principal */}
-              <div className="space-y-2">
-                    <Label htmlFor="status-pedido-principal" className="text-sm font-medium text-foreground">Alterar Status do Pedido Principal:</Label>
-                <Select 
-                  value={currentPedidoStatus} 
-                  onValueChange={setCurrentPedidoStatus}
-                  disabled={ 
-                    selectedPedido.status === PEDIDO_STATUS.CONCLUIDO || 
-                    selectedPedido.status === PEDIDO_STATUS.CANCELADO ||
-                    isProcessingAutoStatusChange ||
-                    isUpdatingPedido
-                  }
-                >
-                  <SelectTrigger id="status-pedido-principal" className="w-full">
-                    <SelectValue placeholder="Selecione o novo status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PEDIDO_STATUS_OPTIONS_FILTRO
-                      .filter(opt => {
-                        if (!selectedPedido) return false;
-                        if (opt.value === 'todos') return false;
-                        if (opt.value === PEDIDO_STATUS.PENDENTE) return false;
-                        if (opt.value === PEDIDO_STATUS.REJEITADO) return false;
-                        if (selectedPedido.status === PEDIDO_STATUS.EM_ANALISE) {
-                          return opt.value === PEDIDO_STATUS.EM_PRODUCAO || opt.value === PEDIDO_STATUS.CANCELADO;
-                        }
-                        if (selectedPedido.status === PEDIDO_STATUS.EM_PRODUCAO || selectedPedido.status === PEDIDO_STATUS.GRAVANDO) {
-                          return opt.value === PEDIDO_STATUS.CONCLUIDO || opt.value === PEDIDO_STATUS.CANCELADO || opt.value === PEDIDO_STATUS.AGUARDANDO_CLIENTE;
-                        }
-                        if (selectedPedido.status === PEDIDO_STATUS.EM_REVISAO || selectedPedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE) {
-                          return opt.value === PEDIDO_STATUS.CONCLUIDO || opt.value === PEDIDO_STATUS.CANCELADO || opt.value === PEDIDO_STATUS.EM_PRODUCAO;
-                        }
-                        if (opt.value === selectedPedido.status && !selectedFile) return false;
-                        if (opt.value === PEDIDO_STATUS.CONCLUIDO && !selectedFile && selectedPedido.status !== PEDIDO_STATUS.CONCLUIDO) return false;
-                        return true; 
-                      })
-                      .map(option => (
-                        <SelectItem key={option.value} value={option.value!}>
-                          {option.label}
-                        </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+              {/* SEÇÃO DE AÇÕES DO ADMIN */}
+              <div className="space-y-4">
+                  <div className="space-y-2">
+                      <Label htmlFor="status-pedido-principal">Alterar Status do Pedido:</Label>
+                      <Select 
+                          value={currentPedidoStatus} 
+                          onValueChange={setCurrentPedidoStatus}
+                          disabled={selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado' || isUpdatingPedido}
+                      >
+                          <SelectTrigger id="status-pedido-principal"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                              {/* ... (opções de status) ... */}
+                              <SelectItem value={PEDIDO_STATUS.EM_PRODUCAO}>Em Produção</SelectItem>
+                              <SelectItem value={PEDIDO_STATUS.AGUARDANDO_CLIENTE}>Aguardando Cliente</SelectItem>
+                              <SelectItem value={PEDIDO_STATUS.CONCLUIDO}>Concluído (requer áudio)</SelectItem>
+                              <SelectItem value={PEDIDO_STATUS.CANCELADO}>Cancelar Pedido</SelectItem>
+                          </SelectContent>
+                      </Select>
+                  </div>
+
+                  {/* PAINEL DE AÇÃO CONTEXTUAL: AGUARDANDO CLIENTE */}
+                  {currentPedidoStatus === PEDIDO_STATUS.AGUARDANDO_CLIENTE && (
+                    <div className="mt-4 p-4 border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-900/20 rounded-r-lg space-y-2">
+                      <Label htmlFor="admin-aguardando-cliente-message" className="text-base font-semibold text-amber-800 dark:text-amber-300 flex items-center">
+                        <MessageSquare className="h-5 w-5 mr-2" />
+                        Solicitar Informações ao Cliente
+                      </Label>
+                      <Textarea
+                        id="admin-aguardando-cliente-message"
+                        placeholder="Ex: O áudio guia está com ruído. Por favor, envie um novo arquivo com mais clareza para continuarmos."
+                        value={adminAguardandoClienteMessage}
+                        onChange={(e) => setAdminAguardandoClienteMessage(e.target.value)}
+                        rows={4}
+                        required
+                        disabled={isUpdatingPedido}
+                        className="bg-white dark:bg-background placeholder:text-muted-foreground"
+                      />
+                      <p className="text-xs text-amber-700 dark:text-amber-400">
+                        Esta mensagem é obrigatória e será exibida para o cliente no painel do pedido.
+                      </p>
+                    </div>
+                  )}
+
+                  {currentPedidoStatus === PEDIDO_STATUS.CANCELADO && (
+                    <div className="space-y-2 mt-4">
+                      <Label htmlFor="admin-cancel-reason" className="text-sm font-medium text-foreground">
+                        Justificativa do Cancelamento <span className="text-destructive">*</span>
+                      </Label>
+                      <Textarea
+                        id="admin-cancel-reason"
+                        placeholder="Explique o motivo do cancelamento para o cliente..."
+                        value={adminCancelReason}
+                        onChange={(e) => setAdminCancelReason(e.target.value)}
+                        rows={3}
+                        required
+                        disabled={isUpdatingPedido}
+                        className="text-foreground placeholder:text-muted-foreground"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Esta justificativa será registrada e visível no histórico do pedido.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                      <Label htmlFor="audio-file-principal">Enviar Áudio Finalizado:</Label>
+                      <Input 
+                          id="audio-file-principal" 
+                          type="file" 
+                          onChange={handleFileChange} 
+                          disabled={selectedPedido.status === 'concluido' || selectedPedido.status === 'cancelado' || isUpdatingPedido}
+                      />
+                      {selectedFile && <p className="text-xs text-muted-foreground mt-1">Arquivo selecionado: {selectedFile.name}</p>}
+                  </div>
               </div>
-              {currentPedidoStatus === PEDIDO_STATUS.CANCELADO && (
-                <div className="space-y-2 mt-4">
-                  <Label htmlFor="admin-cancel-reason" className="text-sm font-medium text-foreground">
-                    Justificativa do Cancelamento <span className="text-destructive">*</span>
-                  </Label>
-                  <Textarea
-                    id="admin-cancel-reason"
-                    placeholder="Explique o motivo do cancelamento para o cliente..."
-                    value={adminCancelReason}
-                    onChange={(e) => setAdminCancelReason(e.target.value)}
-                    rows={3}
-                    required
-                    disabled={isUpdatingPedido}
-                    className="text-foreground placeholder:text-muted-foreground"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Esta justificativa será registrada e visível no histórico do pedido.
-                  </p>
-                </div>
-              )}
+
+              <div className="space-y-2">
+                    <Label htmlFor="admin-cancel-reason" className="text-sm font-medium text-foreground">
+                      Justificativa do Cancelamento <span className="text-destructive">*</span>
+                    </Label>
+                    <Textarea
+                      id="admin-cancel-reason"
+                      placeholder="Explique o motivo do cancelamento para o cliente..."
+                      value={adminCancelReason}
+                      onChange={(e) => setAdminCancelReason(e.target.value)}
+                      rows={3}
+                      required
+                      disabled={isUpdatingPedido}
+                      className="text-foreground placeholder:text-muted-foreground"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Esta justificativa será registrada e visível no histórico do pedido.
+                    </p>
+                  </div>
+
               <div className="space-y-2">
                     <Label htmlFor="audio-file-principal" className="text-sm font-medium text-foreground">Enviar Áudio Finalizado (Principal):</Label>
                 <Input 
@@ -1725,10 +1768,15 @@ function AdminDashboardPage() {
               {showSalvarButtonCondition && (
                 <Button 
                   onClick={handleUpdatePedido} 
-                  disabled={isUpdatingPedido || updateStatusMutation.isPending || isProcessingAutoStatusChange}
+                  disabled={
+                    isUpdatingPedido || 
+                    updateStatusMutation.isPending || 
+                    isProcessingAutoStatusChange ||
+                    (currentPedidoStatus === PEDIDO_STATUS.AGUARDANDO_CLIENTE && !adminAguardandoClienteMessage.trim())
+                  }
                 >
                   {isUpdatingPedido || updateStatusMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} 
-                  Salvar Alterações
+                  {currentPedidoStatus === PEDIDO_STATUS.AGUARDANDO_CLIENTE ? 'Enviar Mensagem e Pausar Pedido' : 'Salvar Alterações'}
                 </Button>
               )}
               
