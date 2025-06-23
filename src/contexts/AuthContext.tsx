@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import type { Session, User, AuthChangeEvent, SignUpWithPasswordCredentials } from '@supabase/supabase-js';
 import { AuthError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
-import { toast } from 'react-hot-toast';
+// import { toast } from 'react-hot-toast'; // Removido temporariamente
 
 // Definir a interface para o perfil, espelhando a tabela do Supabase
 export interface Profile {
@@ -156,7 +156,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Mantém o perfil básico por enquanto
           let updatedProfileData: Profile = { ...userData } as Profile;
 
-          // Agora, buscar o saldo de créditos válidos
+          // CORREÇÃO TEMPORÁRIA: Usar diretamente profiles.credits até RPC ser corrigida
+          console.log(`[AuthContext] CORREÇÃO: Usando profiles.credits diretamente (${userData.credits}) em vez da RPC`);
+          updatedProfileData.saldoCalculadoCreditos = userData.credits || 0;
+          
+          // Código original da RPC (comentado para correção)
+          /*
           console.log(`[AuthContext] Chamando RPC get_saldo_creditos_validos para userId: ${userId}`);
           const { data: saldoData, error: saldoError } = await supabase.rpc('get_saldo_creditos_validos', { p_user_id: userId });
           console.log(`[AuthContext] Resultado RPC get_saldo_creditos_validos - Saldo:`, saldoData, 'Erro:', saldoError);
@@ -164,11 +169,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
           if (saldoError) {
             console.error("AuthContext: Erro ao buscar saldo de créditos válidos via RPC:", saldoError);
             updatedProfileData.saldoCalculadoCreditos = userData.credits || 0; 
-            toast.error(`Erro ao buscar saldo de créditos: ${saldoError.message}`);
+            // toast.error(`Erro ao buscar saldo de créditos: ${saldoError.message}`); // Comentado temporariamente
           } else {
             console.log("AuthContext: Saldo de créditos válidos calculado via RPC:", saldoData);
             updatedProfileData.saldoCalculadoCreditos = saldoData ?? 0;
           }
+          */
           
           setProfile(updatedProfileData);
           console.log(`[AuthContext] Profile após setar saldoCalculadoCreditos:`, updatedProfileData);
