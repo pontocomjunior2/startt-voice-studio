@@ -1144,17 +1144,17 @@ function GravarLocucaoPage() {
                                       <CardHeader className="p-3 flex-shrink-0">
                                         <div className="flex items-center space-x-3">
                                           <Avatar className="h-12 w-12 border-2 border-muted bg-background">
-                                            <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome} />
+                                            <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome_artistico || 'Locutor'} />
                                             <AvatarFallback className="text-xs text-white bg-background">
-                                              {locutor.nome.substring(0, 2).toUpperCase()}
+                                              {(locutor.nome_artistico || 'L').substring(0, 2).toUpperCase()}
                                             </AvatarFallback>
                                           </Avatar>
                                           <div className="flex-1 min-w-0">
-                                            <CardTitle className="text-base font-semibold truncate" title={locutor.nome}>
-                                              {locutor.nome}
+                                            <CardTitle className="text-base font-semibold truncate" title={locutor.nome_artistico || undefined}>
+                                              {locutor.nome_artistico || 'Locutor'}
                                             </CardTitle>
                                             <CardDescription className="text-xs line-clamp-2 h-8 leading-tight">
-                                              {locutor.descricao || locutor.tipo_voz || 'Voz profissional'}
+                                              {locutor.bio || 'Voz profissional'}
                                             </CardDescription>
                                           </div>
                                         </div>
@@ -1268,7 +1268,7 @@ function GravarLocucaoPage() {
                   <div className="text-center mb-6 p-4 rounded-md bg-muted/30">
                     <h3 className="text-xl font-semibold">Detalhes do Áudio</h3>
                     <p className="text-sm text-muted-foreground">
-                      Locutor: <span className="font-semibold text-startt-blue">{selectedLocutor.nome}</span> | Tipo: <span className="font-semibold text-startt-blue">{getValues("tipoAudio") === "off" ? "Áudio em OFF" : "Áudio Produzido"}</span>
+                      Locutor: <span className="font-semibold text-startt-blue">{selectedLocutor.nome_artistico}</span> | Tipo: <span className="font-semibold text-startt-blue">{getValues("tipoAudio") === "off" ? "Áudio em OFF" : "Áudio Produzido"}</span>
                     </p>
                   </div>
 

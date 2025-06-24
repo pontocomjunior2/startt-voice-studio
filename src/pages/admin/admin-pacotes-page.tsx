@@ -44,7 +44,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Trash2, Link2 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function AdminPacotesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -124,6 +125,12 @@ export default function AdminPacotesPage() {
     setIsDialogOpen(true);
   };
 
+  const handleCopyLink = (pacoteId: string) => {
+    const url = `${window.location.origin}/comprar/pacote/${pacoteId}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Link de compra copiado para a área de transferência!");
+  };
+
   const onSubmit = (data: PacoteFormValues) => {
     upsertPacote(data, {
       onSuccess: () => {
@@ -189,8 +196,17 @@ export default function AdminPacotesPage() {
                       variant="outline"
                       size="icon"
                       onClick={() => handleOpenDialog(pacote)}
+                      title="Editar Pacote"
                     >
                       <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleCopyLink(pacote.id)}
+                      title="Copiar link de compra direta"
+                    >
+                      <Link2 className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="destructive"
@@ -199,6 +215,7 @@ export default function AdminPacotesPage() {
                         setPacoteToDelete(pacote);
                         setDeleteDialogOpen(true);
                       }}
+                      title="Excluir Pacote"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

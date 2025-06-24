@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Card, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -9,15 +9,7 @@ import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
-
-interface Locutor {
-  id: string;
-  nome: string;
-  descricao?: string;
-  avatar_url?: string;
-  amostra_audio_url?: string;
-  ativo: boolean;
-}
+import { useFetchAllowedLocutores, type LocutorCatalogo } from '@/hooks/queries/use-fetch-allowed-locutores.hook';
 
 interface Amostra {
   url: string;
@@ -26,29 +18,20 @@ interface Amostra {
 
 const LocutoresPage: React.FC = () => {
   const { user } = useAuth();
-  const [todosLocutores, setTodosLocutores] = useState<Locutor[]>([]);
-  const [loadingLocutores, setLoadingLocutores] = useState(true);
-  const [erroLocutores, setErroLocutores] = useState<string | null>(null);
+  const { data: locutores = [], isLoading: loadingLocutores, isError, error } = useFetchAllowedLocutores();
+
   const [filtroNome, setFiltroNome] = useState('');
   const [idsLocutoresFavoritos, setIdsLocutoresFavoritos] = useState<string[]>([]);
   const [amostrasPorLocutor, setAmostrasPorLocutor] = useState<Record<string, Amostra[]>>({});
   const [modalAmostrasLocutorId, setModalAmostrasLocutorId] = useState<string | null>(null);
   const [audioPlaying, setAudioPlaying] = useState<HTMLAudioElement | null>(null);
 
-  const fetchTodosLocutores = useCallback(async () => {
-    setLoadingLocutores(true);
-    setErroLocutores(null);
-    try {
-      const { data: locutoresData, error: locutoresError } = await supabase
-        .from('locutores')
-        .select('*')
-        .eq('ativo', true)
-        .order('nome');
-      if (locutoresError) throw locutoresError;
-      setTodosLocutores(locutoresData || []);
-      // Buscar amostras para cada locutor
+  useEffect(() => {
+    const fetchSecondaryData = async () => {
+      if (!locutores || locutores.length === 0) return;
+
       const amostras: Record<string, Amostra[]> = {};
-      await Promise.all((locutoresData || []).map(async (locutor: Locutor) => {
+      await Promise.all(locutores.map(async (locutor) => {
         try {
           const res = await fetch(`${import.meta.env.VITE_API_URL}/api/locutor/${locutor.id}/demos`);
           if (!res.ok) return;
@@ -59,28 +42,26 @@ const LocutoresPage: React.FC = () => {
         }
       }));
       setAmostrasPorLocutor(amostras);
+
       if (user?.id) {
-        const { data: favoritosData, error: favoritosError } = await supabase
-          .from('locutores_favoritos')
-          .select('locutor_id')
-          .eq('user_id', user.id);
-        if (!favoritosError) {
+        try {
+          const { data: favoritosData, error: favoritosError } = await supabase
+            .from('locutores_favoritos')
+            .select('locutor_id')
+            .eq('user_id', user.id);
+          
+          if (favoritosError) throw favoritosError;
+
           setIdsLocutoresFavoritos(favoritosData?.map(f => f.locutor_id) || []);
+        } catch (favError) {
+          console.error("Erro ao buscar favoritos:", favError);
+          setIdsLocutoresFavoritos([]);
         }
       }
-    } catch (error) {
-      setErroLocutores('Não foi possível carregar os locutores. Tente novamente mais tarde.');
-      setTodosLocutores([]);
-      setIdsLocutoresFavoritos([]);
-      setAmostrasPorLocutor({});
-    } finally {
-      setLoadingLocutores(false);
-    }
-  }, [user]);
+    };
 
-  useEffect(() => {
-    fetchTodosLocutores();
-  }, [fetchTodosLocutores]);
+    fetchSecondaryData();
+  }, [locutores, user?.id]);
 
   const toggleFavorito = async (locutorId: string, isFavoritoAtual: boolean) => {
     if (!user?.id) return;
@@ -102,8 +83,8 @@ const LocutoresPage: React.FC = () => {
     }
   };
 
-  const locutoresFiltradosPorNome = todosLocutores.filter(locutor =>
-    locutor.nome.toLowerCase().includes(filtroNome.toLowerCase())
+  const locutoresFiltradosPorNome = locutores.filter((locutor: LocutorCatalogo) =>
+    (locutor.nome_artistico || '').toLowerCase().includes(filtroNome.toLowerCase())
   );
 
   const handlePlayAudio = (event: React.SyntheticEvent<HTMLAudioElement, Event>) => {
@@ -128,8 +109,10 @@ const LocutoresPage: React.FC = () => {
           aria-label="Buscar locutor por nome"
         />
       </div>
-      {erroLocutores && (
-        <div className="text-red-500 mb-4">{erroLocutores}</div>
+      {isError && (
+        <div className="text-red-500 mb-4">
+          Erro ao carregar locutores: {error?.message || 'Tente novamente mais tarde.'}
+        </div>
       )}
       {loadingLocutores ? (
         <div className="text-center py-12 text-muted-foreground">Carregando locutores...</div>
@@ -138,7 +121,7 @@ const LocutoresPage: React.FC = () => {
           {locutoresFiltradosPorNome.length === 0 ? (
             <div className="col-span-full text-center text-muted-foreground">Nenhum locutor encontrado.</div>
           ) : (
-            locutoresFiltradosPorNome.map(locutor => {
+            locutoresFiltradosPorNome.map((locutor: LocutorCatalogo) => {
               const isFavorito = idsLocutoresFavoritos.includes(locutor.id);
               const amostras = amostrasPorLocutor[locutor.id] || [];
               return (
@@ -157,24 +140,24 @@ const LocutoresPage: React.FC = () => {
                   </Button>
                   <div className="p-4 flex items-center space-x-4">
                     <Avatar className="h-16 w-16 md:h-20 md:w-20">
-                      <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome} />
+                      <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome_artistico || ''} />
                       <AvatarFallback className="text-2xl bg-gradient-to-r from-startt-blue to-startt-purple text-primary-foreground">
-                        {locutor.nome?.charAt(0).toUpperCase()}
+                        {(locutor.nome_artistico || 'L')?.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
-                      <CardTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-startt-blue to-startt-purple mb-1">
-                        {locutor.nome}
+                      <CardTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-startt-blue to-startt-purple mb-1 truncate">
+                        {locutor.nome_artistico || 'Locutor'}
                       </CardTitle>
-                      <CardDescription className="text-sm text-muted-foreground h-10 overflow-hidden text-ellipsis">
-                        {locutor.descricao || "Voz profissional para seu projeto."}
+                      <CardDescription className="text-sm text-muted-foreground h-10 overflow-hidden text-ellipsis break-words">
+                        {locutor.bio || "Voz profissional para seu projeto."}
                       </CardDescription>
                       <Button
                         variant="outline"
                         size="sm"
                         className="mt-2"
                         onClick={() => setModalAmostrasLocutorId(locutor.id)}
-                        aria-label={`Ouvir demos de ${locutor.nome}`}
+                        aria-label={`Ouvir demos de ${locutor.nome_artistico}`}
                       >
                         <PlayCircle className="mr-2 h-4 w-4" /> Ouvir Demos
                       </Button>
@@ -182,7 +165,7 @@ const LocutoresPage: React.FC = () => {
                   </div>
                   <CardFooter className="p-4 mt-auto">
                     <Button asChild className="w-full bg-gradient-to-r from-startt-blue to-startt-purple text-primary-foreground hover:opacity-90">
-                      <Link to={`/gravar-locucao?locutorId=${locutor.id}`} aria-label={`Gravar com a voz de ${locutor.nome}`}>
+                      <Link to={`/gravar-locucao?locutorId=${locutor.id}`} aria-label={`Gravar com a voz de ${locutor.nome_artistico}`}>
                         <Mic2 className="mr-2 h-4 w-4" /> Escolher esta Voz
                       </Link>
                     </Button>
@@ -193,7 +176,7 @@ const LocutoresPage: React.FC = () => {
                       <DialogContent className="max-w-lg w-full">
                         <DialogHeader>
                           <DialogTitle className="bg-clip-text text-transparent bg-gradient-to-r from-startt-blue to-startt-purple">
-                            Demos de {locutor.nome}
+                            Demos de {locutor.nome_artistico}
                           </DialogTitle>
                           <DialogDescription>
                             {amostras.length > 0
@@ -213,7 +196,7 @@ const LocutoresPage: React.FC = () => {
                                   className="w-full h-10 bg-card" 
                                   src={amostra.url} 
                                   onPlay={handlePlayAudio}
-                                  aria-label={`Amostra ${amostra.estilo || idx + 1} de ${locutor.nome}`}>
+                                  aria-label={`Amostra ${amostra.estilo || idx + 1} de ${locutor.nome_artistico}`}>
                                   Seu navegador não suporta o elemento de áudio.
                                 </audio>
                               </div>

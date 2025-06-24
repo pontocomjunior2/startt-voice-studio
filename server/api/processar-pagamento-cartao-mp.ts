@@ -69,16 +69,8 @@ export const processarPagamentoCartaoMP = async (req: any, res: any) => {
     return res.status(200).json(response);
 
   } catch (error: any) {
-    console.error('💥 [ERRO GERAL] CAPTURADO:', JSON.stringify(error, null, 2));
+    console.error('💥 [ERRO DETALHADO CAPTURADO]:', error);
 
-    // Extrai a mensagem de erro da causa, se existir, senão usa a mensagem principal
-    const errorMessage = error?.cause?.[0]?.description || error.message || 'Ocorreu um erro inesperado.';
-    
-    return res.status(error.status || 500).json({
-      success: false,
-      message: 'Falha no processamento do pagamento.',
-      details: errorMessage,
-      error_code: error.error || 'internal_error'
-    });
+    return res.status(500).json({ success: false, message: 'Falha no processamento do pagamento.', details: 'internal_error' });
   }
 }; 

@@ -5,7 +5,6 @@ const mercadopago_1 = require("mercadopago");
 const supabaseAdmin_1 = require("../lib/supabaseAdmin");
 const client = new mercadopago_1.MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN });
 const processarPagamentoCartaoMP = async (req, res) => {
-    var _a, _b;
     try {
         const { token, transaction_amount, descricao, installments, payment_method_id, issuer_id, payer, userIdCliente, pacoteId } = req.body;
         // 1. Validação de Entrada - agora o token é obrigatório
@@ -56,15 +55,8 @@ const processarPagamentoCartaoMP = async (req, res) => {
         return res.status(200).json(response);
     }
     catch (error) {
-        console.error('💥 [ERRO GERAL] CAPTURADO:', JSON.stringify(error, null, 2));
-        // Extrai a mensagem de erro da causa, se existir, senão usa a mensagem principal
-        const errorMessage = ((_b = (_a = error === null || error === void 0 ? void 0 : error.cause) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.description) || error.message || 'Ocorreu um erro inesperado.';
-        return res.status(error.status || 500).json({
-            success: false,
-            message: 'Falha no processamento do pagamento.',
-            details: errorMessage,
-            error_code: error.error || 'internal_error'
-        });
+        console.error('💥 [ERRO DETALHADO CAPTURADO]:', error);
+        return res.status(500).json({ success: false, message: 'Falha no processamento do pagamento.', details: 'internal_error' });
     }
 };
 exports.processarPagamentoCartaoMP = processarPagamentoCartaoMP;
