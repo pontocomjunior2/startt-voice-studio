@@ -51,13 +51,12 @@ function AdminUsuariosPage() {
   const { profile: adminProfile } = useAuth();
   const queryClient = useQueryClient();
 
-  const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
-  const [selectedUserForCredit, setSelectedUserForCredit] = useState<UserProfile | null>(null);
-  const [quantidadeLote, setQuantidadeLote] = useState<string>('');
-  const [dataValidadeLote, setDataValidadeLote] = useState<Date | undefined>(undefined);
-  const [semPrazoValidade, setSemPrazoValidade] = useState(false);
-  const [observacaoLote, setObservacaoLote] = useState('');
-  const [isAddingCredits, setIsAddingCredits] = useState(false);
+  const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
+  const [selectedUserForAdjust, setSelectedUserForAdjust] = useState<UserProfile | null>(null);
+  const [ajusteGravacao, setAjusteGravacao] = useState('0');
+  const [ajusteIA, setAjusteIA] = useState('0');
+  const [ajusteObservacao, setAjusteObservacao] = useState('');
+  const [isAdjustingCredits, setIsAdjustingCredits] = useState(false);
 
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [selectedUserForRoleChange, setSelectedUserForRoleChange] = useState<UserProfile | null>(null);
@@ -66,12 +65,6 @@ function AdminUsuariosPage() {
   const [isLocutorModalOpen, setIsLocutorModalOpen] = useState(false);
   const [selectedUserForLocutores, setSelectedUserForLocutores] = useState<UserProfile | null>(null);
 
-  const [isDebitModalOpen, setIsDebitModalOpen] = useState(false);
-  const [selectedUserForDebit, setSelectedUserForDebit] = useState<UserProfile | null>(null);
-  const [debitAmount, setDebitAmount] = useState<string>('');
-  const [debitReason, setDebitReason] = useState('');
-  const [isDebiting, setIsDebiting] = useState(false);
-  
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedUserForDelete, setSelectedUserForDelete] = useState<UserProfile | null>(null);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
@@ -79,85 +72,55 @@ function AdminUsuariosPage() {
 
   const [userFilter, setUserFilter] = useState('');
 
-  const { data: initialUsers = [], isLoading: isLoadingUsers, isError, error } = useFetchAdminUsers();
+  const { data: users = [], isLoading: isLoadingUsers, isError, error, refetch: refetchUsers } = useFetchAdminUsers();
   const { mutate: updateUserRole, isPending: isUpdatingRole } = useUpdateUserRole();
-  const [usersWithDetails, setUsersWithDetails] = useState<UserProfile[]>([]);
 
-  useEffect(() => {
-    const fetchDetailsForUsers = async () => {
-      if (initialUsers && initialUsers.length > 0) {
-        const detailedUsers = await Promise.all(initialUsers.map(async (user) => {
-          const { data, error } = await supabase.rpc('get_user_details_for_admin', { p_user_id: user.id });
-          if (error) {
-            return { ...user, saldoCalculadoCreditos: 0, pacotes_ativos: [] };
-          }
-          return { ...user, ...data };
-        }));
-        setUsersWithDetails(detailedUsers);
-      }
-    };
-    fetchDetailsForUsers();
-  }, [initialUsers]);
-
-  const openCreditModal = (user: UserProfile) => {
-    setSelectedUserForCredit(user);
-    setQuantidadeLote('');
-    setDataValidadeLote(undefined);
-    setSemPrazoValidade(false);
-    setObservacaoLote('');
-    setIsCreditModalOpen(true);
+  const openAdjustModal = (user: UserProfile) => {
+    setSelectedUserForAdjust(user);
+    setAjusteGravacao('0');
+    setAjusteIA('0');
+    setAjusteObservacao('');
+    setIsAdjustModalOpen(true);
   };
 
-  const handleAddCreditBatch = async () => {
-    if (!selectedUserForCredit || !quantidadeLote || parseInt(quantidadeLote, 10) === 0) {
-      toast.error("Erro de Validação", { description: "A quantidade de créditos deve ser diferente de zero." });
+  const handleAdjustCredits = async () => {
+    if (!selectedUserForAdjust) return;
+    
+    const gravacao = parseInt(ajusteGravacao, 10);
+    const ia = parseInt(ajusteIA, 10);
+
+    if (isNaN(gravacao) || isNaN(ia)) {
+      toast.error("Valores inválidos. Por favor, insira apenas números.");
       return;
     }
-    if (parseInt(quantidadeLote, 10) < 0 && !observacaoLote.trim()) {
-      toast.error("Erro de Validação", { description: "Ao reduzir créditos, é obrigatório informar o motivo na observação." });
+    if (gravacao === 0 && ia === 0) {
+      toast.error("Pelo menos um dos campos de crédito deve ser diferente de zero para o ajuste.");
       return;
     }
-    if (parseInt(quantidadeLote, 10) > 0 && !semPrazoValidade && !dataValidadeLote) {
-      toast.error("Erro de Validação", { description: "Defina uma data de validade ou marque 'Sem prazo de validade'." });
+    if (!ajusteObservacao.trim()) {
+      toast.error("A observação é obrigatória para qualquer ajuste de crédito.");
       return;
     }
 
-    setIsAddingCredits(true);
+    setIsAdjustingCredits(true);
     try {
-      const dadosLote: any = {
-        user_id: selectedUserForCredit.id,
-        quantidade_adicionada: parseInt(quantidadeLote, 10),
-        quantidade_usada: 0, 
-        data_validade: parseInt(quantidadeLote, 10) < 0 ? null : (semPrazoValidade || !dataValidadeLote ? null : dataValidadeLote.toISOString()),
-        admin_id_que_adicionou: adminProfile?.id, 
-        observacao_admin: observacaoLote.trim() || null,
-        status: 'ativo'
-      };
+      const { error: rpcError } = await supabase.rpc('admin_ajustar_creditos', {
+        p_user_id: selectedUserForAdjust.id,
+        p_creditos_gravacao_ajuste: gravacao,
+        p_creditos_ia_ajuste: ia,
+        p_observacao: ajusteObservacao,
+      });
 
-      console.log('Enviando para lotes_creditos:', dadosLote);
+      if (rpcError) throw rpcError;
+      
+      toast.success("Créditos ajustados com sucesso!");
+      setIsAdjustModalOpen(false);
+      refetchUsers();
 
-      const { error } = await supabase
-        .from('lotes_creditos')
-        .insert([dadosLote]);
-
-      if (error) {
-        console.error("Erro Supabase ao adicionar lote de créditos:", error);
-        throw error;
-      }
-
-      toast.success("Sucesso", { description: "Lote de créditos adicionado ao cliente." });
-      await queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
-      setIsCreditModalOpen(false); 
     } catch (err: any) {
-      console.error("Erro ao adicionar lote de créditos:", err);
-      toast.error("Erro ao Adicionar Lote", { description: JSON.stringify({
-        message: err.message,
-        details: err.details,
-        hint: err.hint,
-        code: err.code
-      }, null, 2) });
+      toast.error("Falha ao ajustar créditos", { description: err.message });
     } finally {
-      setIsAddingCredits(false);
+      setIsAdjustingCredits(false);
     }
   };
 
@@ -179,52 +142,6 @@ function AdminUsuariosPage() {
         setIsRoleModalOpen(false);
       },
     });
-  };
-
-  const openDebitModal = (user: UserProfile) => {
-    setSelectedUserForDebit(user);
-    setDebitAmount('');
-    setDebitReason('');
-    setIsDebitModalOpen(true);
-  };
-
-  const handleDebitCredits = async () => {
-    if (!selectedUserForDebit || !debitAmount || parseInt(debitAmount, 10) <= 0) {
-      toast.error("Erro de Validação", { description: "A quantidade a subtrair deve ser maior que zero." });
-      return;
-    }
-    if (!debitReason.trim()) {
-      toast.error("Erro de Validação", { description: "Informe o motivo da subtração." });
-      return;
-    }
-    setIsDebiting(true);
-    try {
-      const { data: result, error } = await supabase.rpc('admin_subtrair_creditos', {
-        p_user_id: selectedUserForDebit.id,
-        p_quantidade: parseInt(debitAmount, 10),
-        p_observacao: debitReason.trim()
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      if (result && result.success === false) {
-        throw new Error(result.message || result.error || "Ocorreu um erro retornado pelo servidor.");
-      }
-
-      toast.success(result?.message || "Créditos subtraídos com sucesso!");
-      
-      await queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
-      
-      setIsDebitModalOpen(false);
-    } catch (err: any) {
-      toast.error("Falha ao subtrair créditos", { 
-        description: err.message || "Ocorreu um erro inesperado." 
-      });
-    } finally {
-      setIsDebiting(false);
-    }
   };
 
   const openDeleteDialog = (user: UserProfile) => {
@@ -249,7 +166,7 @@ function AdminUsuariosPage() {
       toast.success('Usuário excluído com sucesso!');
       setIsDeleteDialogOpen(false);
       setSelectedUserForDelete(null);
-      await queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
+      refetchUsers();
     } catch (err: any) {
       toast.error('Erro ao excluir usuário', { description: err.message });
     } finally {
@@ -257,7 +174,7 @@ function AdminUsuariosPage() {
     }
   };
 
-  const filteredUsers = usersWithDetails.filter(user => 
+  const filteredUsers = users.filter(user => 
     (user.full_name?.toLowerCase().includes(userFilter.toLowerCase())) ||
     (user.username?.toLowerCase().includes(userFilter.toLowerCase()))
   );
@@ -277,7 +194,7 @@ function AdminUsuariosPage() {
       <div className="mb-4">
         <Input 
           type="text"
-          placeholder="Filtrar por nome ou email..."
+          placeholder="Filtrar por nome ou usuário..."
           value={userFilter}
           onChange={(e) => setUserFilter(e.target.value)}
           className="max-w-sm"
@@ -295,21 +212,23 @@ function AdminUsuariosPage() {
             <TableCaption className="py-3">Lista de todos os usuários (clientes e administradores).</TableCaption>
             <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Nome Completo</TableHead>
-                <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Usuário/Email</TableHead>
-                <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Créditos</TableHead>
-                <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Pacotes Ativos</TableHead>
-                <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Role Atual</TableHead>
-                <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Última Atualização</TableHead>
-                <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Ações</TableHead>
+                <TableHead>Nome Completo</TableHead>
+                <TableHead>Usuário</TableHead>
+                <TableHead>Créd. Gravação</TableHead>
+                <TableHead>Créd. IA</TableHead>
+                <TableHead>Pacotes Ativos</TableHead>
+                <TableHead>Role Atual</TableHead>
+                <TableHead>Última Atualização</TableHead>
+                <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody className="bg-card divide-y divide-border">
               {filteredUsers.map((user) => (
                 <TableRow key={user.id} className="hover:bg-muted/50 odd:bg-muted/20">
-                  <TableCell className="font-medium px-4 py-3 whitespace-nowrap">{user.full_name || user.username || 'N/A'}</TableCell>
+                  <TableCell className="font-medium px-4 py-3 whitespace-nowrap">{user.full_name || 'N/A'}</TableCell>
                   <TableCell className="px-4 py-3 whitespace-nowrap">{user.username || 'N/A'}</TableCell>
-                  <TableCell className="px-4 py-3 whitespace-nowrap">{user.saldoCalculadoCreditos ?? 0}</TableCell>
+                  <TableCell className="px-4 py-3 whitespace-nowrap">{user.saldo_gravacao ?? 0}</TableCell>
+                  <TableCell className="px-4 py-3 whitespace-nowrap">{user.saldo_ia ?? 0}</TableCell>
                   <TableCell className="px-4 py-3 whitespace-nowrap">
                     <div className="flex flex-wrap gap-1">
                       {user.pacotes_ativos && user.pacotes_ativos.length > 0 ? (
@@ -333,26 +252,17 @@ function AdminUsuariosPage() {
                     <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => openCreditModal(user)}
-                        disabled={isAddingCredits || isUpdatingRole}
+                        onClick={() => openAdjustModal(user)}
                     >
-                      Adicionar Créditos
+                      Ajustar Créditos
                     </Button>
                     <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={() => openRoleModal(user)}
-                        disabled={isAddingCredits || isUpdatingRole}
+                        disabled={isUpdatingRole}
                     >
                       Alterar Role
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => openDebitModal(user)}
-                      disabled={isAddingCredits || isDebiting || isUpdatingRole}
-                    >
-                      Subtrair Créditos
                     </Button>
                     <Button
                       variant="outline"
@@ -368,7 +278,7 @@ function AdminUsuariosPage() {
                       variant="destructive"
                       size="sm"
                       onClick={() => openDeleteDialog(user)}
-                      disabled={isAddingCredits || isDebiting || isUpdatingRole || isDeletingUser}
+                      disabled={isDeletingUser}
                     >
                       Excluir Usuário
                     </Button>
@@ -380,121 +290,37 @@ function AdminUsuariosPage() {
         </div>
       )}
 
-      <Dialog open={isCreditModalOpen} onOpenChange={(isOpen) => {
-        setIsCreditModalOpen(isOpen);
-        if (!isOpen) {
-          setSelectedUserForCredit(null);
-          setQuantidadeLote('');
-          setDataValidadeLote(undefined);
-          setSemPrazoValidade(false);
-          setObservacaoLote('');
-        }
+      <Dialog open={isAdjustModalOpen} onOpenChange={(isOpen) => {
+        if (!isOpen) setSelectedUserForAdjust(null);
+        setIsAdjustModalOpen(isOpen);
       }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Adicionar Lote de Créditos para {selectedUserForCredit?.full_name || selectedUserForCredit?.username}</DialogTitle>
+            <DialogTitle>Ajustar Créditos para {selectedUserForAdjust?.full_name || selectedUserForAdjust?.username}</DialogTitle>
             <DialogDescription>
-              Saldo atual (calculado dos lotes): {selectedUserForCredit?.saldoCalculadoCreditos ?? 0}. <br />
-              Preencha os detalhes do novo lote de créditos a ser adicionado.
+              Saldo atual: {selectedUserForAdjust?.saldo_gravacao ?? 0} (Gravação), {selectedUserForAdjust?.saldo_ia ?? 0} (IA).
+              Insira valores positivos para adicionar e negativos para subtrair.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-6 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="quantidade-lote" className="text-right col-span-1">
-                Quantidade*
-              </Label>
-              <Input 
-                id="quantidade-lote" 
-                type="number"
-                value={quantidadeLote}
-                onChange={(e) => setQuantidadeLote(e.target.value)}
-                className="col-span-3" 
-                placeholder="Ex: 100 ou -50"
-                disabled={isAddingCredits}
-              />
-              {parseInt(quantidadeLote, 10) < 0 && (
-                <div className="col-span-4 text-sm text-red-600 mt-2">
-                  Atenção: você está reduzindo a cota de créditos do cliente. O valor será subtraído do saldo disponível. Informe o motivo na observação.
-                </div>
-              )}
+              <Label htmlFor="ajuste-gravacao" className="text-right col-span-1">Créd. Gravação</Label>
+              <Input id="ajuste-gravacao" type="number" value={ajusteGravacao} onChange={(e) => setAjusteGravacao(e.target.value)} className="col-span-3" placeholder="Ex: 100 ou -50" />
             </div>
-
-            {parseInt(quantidadeLote, 10) > 0 && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="data-validade-lote" className="text-right col-span-1">
-                  Validade*
-                </Label>
-                <div className="col-span-3">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !dataValidadeLote && "text-muted-foreground",
-                          semPrazoValidade && "bg-muted text-muted-foreground cursor-not-allowed"
-                        )}
-                        disabled={semPrazoValidade || isAddingCredits}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dataValidadeLote && !semPrazoValidade ? format(dataValidadeLote, 'PPP', { locale: ptBR }) : <span>Escolha uma data</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    {!semPrazoValidade && (
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={dataValidadeLote}
-                          onSelect={setDataValidadeLote}
-                          initialFocus
-                          disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) }
-                        />
-                      </PopoverContent>
-                    )}
-                  </Popover>
-                  <div className="flex items-center space-x-2 mt-2">
-                    <Checkbox 
-                      id="sem-prazo-validade"
-                      checked={semPrazoValidade}
-                      onCheckedChange={(checked) => {
-                        setSemPrazoValidade(Boolean(checked));
-                        if (Boolean(checked)) {
-                          setDataValidadeLote(undefined);
-                        }
-                      }}
-                      disabled={isAddingCredits}
-                    />
-                    <Label htmlFor="sem-prazo-validade" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      Sem prazo de validade
-                    </Label>
-                  </div>
-                </div>
-              </div>
-            )}
-
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="observacao-lote" className="text-right col-span-1 self-start pt-2">
-                Observação
-              </Label>
-              <Textarea 
-                id="observacao-lote"
-                value={observacaoLote}
-                onChange={(e) => setObservacaoLote(e.target.value)}
-                className="col-span-3" 
-                placeholder="Ex: Créditos de cortesia para campanha X... (obrigatório para redução)"
-                rows={3}
-                disabled={isAddingCredits}
-              />
+              <Label htmlFor="ajuste-ia" className="text-right col-span-1">Créd. IA</Label>
+              <Input id="ajuste-ia" type="number" value={ajusteIA} onChange={(e) => setAjusteIA(e.target.value)} className="col-span-3" placeholder="Ex: 50000 ou -10000" />
             </div>
-
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="ajuste-observacao" className="text-right col-span-1 self-start pt-2">Observação*</Label>
+              <Textarea id="ajuste-observacao" value={ajusteObservacao} onChange={(e) => setAjusteObservacao(e.target.value)} className="col-span-3" placeholder="Motivo do ajuste (obrigatório)" rows={3} />
+            </div>
           </div>
           <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={isAddingCredits}>Cancelar</Button>
-            </DialogClose>
-            <Button type="button" onClick={handleAddCreditBatch} disabled={isAddingCredits} className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90">
-              {isAddingCredits ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Adicionar/Reduzir Lote de Créditos
+            <DialogClose asChild><Button type="button" variant="outline" disabled={isAdjustingCredits}>Cancelar</Button></DialogClose>
+            <Button type="button" onClick={handleAdjustCredits} disabled={isAdjustingCredits}>
+              {isAdjustingCredits && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Salvar Ajuste
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -535,63 +361,6 @@ function AdminUsuariosPage() {
             <Button type="button" onClick={handleUpdateUserRole} disabled={isUpdatingRole} className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90">
               {isUpdatingRole && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} 
               Salvar Alterações
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isDebitModalOpen} onOpenChange={(isOpen) => {
-        setIsDebitModalOpen(isOpen);
-        if (!isOpen) {
-          setSelectedUserForDebit(null);
-          setDebitAmount('');
-          setDebitReason('');
-        }
-      }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Subtrair Créditos de {selectedUserForDebit?.full_name || selectedUserForDebit?.username}</DialogTitle>
-            <DialogDescription>
-              Saldo atual: {selectedUserForDebit?.saldoCalculadoCreditos ?? 0}.<br />
-              Informe a quantidade a subtrair e o motivo.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="debit-amount" className="text-right col-span-1">
-              Quantidade*
-            </Label>
-            <Input
-              id="debit-amount"
-              type="number"
-              min={1}
-              value={debitAmount}
-              onChange={(e) => setDebitAmount(e.target.value)}
-              className="col-span-3"
-              placeholder="Ex: 2"
-              disabled={isDebiting}
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="debit-reason" className="text-right col-span-1 self-start pt-2">
-              Motivo*
-            </Label>
-            <Textarea
-              id="debit-reason"
-              value={debitReason}
-              onChange={(e) => setDebitReason(e.target.value)}
-              className="col-span-3"
-              placeholder="Explique o motivo da subtração"
-              rows={3}
-              disabled={isDebiting}
-            />
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={isDebiting}>Cancelar</Button>
-            </DialogClose>
-            <Button type="button" onClick={handleDebitCredits} disabled={isDebiting} className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90">
-              {isDebiting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Subtrair Créditos
             </Button>
           </DialogFooter>
         </DialogContent>
