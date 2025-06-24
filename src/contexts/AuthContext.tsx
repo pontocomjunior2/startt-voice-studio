@@ -15,7 +15,8 @@ export interface Profile {
   role: 'cliente' | 'admin' | null; // Ajuste os tipos de role conforme necessário
   credits: number | null; // Esta coluna será mantida, mas o saldo exibido virá de saldoCalculadoCreditos
   package_id: string | null; // ou number, dependendo da sua definição
-  saldoCalculadoCreditos?: number; // Novo campo para o saldo calculado
+  saldo_gravacao?: number; // NOVO
+  saldo_ia?: number; // NOVO
   cpf?: string | null;
   cnpj?: string | null;
 }
@@ -177,7 +178,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             
             const { data: lotes, error: lotesError } = await supabase
               .from('lotes_creditos')
-              .select('quantidade_adicionada, quantidade_usada, data_validade, data_adicao, status')
+              .select('creditos_gravacao_adicionados, creditos_gravacao_usados, creditos_ia_adicionados, creditos_ia_usados')
               .eq('user_id', userId)
               .eq('status', 'ativo')
               .or(`data_validade.is.null,data_validade.gt.${currentDate}`);
@@ -187,41 +188,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
             
             if (lotesError) {
               console.error("[AuthContext] Erro ao buscar lotes de créditos:", lotesError);
-              updatedProfileData.saldoCalculadoCreditos = 0;
+              updatedProfileData.saldo_gravacao = 0;
+              updatedProfileData.saldo_ia = 0;
             } else {
-              // Somar APENAS lotes_creditos válidos não usados
-              const creditosValidos = lotes?.reduce((sum, lote) => {
-                const saldoLote = lote.quantidade_adicionada - (lote.quantidade_usada || 0);
-                console.log(`[AuthContext] DEBUGGING: Lote - adicionado: ${lote.quantidade_adicionada}, usado: ${lote.quantidade_usada}, saldo: ${saldoLote}`);
-                return sum + saldoLote;
-              }, 0) || 0;
+              const saldos = lotes?.reduce((acc, lote, index) => {
+                const saldoGravacaoLote = (lote.creditos_gravacao_adicionados || 0) - (lote.creditos_gravacao_usados || 0);
+                const saldoIaLote = (lote.creditos_ia_adicionados || 0) - (lote.creditos_ia_usados || 0);
+                
+                // Log de depuração detalhado para cada lote
+                console.log(`[AuthContext] Processando Lote #${index + 1}: Saldo Gravação=${saldoGravacaoLote}, Saldo IA=${saldoIaLote}`, lote);
+
+                acc.gravacao += saldoGravacaoLote;
+                acc.ia += saldoIaLote;
+                return acc;
+              }, { gravacao: 0, ia: 0 }) || { gravacao: 0, ia: 0 };
               
-              console.log(`[AuthContext] Usuário ${userId} - Total créditos válidos: ${creditosValidos}`);
-              updatedProfileData.saldoCalculadoCreditos = creditosValidos;
+              console.log(`[AuthContext] Usuário ${userId} - Saldos FINAIS calculados:`, saldos);
+              updatedProfileData.saldo_gravacao = saldos.gravacao;
+              updatedProfileData.saldo_ia = saldos.ia;
             }
           } catch (err) {
             console.error("[AuthContext] Erro ao calcular créditos totais:", err);
-            updatedProfileData.saldoCalculadoCreditos = 0;
+            updatedProfileData.saldo_gravacao = 0;
+            updatedProfileData.saldo_ia = 0;
           }
           
-          // Código original da RPC (comentado para correção)
-          /*
-          console.log(`[AuthContext] Chamando RPC get_saldo_creditos_validos para userId: ${userId}`);
-          const { data: saldoData, error: saldoError } = await supabase.rpc('get_saldo_creditos_validos', { p_user_id: userId });
-          console.log(`[AuthContext] Resultado RPC get_saldo_creditos_validos - Saldo:`, saldoData, 'Erro:', saldoError);
+          // Remover a lógica antiga baseada em saldoCalculadoCreditos
+          delete (updatedProfileData as any).saldoCalculadoCreditos;
 
-          if (saldoError) {
-            console.error("AuthContext: Erro ao buscar saldo de créditos válidos via RPC:", saldoError);
-            updatedProfileData.saldoCalculadoCreditos = userData.credits || 0; 
-            // toast.error(`Erro ao buscar saldo de créditos: ${saldoError.message}`); // Comentado temporariamente
-          } else {
-            console.log("AuthContext: Saldo de créditos válidos calculado via RPC:", saldoData);
-            updatedProfileData.saldoCalculadoCreditos = saldoData ?? 0;
-          }
-          */
-          
           setProfile(updatedProfileData);
-          console.log(`[AuthContext] Profile após setar saldoCalculadoCreditos:`, updatedProfileData);
+          console.log(`[AuthContext] Profile após setar saldos:`, updatedProfileData);
           await fetchUnreadNotifications(userId); // BUSCAR CONTAGEM APÓS PERFIL
         } else if (status === 406) {
           console.warn('AuthContext: fetchProfile - Perfil não encontrado (status 406), usuário pode precisar criar um.');

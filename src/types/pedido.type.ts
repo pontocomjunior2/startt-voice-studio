@@ -77,7 +77,15 @@ export interface Pedido {
   data_resposta_cliente?: string | null;
   cliente_audio_resposta_url?: string | null;
   locutores: { nome: string } | null;
-  solicitacoes_revisao?: { id: string; status_revisao: string; }[];
+  solicitacoes_revisao?: {
+    id: string;
+    status_revisao: string;
+    data_conclusao_revisao?: string | null;
+    versoes_audio_revisao?: {
+      audio_url: string;
+      enviado_em: string;
+    }[];
+  }[];
   solicitacoes_revisao_count?: number;
 }
 

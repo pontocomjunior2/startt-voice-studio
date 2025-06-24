@@ -33,7 +33,7 @@ const LocutoresPage: React.FC = () => {
       const amostras: Record<string, Amostra[]> = {};
       await Promise.all(locutores.map(async (locutor) => {
         try {
-          const res = await fetch(`${import.meta.env.VITE_API_URL}/api/locutor/${locutor.id}/demos`);
+          const res = await fetch(`${import.meta.env.VITE_API_URL}/locutor/${locutor.id}/demos`);
           if (!res.ok) return;
           const json = await res.json();
           amostras[locutor.id] = json.demos || [];

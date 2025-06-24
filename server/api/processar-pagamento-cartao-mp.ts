@@ -1,10 +1,22 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 
-const client = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN! });
+// LOG DE DIAGNÓSTICO 1: Verificar a variável de ambiente
+console.log('[MercadoPago Client] Verificando MERCADOPAGO_ACCESS_TOKEN:', process.env.MERCADOPAGO_ACCESS_TOKEN ? 'DEFINIDO' : 'NÃO DEFINIDO');
 
 export const processarPagamentoCartaoMP = async (req: any, res: any) => {
+  // MOVIDO PARA DENTRO: Garante que a variável de ambiente seja lida no momento da execução.
+  const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+  if (!accessToken) {
+    console.error('[PAGAMENTO CARTAO] ERRO CRÍTICO: MERCADOPAGO_ACCESS_TOKEN não está definido.');
+    return res.status(500).json({ success: false, message: 'Configuração do servidor incompleta.', details: 'internal_error' });
+  }
+  const client = new MercadoPagoConfig({ accessToken });
+
   try {
+    // LOG DE DIAGNÓSTICO 2: Verificar o corpo da requisição
+    console.log('[PAGAMENTO CARTAO] Rota acionada. Body recebido:', req.body);
+    
     const { 
       token, 
       transaction_amount,

@@ -7,6 +7,7 @@ export const pacoteSchema = z.object({
   descricao: z.string().optional(),
   valor: z.coerce.number().min(0, { message: "O valor deve ser um número positivo." }),
   creditos_oferecidos: z.coerce.number().int().min(1, { message: "A quantidade de créditos deve ser no mínimo 1." }),
+  creditos_ia_oferecidos: z.coerce.number().int().min(0).optional().default(0),
   ativo: z.boolean(),
   listavel: z.boolean(),
   locutores: z.array(z.string()).optional(),

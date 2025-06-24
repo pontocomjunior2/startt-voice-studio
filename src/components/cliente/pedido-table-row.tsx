@@ -3,9 +3,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { MoreVertical, Edit3, Trash2, Eye, DownloadCloud } from 'lucide-react';
+import { MoreVertical, Edit3, Trash2, Eye, DownloadCloud, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Pedido } from '@/types/pedido.type'; // Ajuste para seu tipo Pedido
+import type { Pedido } from '@/types/pedido.type';
 import { PEDIDO_STATUS } from '@/types/pedido.type';
 
 interface PedidoTableRowProps {
@@ -15,7 +15,7 @@ interface PedidoTableRowProps {
   onOpenHistoricoRevisoesModal: (pedido: Pedido) => void;
   onAbrirModalDetalhesOuBaixar: (pedido: Pedido) => void;
   onOpenRevisaoModal: (pedido: Pedido) => void;
-  loadingRevisaoPedidoId: string | null; // ID do pedido cuja revisão está sendo carregada/submetida
+  loadingRevisaoPedidoId: string | null;
 }
 
 export const PedidoTableRow: React.FC<PedidoTableRowProps> = ({
@@ -29,11 +29,21 @@ export const PedidoTableRow: React.FC<PedidoTableRowProps> = ({
 }) => {
   const isPendente = pedido.status === PEDIDO_STATUS.PENDENTE;
   const isConcluido = pedido.status === PEDIDO_STATUS.CONCLUIDO;
-  // Esta lógica estava em MeusAudiosPage, mas parece mais relacionada a quando mostrar o botão de download original
-  // ou detalhes, então simplifiquei aqui.
-  // A lógica exata do que é "isEmRevisaoComAudio" pode precisar de ajuste fino se o comportamento for diferente do original.
   const isEmRevisao = pedido.status === PEDIDO_STATUS.EM_REVISAO;
   
+  // LÓGICA PARA ENCONTRAR O ÁUDIO REVISADO
+  const ultimaRevisaoFinalizada = pedido.solicitacoes_revisao
+    ?.filter(s => s.status_revisao === 'revisado_finalizado' && s.versoes_audio_revisao && s.versoes_audio_revisao.length > 0)
+    .sort((a, b) => new Date(b.data_conclusao_revisao || 0).getTime() - new Date(a.data_conclusao_revisao || 0).getTime())
+    [0];
+  
+  const audioRevisado = ultimaRevisaoFinalizada?.versoes_audio_revisao
+    ?.sort((a,b) => new Date(b.enviado_em).getTime() - new Date(a.enviado_em).getTime())
+    [0];
+
+  const audioParaBaixarUrl = audioRevisado?.audio_url || pedido.audio_final_url;
+  const isRevisaoPronta = !!audioRevisado?.audio_url;
+
   const podeVerDetalhesGeral = 
     pedido.status !== PEDIDO_STATUS.PENDENTE &&
     pedido.status !== PEDIDO_STATUS.CANCELADO &&
@@ -131,22 +141,45 @@ export const PedidoTableRow: React.FC<PedidoTableRowProps> = ({
 
           {isConcluido && (
             <>
-              <Button
-                size="sm"
-                onClick={() => onAbrirModalDetalhesOuBaixar(pedido)}
-                className={cn(
-                  "flex items-center",
-                  !pedido.downloaded_at && "bg-status-green text-primary-foreground hover:bg-green-600 dark:bg-status-green dark:hover:bg-green-600",
-                  pedido.downloaded_at && "bg-green-300 dark:bg-green-700 text-green-800 dark:text-green-100 opacity-75 hover:opacity-100",
-                  !pedido.audio_final_url && "opacity-50 cursor-not-allowed"
-                )}
-                disabled={!pedido.audio_final_url && !(pedido.solicitacoes_revisao_count && pedido.solicitacoes_revisao_count > 0)}
-              >
-                <DownloadCloud className="mr-2 h-4 w-4" />
-                {pedido.solicitacoes_revisao_count && pedido.solicitacoes_revisao_count > 0
-                  ? "Ver Detalhes/Baixar"
-                  : (pedido.downloaded_at ? "Baixado" : "Baixar")}
-              </Button>
+              {isRevisaoPronta ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onAbrirModalDetalhesOuBaixar({ ...pedido, audio_final_url: pedido.audio_final_url })}
+                    className="flex items-center"
+                    title="Baixar o áudio original do pedido"
+                  >
+                    <DownloadCloud className="mr-2 h-4 w-4" />
+                    Original
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => onAbrirModalDetalhesOuBaixar({ ...pedido, audio_final_url: audioParaBaixarUrl })}
+                    className="flex items-center bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold shadow-lg hover:opacity-90"
+                    title="Sua versão revisada está pronta!"
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Baixar Revisão
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => onAbrirModalDetalhesOuBaixar(pedido)}
+                  className={cn(
+                    "flex items-center",
+                    !pedido.downloaded_at && "bg-status-green text-primary-foreground hover:bg-green-600 dark:bg-status-green dark:hover:bg-green-600",
+                    pedido.downloaded_at && "bg-green-300 dark:bg-green-700 text-green-800 dark:text-green-100 opacity-75 hover:opacity-100",
+                    !pedido.audio_final_url && "opacity-50 cursor-not-allowed"
+                  )}
+                  disabled={!pedido.audio_final_url}
+                >
+                  <DownloadCloud className="mr-2 h-4 w-4" />
+                  {pedido.downloaded_at ? "Baixado" : "Baixar"}
+                </Button>
+              )}
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="icon" className="h-9 w-9 shrink-0">

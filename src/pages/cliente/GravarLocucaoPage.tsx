@@ -528,12 +528,8 @@ function GravarLocucaoPage() {
 
     // Validação de créditos e roteiro apenas para novos pedidos
     if (!editingPedidoIdParam) {
-      // LOGS DETALHADOS PARA DIAGNÓSTICO DE CRÉDITOS
-      console.log('[GravarLocucaoPage] DADOS DO PROFILE DO AUTHCONTEXT:', JSON.stringify(profile, null, 2));
-      console.log(`[GravarLocucaoPage] SALDO USADO PARA VALIDAÇÃO: ${profile?.saldoCalculadoCreditos}, CRÉDITOS ESTIMADOS DO PEDIDO: ${estimatedCredits}`);
-      if ((profile.saldoCalculadoCreditos ?? 0) < estimatedCredits) {
-        console.error('[GravarLocucaoPage] VALIDAÇÃO FALHOU: Créditos insuficientes.');
-        toast.error("Créditos Insuficientes", { description: `Você precisa de ${estimatedCredits} créditos, mas seu saldo válido é de ${profile.saldoCalculadoCreditos ?? 0}.` });
+      if ((profile.saldo_gravacao ?? 0) < estimatedCredits) {
+        toast.error("Créditos Insuficientes", { description: `Você precisa de ${estimatedCredits} créditos de gravação, mas seu saldo é de ${profile.saldo_gravacao ?? 0}.` });
         return;
       }
       if (estimatedCredits === 0 && values.scriptText && values.scriptText.trim().length > 0) {
@@ -616,8 +612,8 @@ function GravarLocucaoPage() {
 
       try {
         // Validação de créditos continua importante antes de chamar a RPC
-        if (!editingPedidoIdParam && (profile.saldoCalculadoCreditos ?? 0) < estimatedCredits) {
-          toast.error("Créditos Insuficientes", { description: `Você precisa de ${estimatedCredits} créditos, mas seu saldo válido é de ${profile.saldoCalculadoCreditos ?? 0}.` });
+        if (!editingPedidoIdParam && (profile.saldo_gravacao ?? 0) < estimatedCredits) {
+          toast.error("Créditos Insuficientes", { description: `Você precisa de ${estimatedCredits} créditos de gravação, mas seu saldo é de ${profile.saldo_gravacao ?? 0}.` });
           return;
         }
         if (!editingPedidoIdParam && estimatedCredits === 0 && values.scriptText && values.scriptText.trim().length > 0) {
@@ -1481,7 +1477,7 @@ function GravarLocucaoPage() {
                             )}
                         </div>
                     </div>
-                     {(profile?.saldoCalculadoCreditos ?? 0) < estimatedCredits && estimatedCredits > 0 && (
+                     {(profile?.saldo_gravacao ?? 0) < estimatedCredits && estimatedCredits > 0 && (
                       <div className="text-center mt-4 p-3 bg-destructive/10 rounded-md">
                         <p className="text-sm font-medium text-destructive">
                           Você não tem créditos suficientes para este pedido.
@@ -1757,7 +1753,7 @@ function GravarLocucaoPage() {
                                 !isFormValid ||
                                 !selectedLocutor || 
                                 estimatedCredits === 0 ||
-                                (profile?.saldoCalculadoCreditos ?? 0) < estimatedCredits
+                                (profile?.saldo_gravacao ?? 0) < estimatedCredits
                             }
                             className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90"
                           >
@@ -1770,12 +1766,12 @@ function GravarLocucaoPage() {
                           </Button>
                         </span>
                       </TooltipTrigger>
-                      {(!isFormValid && selectedLocutor && estimatedCredits > 0 && (profile?.saldoCalculadoCreditos ?? 0) >= estimatedCredits) && (
+                      {(!isFormValid && selectedLocutor && estimatedCredits > 0 && (profile?.saldo_gravacao ?? 0) >= estimatedCredits) && (
                         <TooltipContent side="top" align="center" className="bg-destructive text-destructive-foreground">
                           <p>Corrija os erros no formulário para enviar.</p>
                         </TooltipContent>
                       )}
-                      {(estimatedCredits > 0 && (profile?.saldoCalculadoCreditos ?? 0) < estimatedCredits) && (
+                      {(estimatedCredits > 0 && (profile?.saldo_gravacao ?? 0) < estimatedCredits) && (
                          <TooltipContent side="top" align="center" className="bg-destructive text-destructive-foreground">
                           <p>Você não tem créditos suficientes para este pedido.</p>
                         </TooltipContent>

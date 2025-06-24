@@ -119,7 +119,7 @@ router.post('/', async (req, res) => {
                     amount: payment.transaction_amount
                 });
                 try {
-                    // 7. Chamar a função RPC para conceder créditos
+                    // 7. Chamar a função RPC restaurada e adaptada
                     const { data: rpcResult, error: rpcError } = await supabaseAdmin_1.supabaseAdmin.rpc('adicionar_creditos_por_pacote', {
                         p_user_id: userId,
                         p_pacote_id: pacoteId,
@@ -127,11 +127,16 @@ router.post('/', async (req, res) => {
                         p_metodo_pagamento: payment.payment_method_id || 'mercado_pago'
                     });
                     if (rpcError) {
-                        console.error('[Webhook MP] Erro ao chamar RPC do Supabase:', rpcError);
+                        console.error('[Webhook MP] Erro ao chamar RPC do Supabase (adicionar_creditos_por_pacote):', rpcError);
                         throw rpcError;
                     }
+                    // A nova função retorna um JSON com status e message
+                    if (rpcResult && rpcResult.status === 'error') {
+                        // Logar o erro, mas não retornar 500 para o MP não ficar reenviando
+                        console.error('[Webhook MP] Erro lógico retornado pela RPC:', rpcResult.message);
+                        return res.status(200).json({ received: true, message: rpcResult.message });
+                    }
                     console.log('[Webhook MP] RPC executada com sucesso:', rpcResult);
-                    console.log(`[Webhook MP] Créditos adicionados com sucesso ao usuário ${userId} para o pacote ${pacoteId}`);
                     res.status(200).json({
                         received: true,
                         message: 'Pagamento processado com sucesso',

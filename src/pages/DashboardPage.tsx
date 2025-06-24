@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from '../lib/supabaseClient';
@@ -10,7 +10,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Loader2, RefreshCw, PlusCircle, Wallet, ClipboardList, 
-  Hourglass, CheckCircle2, ListMusic, User
+  Hourglass, CheckCircle2, ListMusic, User, Sparkles
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -246,8 +246,6 @@ function DashboardPage() {
     );
   }
 
-  const userSaldoCreditosCalculado = profile?.saldoCalculadoCreditos ?? 0;
-
   return (
     <div className="min-h-screen bg-background text-foreground space-y-10 p-4 md:p-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -278,15 +276,46 @@ function DashboardPage() {
 
       <section id="estatisticas-cliente" className="mb-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Card Créditos de Gravação */}
           <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground border-none">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Meus Créditos</CardTitle>
-              <Wallet className="h-5 w-5 text-startt-blue" />
+              <CardTitle className="text-sm font-medium">Créditos de Gravação</CardTitle>
+              <Wallet className="h-5 w-5 text-sky-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">{userSaldoCreditosCalculado.toLocaleString('pt-BR')}</div>
-              <p className="text-xs text-muted-foreground">Disponíveis para usar.</p>
+              {isLoading || isFetchingProfile ? (
+                <Skeleton className="h-8 w-3/4 mb-1" />
+              ) : (
+                <div className="text-2xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">{profile?.saldo_gravacao?.toLocaleString('pt-BR') ?? 0}</div>
+              )}
+              <p className="text-xs text-muted-foreground">Disponíveis para voz humana.</p>
             </CardContent>
+            <CardFooter>
+              <Button size="sm" variant="link" className="p-0 text-xs text-startt-blue hover:text-startt-purple" asChild>
+                <Link to="/comprar-creditos">Comprar mais</Link>
+              </Button>
+            </CardFooter>
+          </Card>
+
+          {/* Card Créditos de IA */}
+          <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground border-none">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Créditos de IA</CardTitle>
+              <Sparkles className="h-5 w-5 text-amber-500" />
+            </CardHeader>
+            <CardContent>
+              {isLoading || isFetchingProfile ? (
+                <Skeleton className="h-8 w-3/4 mb-1" />
+              ) : (
+                <div className="text-2xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">{profile?.saldo_ia?.toLocaleString('pt-BR') ?? 0}</div>
+              )}
+              <p className="text-xs text-muted-foreground">Para geração com Inteligência Artificial.</p>
+            </CardContent>
+            <CardFooter>
+              <Button size="sm" variant="link" className="p-0 text-xs text-startt-blue hover:text-startt-purple" asChild>
+                <Link to="/comprar-creditos">Comprar mais</Link>
+              </Button>
+            </CardFooter>
           </Card>
 
           <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground border-none">

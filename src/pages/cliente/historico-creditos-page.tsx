@@ -5,295 +5,191 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { PlusCircle, MinusCircle, Clock, Circle, AlertTriangle, Undo2, UserCog, Ban } from 'lucide-react';
+import { PlusCircle, Wallet, Sparkles, AlertTriangle, Package, MinusCircle } from 'lucide-react';
 
-interface EventoTimeline {
-  tipo: 'ADICAO_CREDITO' | 'USO_CREDITO' | 'EXPIRACAO_CREDITO' | 'ESTORNO_CREDITO' | 'AJUSTE_MANUAL' | 'CREDITOS_VENCIDOS' | 'PEDIDO_CANCELADO';
+interface TimelineEvent {
+  tipo: 'LOTE_ADICIONADO' | 'PEDIDO_CRIADO';
   data: string;
   descricao: string;
   detalhes: string;
-  saldoApos?: number;
-  saldoAposEvento?: number;
-  admin?: boolean;
-  diasVencidos?: number;
-  creditosVencidos?: number;
+  valor: number;
+  saldoIA?: boolean; // Para diferenciar o tipo de crédito no ícone
 }
 
-const getIcon = (tipo: EventoTimeline['tipo']) => {
-  if (tipo === 'ADICAO_CREDITO') return <PlusCircle className="h-5 w-5 text-green-500" />;
-  if (tipo === 'USO_CREDITO') return <MinusCircle className="h-5 w-5 text-red-500" />;
-  if (tipo === 'EXPIRACAO_CREDITO') return <Clock className="h-5 w-5 text-yellow-600" />;
-  if (tipo === 'ESTORNO_CREDITO') return <Undo2 className="h-5 w-5 text-blue-500" />;
-  if (tipo === 'PEDIDO_CANCELADO') return <Ban className="h-5 w-5 text-gray-500" />;
-  if (tipo === 'AJUSTE_MANUAL') return <UserCog className="h-5 w-5 text-purple-600" />;
-  return <Circle className="h-5 w-5 text-muted-foreground" />;
+const getIcon = (evento: TimelineEvent) => {
+  if (evento.tipo === 'LOTE_ADICIONADO') {
+    if (evento.saldoIA) return <Sparkles className="h-5 w-5 text-amber-500" />;
+    return <Wallet className="h-5 w-5 text-sky-500" />;
+  }
+  if (evento.tipo === 'PEDIDO_CRIADO') {
+    return <MinusCircle className="h-5 w-5 text-red-500" />;
+  }
+  return <PlusCircle className="h-5 w-5 text-green-500" />;
 };
 
 const HistoricoCreditosPage: React.FC = () => {
-  const { profile } = useAuth();
-  const [eventosTimeline, setEventosTimeline] = useState<EventoTimeline[]>([]);
-  const [loadingTimeline, setLoadingTimeline] = useState(true);
-
-  if (!profile) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <span className="text-muted-foreground text-lg">Carregando perfil...</span>
-      </div>
-    );
-  }
+  const { profile, isLoading } = useAuth();
+  const [eventos, setEventos] = useState<TimelineEvent[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchEventosTimelineComSaldoCorrigido = async () => {
+    const fetchHistorico = async () => {
       if (!profile?.id) {
-        console.log('[TimelineV3] Perfil não carregado.');
-        setLoadingTimeline(false); setEventosTimeline([]); return;
+        setLoading(false);
+        return;
       }
-      setLoadingTimeline(true);
-      console.log('[TimelineV3] Iniciando para user:', profile.id);
+      setLoading(true);
       try {
-        const userId = profile.id;
-        let eventosBrutosParaTimeline: any[] = [];
-
-        // 1. Buscar TODOS os Lotes de Créditos Adicionados
-        console.log('[TimelineV3] Buscando lotes...');
+        // 1. Buscar Lotes Adicionados
         const { data: lotesData, error: lotesError } = await supabase
           .from('lotes_creditos')
-          .select('id, quantidade_adicionada, data_adicao, data_validade')
-          .eq('user_id', userId);
+          .select('data_adicao, observacao_admin, creditos_gravacao_adicionados, creditos_ia_adicionados')
+          .eq('user_id', profile.id)
+          .order('data_adicao', { ascending: false });
+
         if (lotesError) throw lotesError;
-        console.log('[TimelineV3] Lotes recebidos:', lotesData);
 
-        lotesData?.forEach(lote => {
-          eventosBrutosParaTimeline.push({
-            tipo: 'ADICAO_LOTE',
-            data: new Date(lote.data_adicao).toISOString(),
-            lote_id: lote.id,
-            quantidade: lote.quantidade_adicionada,
-            data_validade_lote: lote.data_validade,
-            descricao: `${lote.quantidade_adicionada} créditos adicionados.`,
-            detalhes: lote.data_validade ? `Validade: ${new Date(lote.data_validade).toLocaleDateString('pt-BR')}` : 'Sem prazo de validade.',
+        const eventosLotes: TimelineEvent[] = lotesData
+          .flatMap(lote => {
+            const eventosDoLote: TimelineEvent[] = [];
+            let desc = lote.observacao_admin || 'Créditos adicionados';
+            if (desc.startsWith('Ajuste manual de admin: ')) {
+                desc = desc.substring('Ajuste manual de admin: '.length);
+            } else if (desc.startsWith('Compra aprovada do pacote: ')) {
+                desc = `Compra: Pacote ${desc.substring('Compra aprovada do pacote: '.length)}`;
+            }
+
+            if (lote.creditos_gravacao_adicionados > 0) {
+              eventosDoLote.push({
+                tipo: 'LOTE_ADICIONADO',
+                data: lote.data_adicao,
+                descricao: desc,
+                detalhes: `+${lote.creditos_gravacao_adicionados.toLocaleString('pt-BR')} créditos de gravação.`,
+                valor: lote.creditos_gravacao_adicionados,
+                saldoIA: false
+              });
+            }
+            if (lote.creditos_ia_adicionados > 0) {
+              eventosDoLote.push({
+                tipo: 'LOTE_ADICIONADO',
+                data: lote.data_adicao,
+                descricao: desc,
+                detalhes: `+${lote.creditos_ia_adicionados.toLocaleString('pt-BR')} créditos de IA.`,
+                valor: lote.creditos_ia_adicionados,
+                saldoIA: true
+              });
+            }
+            return eventosDoLote;
           });
-        });
 
-        // 2. Buscar TODOS os Pedidos (Uso de Créditos)
-        console.log('[TimelineV3] Buscando pedidos...');
+        // 2. Buscar Pedidos (Débitos)
         const { data: pedidosData, error: pedidosError } = await supabase
           .from('pedidos')
-          .select('id, id_pedido_serial, titulo, created_at, creditos_debitados, status')
-          .eq('user_id', userId)
-          .neq('status', 'rejeitado');
+          .select('created_at, titulo, creditos_debitados, id_pedido_serial')
+          .eq('user_id', profile.id)
+          .gt('creditos_debitados', 0);
+
         if (pedidosError) throw pedidosError;
-        console.log('[TimelineV3] Pedidos recebidos:', pedidosData);
+        
+        const eventosPedidos: TimelineEvent[] = pedidosData.map(pedido => ({
+            tipo: 'PEDIDO_CRIADO',
+            data: pedido.created_at,
+            descricao: `Pedido #${pedido.id_pedido_serial || ''}`,
+            detalhes: `-${pedido.creditos_debitados.toLocaleString('pt-BR')} créditos de gravação para: "${pedido.titulo || 'Pedido sem título'}"`,
+            valor: pedido.creditos_debitados,
+        }));
+        
+        // 3. Mesclar e Ordenar
+        const todosEventos = [...eventosLotes, ...eventosPedidos];
+        todosEventos.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
-        pedidosData?.forEach(pedido => {
-          if (pedido.creditos_debitados > 0) {
-            
-            // Lógica para diferenciar o tipo de evento do pedido
-            let tipoEvento: EventoTimeline['tipo'] = 'USO_CREDITO';
-            let descricaoEvento = `Pedido #${pedido.id_pedido_serial || pedido.id.substring(0,8)} (${pedido.titulo || 'Sem título'})`;
-            let detalhesEvento = `- ${pedido.creditos_debitados} créditos utilizados.`;
-
-            if (pedido.status === 'estornado' || pedido.status === 'cancelado_pelo_usuario') {
-              tipoEvento = 'ESTORNO_CREDITO';
-              descricaoEvento = `Estorno de ${pedido.creditos_debitados} créditos`;
-              detalhesEvento = `Referente ao pedido #${pedido.id_pedido_serial || pedido.id.substring(0,8)} (${pedido.titulo || 'Sem título'}) cancelado.`;
-            }
-
-            eventosBrutosParaTimeline.push({
-              tipo: tipoEvento,
-              data: new Date(pedido.created_at).toISOString(),
-              pedido_id: pedido.id,
-              quantidade: pedido.creditos_debitados, // Mantemos a quantidade para consistência
-              descricao: descricaoEvento,
-              detalhes: detalhesEvento,
-            });
-          }
-        });
-
-        // 3. Ordenar todos os eventos brutos pela data (MAIS ANTIGO PRIMEIRO para cálculo progressivo)
-        eventosBrutosParaTimeline.sort((a, b) => {
-          const diff = new Date(a.data).getTime() - new Date(b.data).getTime();
-          if (diff === 0) {
-              if (a.tipo === 'ADICAO_LOTE' && b.tipo !== 'ADICAO_LOTE') return -1;
-              if (a.tipo !== 'ADICAO_LOTE' && b.tipo === 'ADICAO_LOTE') return 1;
-          }
-          return diff;
-        });
-        console.log('[TimelineV3] Eventos Brutos ORDENADOS (antigo->novo):', JSON.stringify(eventosBrutosParaTimeline, null, 2));
-
-        // 4. Iterar para calcular saldo progressivo e gerar eventos de expiração dinamicamente
-        const eventosFinaisParaExibicao: any[] = [];
-        let saldoLinhaDoTempo = 0;
-        let estadoSimuladoDosLotes: Array<{
-          id: string;
-          data_adicao: string;
-          data_validade: string | null;
-          saldoRestanteNoLote: number;
-        }> = [];
-
-        for (const eventoAtual of eventosBrutosParaTimeline) {
-          const dataDoEventoAtual = new Date(eventoAtual.data);
-          console.log(`\n[TimelineV3 Loop] Processando Evento em ${eventoAtual.data}:`, eventoAtual.tipo, eventoAtual.quantidade || '');
-          console.log(`[TimelineV3 Loop] Saldo ANTES das expirações para este evento: ${saldoLinhaDoTempo}`);
-
-          // A. Processar expirações de lotes que venceram ANTES da data deste evento ATUAL
-          let creditosExpiradosAgora = 0;
-          const lotesAindaNaoExpirados = [];
-          for (const lote of estadoSimuladoDosLotes) {
-            if (lote.data_validade && new Date(lote.data_validade) < dataDoEventoAtual && lote.saldoRestanteNoLote > 0) {
-              console.log(`[TimelineV3 Loop] Lote ${lote.id} (saldo ${lote.saldoRestanteNoLote}) expirou em ${lote.data_validade} (ANTES de ${eventoAtual.data}).`);
-              creditosExpiradosAgora += lote.saldoRestanteNoLote;
-              // Adicionar evento de expiração para exibição
-              eventosFinaisParaExibicao.push({
-                tipo: 'EXPIRACAO_CREDITO',
-                data: lote.data_validade,
-                descricao: `${lote.saldoRestanteNoLote} créditos expiraram.`,
-                detalhes: `Dos créditos adicionados em ${new Date(lote.data_adicao).toLocaleDateString('pt-BR')}.`,
-                saldoAposEvento: saldoLinhaDoTempo - creditosExpiradosAgora,
-              });
-              lote.saldoRestanteNoLote = 0;
-            }
-            if (lote.saldoRestanteNoLote > 0 && (!lote.data_validade || new Date(lote.data_validade) >= dataDoEventoAtual)) {
-              lotesAindaNaoExpirados.push(lote);
-            }
-          }
-          estadoSimuladoDosLotes = lotesAindaNaoExpirados;
-          saldoLinhaDoTempo -= creditosExpiradosAgora;
-          console.log(`[TimelineV3 Loop] Créditos perdidos por expiração ANTES deste evento: ${creditosExpiradosAgora}. Saldo ATUALIZADO: ${saldoLinhaDoTempo}`);
-
-          // B. Aplicar o evento ATUAL
-          let eventoPrincipalParaExibicao = { ...eventoAtual };
-
-          if (eventoAtual.tipo === 'ADICAO_LOTE') {
-            estadoSimuladoDosLotes.push({
-              id: eventoAtual.lote_id,
-              data_adicao: eventoAtual.data,
-              data_validade: eventoAtual.data_validade_lote,
-              saldoRestanteNoLote: eventoAtual.quantidade,
-            });
-            saldoLinhaDoTempo += eventoAtual.quantidade;
-            console.log(`[TimelineV3 Loop] ADICAO: +${eventoAtual.quantidade}. Novo Saldo: ${saldoLinhaDoTempo}`);
-          } else if (eventoAtual.tipo === 'USO_CREDITO') {
-            let creditosADebitar = eventoAtual.quantidade;
-            saldoLinhaDoTempo -= creditosADebitar;
-            estadoSimuladoDosLotes.sort((a,b) => (a.data_validade ? new Date(a.data_validade).getTime() : Infinity) - (b.data_validade ? new Date(b.data_validade).getTime() : Infinity) || new Date(a.data_adicao).getTime() - new Date(b.data_adicao).getTime());
-            for (const lote of estadoSimuladoDosLotes) {
-              if (creditosADebitar <= 0) break;
-              if (lote.saldoRestanteNoLote > 0 && (!lote.data_validade || new Date(lote.data_validade) >= dataDoEventoAtual)) {
-                const debitarDesteLote = Math.min(creditosADebitar, lote.saldoRestanteNoLote);
-                lote.saldoRestanteNoLote -= debitarDesteLote;
-                creditosADebitar -= debitarDesteLote;
-                console.log(`[TimelineV3 Loop] USO: Debitou ${debitarDesteLote} do lote ${lote.id}. Resta no lote: ${lote.saldoRestanteNoLote}.`);
-              }
-            }
-            if (creditosADebitar > 0) {
-              console.warn(`[TimelineV3 Loop] USO: Não foi possível debitar todos os ${eventoAtual.quantidade} créditos. Faltaram ${creditosADebitar}. Isso indica saldo negativo ou problema na lógica.`);
-            }
-            console.log(`[TimelineV3 Loop] USO: -${eventoAtual.quantidade}. Novo Saldo: ${saldoLinhaDoTempo}`);
-          } else if (eventoAtual.tipo === 'ESTORNO_CREDITO') {
-            // Para estorno, a lógica é a mesma de uma adição de lote
-            estadoSimuladoDosLotes.push({
-              id: `estorno-${eventoAtual.pedido_id}`,
-              data_adicao: eventoAtual.data,
-              data_validade: null, // Estornos não deveriam ter validade
-              saldoRestanteNoLote: eventoAtual.quantidade,
-            });
-            // O saldo também não é somado aqui, é calculado externamente.
-            console.log(`[TimelineV3 Loop] ESTORNO: Simulado como adição de ${eventoAtual.quantidade}.`);
-          }
-          eventoPrincipalParaExibicao.saldoAposEvento = Math.max(0, saldoLinhaDoTempo);
-          eventosFinaisParaExibicao.push(eventoPrincipalParaExibicao);
-        }
-        console.log('[TimelineV3] Eventos FINAIS com saldo (antes da ordenação para display):', JSON.stringify(eventosFinaisParaExibicao, null, 2));
-
-        // 5. Re-ordenar para exibição (mais recente primeiro)
-        eventosFinaisParaExibicao.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
-        setEventosTimeline(eventosFinaisParaExibicao);
-        console.log('[TimelineV3] Eventos FINAIS para EXIBIÇÃO (recente->antigo):', JSON.stringify(eventosFinaisParaExibicao, null, 2));
+        setEventos(todosEventos);
 
       } catch (error) {
-        console.error('[TimelineV3] Erro GERAL:', error);
-        setEventosTimeline([]);
-        toast.error('Erro no Histórico', { description: 'Não foi possível carregar o histórico de créditos.' });
+        console.error('Erro ao buscar histórico de créditos:', error);
+        toast.error('Erro ao carregar histórico', { description: 'Não foi possível buscar seu histórico de movimentações.' });
+      } finally {
+        setLoading(false);
       }
-      finally { setLoadingTimeline(false); }
     };
 
     if (profile?.id) {
-      fetchEventosTimelineComSaldoCorrigido();
-    } else {
-      setLoadingTimeline(false);
-      setEventosTimeline([]);
+      fetchHistorico();
     }
-  }, [profile?.id, supabase, toast]);
+  }, [profile?.id]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground max-w-2xl mx-auto py-8 px-2 md:px-0">
-      <h1 className="text-2xl font-bold mb-6 text-foreground">Histórico de Créditos</h1>
-      {/* Card de saldo real */}
-      <Card className="mb-6 p-4 flex flex-col items-center bg-card text-card-foreground border-none">
-        <div className="text-lg font-semibold text-blue-400">Saldo atual</div>
-        <div className="text-3xl font-bold text-blue-400">{profile?.saldoCalculadoCreditos ?? 0} crédito{profile?.saldoCalculadoCreditos === 1 ? '' : 's'}</div>
-      </Card>
-      {/* Aviso de divergência */}
-      {false && (
-        <div className="mb-6 flex items-center gap-2 p-3 rounded-md bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 text-yellow-900 dark:text-yellow-200">
-          <AlertTriangle className="h-5 w-5 text-yellow-600" />
-          <span>
-            O saldo real pode ser diferente do saldo simulado na timeline devido a ajustes manuais, estornos ou eventos não exibidos.
-          </span>
-        </div>
-      )}
-      <Separator className="mb-8" />
-      {/* Timeline dos eventos */}
-      {loadingTimeline ? (
+    <div className="min-h-screen bg-background text-foreground max-w-4xl mx-auto py-8 px-4">
+      <h1 className="text-2xl md:text-3xl font-bold mb-8 text-foreground">Histórico de Créditos</h1>
+      
+      {/* Cards de Saldo */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+        <Card className="p-6 flex flex-col justify-between bg-card text-card-foreground border-none shadow-sm">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-medium text-muted-foreground">Saldo Gravação</h3>
+              <Wallet className="h-6 w-6 text-sky-500" />
+            </div>
+            {isLoading ? (
+              <Skeleton className="h-10 w-3/4" />
+            ) : (
+              <p className="text-4xl font-bold text-foreground">{profile?.saldo_gravacao?.toLocaleString('pt-BR') ?? 0}</p>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">Créditos para locução humana.</p>
+        </Card>
+        <Card className="p-6 flex flex-col justify-between bg-card text-card-foreground border-none shadow-sm">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-medium text-muted-foreground">Saldo IA</h3>
+              <Sparkles className="h-6 w-6 text-amber-500" />
+            </div>
+            {isLoading ? (
+              <Skeleton className="h-10 w-3/4" />
+            ) : (
+              <p className="text-4xl font-bold text-foreground">{profile?.saldo_ia?.toLocaleString('pt-BR') ?? 0}</p>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">Créditos para geração por Inteligência Artificial.</p>
+        </Card>
+      </div>
+
+      <Separator className="my-8" />
+      
+      <h2 className="text-xl font-semibold mb-6">Movimentações</h2>
+      {loading ? (
         <div className="space-y-4">
-          {[1,2,3,4].map((i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-lg" />
-          ))}
+          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
         </div>
-      ) : eventosTimeline.length === 0 ? (
-        <div className="text-center text-muted-foreground py-12">Nenhuma movimentação de créditos encontrada.</div>
+      ) : eventos.length === 0 ? (
+        <div className="text-center text-muted-foreground py-12">
+          <Package className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
+          <p>Nenhuma movimentação de crédito encontrada.</p>
+          <p className="text-sm">Suas compras de pacotes aparecerão aqui.</p>
+        </div>
       ) : (
-        <div className="relative border-l border-gray-200 dark:border-gray-700 pl-6">
-          <ol className="space-y-8">
-            {eventosTimeline.map((evento, idx) => {
-              const isAjusteManual = evento.tipo === 'AJUSTE_MANUAL' || evento.admin;
-              const isVencido = evento.tipo === 'CREDITOS_VENCIDOS';
-              return (
-                <li key={`${evento.tipo}-${evento.data}-${idx}`} className="mb-6 ml-2 relative">
-                  <span className={`absolute -left-6 flex h-8 w-8 items-center justify-center rounded-full ring-8 ring-background
-                    ${evento.tipo === 'ADICAO_CREDITO' ? 'bg-green-900' :
-                      evento.tipo === 'USO_CREDITO' ? 'bg-red-900' :
-                      evento.tipo === 'EXPIRACAO_CREDITO' || isVencido ? 'bg-muted' :
-                      evento.tipo === 'ESTORNO_CREDITO' ? 'bg-blue-900' :
-                      evento.tipo === 'PEDIDO_CANCELADO' ? 'bg-gray-700' :
-                      isAjusteManual ? 'bg-purple-900' :
-                      'bg-background'}`}>
-                    {getIcon(isVencido ? 'EXPIRACAO_CREDITO' : evento.tipo)}
-                  </span>
-                  <Card className={`p-4 border-none shadow-sm bg-card text-card-foreground`}>
-                    <div className="mb-1 flex items-center justify-between">
-                      <time className="text-sm font-normal leading-none text-muted-foreground">
-                        {new Date(evento.data).toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+        <div className="relative border-l-2 border-border/50 pl-8 space-y-10">
+          {eventos.map((evento, idx) => (
+            <div key={`${evento.tipo}-${evento.data}-${idx}`} className="relative">
+              <div className="absolute -left-8 -translate-x-1/2 top-1 w-5 h-5 bg-background border-2 border-current rounded-full flex items-center justify-center">
+                <div className="h-2.5 w-2.5 rounded-full bg-current" />
+              </div>
+              <Card className="p-4 border-none shadow-sm bg-card text-card-foreground">
+                <div className="flex items-start gap-4">
+                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-muted-foreground mt-1">
+                    {getIcon(evento)}
+                   </div>
+                   <div className="flex-1">
+                      <p className="font-semibold text-foreground text-base">{evento.descricao}</p>
+                      <p className="text-sm text-muted-foreground">{evento.detalhes}</p>
+                      <time className="text-xs text-muted-foreground/80 mt-1 block">
+                        {new Date(evento.data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </time>
-                      {isAjusteManual && (
-                        <span className="ml-2 px-2 py-0.5 rounded bg-purple-200 text-purple-900 text-xs font-bold dark:bg-purple-700 dark:text-purple-100">Atendimento</span>
-                      )}
-                      {evento.tipo === 'ESTORNO_CREDITO' && (
-                        <span className="ml-2 px-2 py-0.5 rounded bg-blue-200 text-blue-900 text-xs font-bold dark:bg-blue-700 dark:text-blue-100">Estorno</span>
-                      )}
-                      {isVencido && (
-                        <span className="ml-2 px-2 py-0.5 rounded bg-muted text-muted-foreground text-xs font-bold">Vencido</span>
-                      )}
-                    </div>
-                    <h3 className="text-lg font-semibold text-foreground">{evento.descricao}</h3>
-                    <p className="text-sm text-muted-foreground whitespace-pre-line">{evento.detalhes}</p>
-                  </Card>
-                </li>
-              );
-            })}
-          </ol>
+                   </div>
+                </div>
+              </Card>
+            </div>
+          ))}
         </div>
       )}
     </div>

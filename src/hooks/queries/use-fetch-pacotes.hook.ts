@@ -9,6 +9,7 @@ export interface Pacote {
   descricao: string | null;
   valor: number;
   creditos_oferecidos: number;
+  creditos_ia_oferecidos: number;
   ativo: boolean;
   listavel: boolean;
   created_at: string;
@@ -21,6 +22,7 @@ const fetchPacotes = async (): Promise<PacoteComLocutores[]> => {
     .from('pacotes')
     .select(`
       *,
+      creditos_ia_oferecidos,
       locutores: locutores (
         id,
         nome

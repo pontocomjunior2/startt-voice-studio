@@ -44,6 +44,7 @@ export interface Pacote {
   descricao?: string;
   valor: number;
   creditos_oferecidos: number;
+  creditos_ia_oferecidos: number;
   ativo: boolean;
   listavel: boolean;
   created_at?: string;

@@ -39,6 +39,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { InputUploadImagemLocutor } from '@/components/admin/input-upload-imagem-locutor';
 import { InputUploadAudioLocutor } from '@/components/admin/input-upload-audio-locutor';
+import { Switch } from "@/components/ui/switch";
 
 // Interface para o tipo Locutor (ajuste conforme sua tabela)
 interface Locutor {
@@ -50,6 +51,8 @@ interface Locutor {
   ativo?: boolean;
   amostra_audio_url?: string | null;
   demos?: DemoLocutor[];
+  ia_disponivel?: boolean;
+  ia_voice_id?: string | null;
 }
 
 // Adicionar tipos auxiliares para demo
@@ -74,6 +77,8 @@ function AdminLocutoresPage() {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [demos, setDemos] = useState<DemoLocutor[]>([]);
   const [ativo, setAtivo] = useState(true);
+  const [iaDisponivel, setIaDisponivel] = useState(false);
+  const [iaVoiceId, setIaVoiceId] = useState('');
 
   const fetchAllLocutores = async () => {
     setLoadingLocutores(true);
@@ -115,6 +120,8 @@ function AdminLocutoresPage() {
     setAvatarUrl('');
     setDemos([]);
     setAtivo(true);
+    setIaDisponivel(false);
+    setIaVoiceId('');
     setEditingLocutor(null);
   };
 
@@ -126,6 +133,8 @@ function AdminLocutoresPage() {
       setAvatarUrl(locutor.avatar_url || '');
       setDemos(locutor.demos || []);
       setAtivo(locutor.ativo === undefined ? true : locutor.ativo);
+      setIaDisponivel(locutor.ia_disponivel || false);
+      setIaVoiceId(locutor.ia_voice_id || '');
     } else {
       resetFormStates();
     }
@@ -141,6 +150,8 @@ function AdminLocutoresPage() {
         descricao: descricao || null,
         avatar_url: avatarUrl || null,
         ativo,
+        ia_disponivel: iaDisponivel,
+        ia_voice_id: iaDisponivel ? (iaVoiceId || null) : null, // Só salva o ID se a IA estiver ativa
       };
 
       let error, locutorId;
@@ -399,6 +410,24 @@ function AdminLocutoresPage() {
                 <Checkbox id="ativo-locutor" checked={ativo} onCheckedChange={(checked) => setAtivo(Boolean(checked))} disabled={isSaving} />
               </div>
             </div>
+
+            <Separator className="my-2 col-span-4" />
+
+            {/* SEÇÃO DE IA */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Gravação por IA</Label>
+              <div className="col-span-3 flex items-center space-x-2">
+                <Switch id="ia-disponivel" checked={iaDisponivel} onCheckedChange={setIaDisponivel} />
+                <Label htmlFor="ia-disponivel">Disponível para "Gravar com IA"</Label>
+              </div>
+            </div>
+
+            {iaDisponivel && (
+              <div className="grid grid-cols-4 items-center gap-4 animate-fadeIn">
+                <Label htmlFor="ia-voice-id" className="text-right">ElevenLabs Voice ID</Label>
+                <Input id="ia-voice-id" value={iaVoiceId} onChange={(e) => setIaVoiceId(e.target.value)} className="col-span-3" placeholder="ID da voz clonada na ElevenLabs"/>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <DialogClose asChild>

@@ -10,7 +10,8 @@ import { cn } from '@/lib/utils';
 import { 
   Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, 
   Edit3, History, Eye, MoreVertical, Trash2, FileAudio, XCircle, Paperclip, 
-  ThumbsUp, MessageSquareWarning, Send, Clock, CheckCircle, AlertCircle, RotateCcw 
+  ThumbsUp, MessageSquareWarning, Send, Clock, CheckCircle, AlertCircle, RotateCcw,
+  Sparkles
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { solicitarRevisaoAction, excluirPedidoAction } from '@/actions/pedido-actions';
@@ -400,7 +401,12 @@ function MeusAudiosPage() {
         orientacoes, admin_cancel_reason, admin_message, cliente_resposta_info, 
         data_resposta_cliente, cliente_audio_resposta_url,
         locutores ( nome ),
-        solicitacoes_revisao ( id, status_revisao, admin_feedback )
+        solicitacoes_revisao (
+          id,
+          status_revisao,
+          admin_feedback,
+          versoes_audio_revisao ( audio_url, enviado_em )
+        )
       `)
       .eq('user_id', profile.id)
       .order('created_at', { ascending: false });
@@ -778,6 +784,19 @@ function MeusAudiosPage() {
                   (pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && pedido.admin_message) ||
                   (pedido.solicitacoes_revisao && pedido.solicitacoes_revisao.some(r => r.status_revisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE));
 
+                // LÓGICA PARA ENCONTRAR O ÁUDIO REVISADO
+                const ultimaRevisaoFinalizada = pedido.solicitacoes_revisao
+                  ?.filter(s => s.status_revisao === 'revisado_finalizado' && s.versoes_audio_revisao && s.versoes_audio_revisao.length > 0)
+                  .sort((a, b) => new Date(b.data_conclusao_revisao || 0).getTime() - new Date(a.data_conclusao_revisao || 0).getTime())
+                  [0];
+                
+                const audioRevisado = ultimaRevisaoFinalizada?.versoes_audio_revisao
+                  ?.sort((a,b) => new Date(b.enviado_em).getTime() - new Date(a.enviado_em).getTime())
+                  [0];
+
+                const audioParaBaixarUrl = audioRevisado?.audio_url || pedido.audio_final_url;
+                const isRevisaoPronta = !!audioRevisado?.audio_url;
+
                 return (
                   <React.Fragment key={pedido.id}>
                     <TableRow className={cn(
@@ -866,8 +885,61 @@ function MeusAudiosPage() {
                       {pedido.creditos_debitados}
                     </TableCell>
                     <TableCell className="px-4 py-3 whitespace-nowrap text-sm text-center">
-                      <div className="flex items-center justify-center gap-1 sm:gap-2">
-                        {isPendente && (
+                      <div className="flex items-center justify-center gap-2">
+
+                        {/* Ações para Pedidos Concluídos */}
+                        {isConcluido && !precisaDeResposta && (
+                          isRevisaoPronta ? (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="sm" className="flex items-center bg-status-green text-primary-foreground hover:bg-green-600">
+                                  <DownloadCloud className="mr-2 h-4 w-4" /> 
+                                  {pedido.downloaded_at ? "Baixado" : "Baixar"}
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleDownloadOriginal(pedido)}>
+                                  <DownloadCloud className="mr-2 h-4 w-4" /> Baixar Áudio Original
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleDownloadOriginal({ ...pedido, audio_final_url: audioParaBaixarUrl })}>
+                                  <Sparkles className="mr-2 h-4 w-4 text-amber-500" />
+                                  <span className="font-semibold text-amber-600">Baixar Versão Revisada</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => handleAbrirModalDetalhesOuBaixar(pedido)}
+                              className={cn(
+                                "flex items-center",
+                                "bg-status-green text-primary-foreground hover:bg-green-600",
+                                !pedido.audio_final_url && "opacity-50 cursor-not-allowed"
+                              )}
+                              disabled={!pedido.audio_final_url}
+                            >
+                              <DownloadCloud className="mr-2 h-4 w-4" />
+                              {pedido.downloaded_at ? "Baixado" : "Baixar"}
+                            </Button>
+                          )
+                        )}
+                        
+                        {/* Ações para outros status */}
+                        {precisaDeResposta && (
+                          <Button size="sm" onClick={() => handleOpenRevisaoModal(pedido, true)} className="bg-amber-500 hover:bg-amber-600 text-white flex items-center animate-pulse">
+                            <MessageSquareWarning className="mr-2 h-4 w-4" /> Responder
+                          </Button>
+                        )}
+
+                        {!isPendente && !isConcluido && !precisaDeResposta && (
+                          <Button variant="outline" size="sm" onClick={() => handleOpenHistoricoRevisoesModal(pedido)} className="flex items-center" title="Ver detalhes e histórico">
+                            <Eye className="mr-2 h-4 w-4" /> Detalhes
+                          </Button>
+                        )}
+
+                        {/* Menu Dropdown (sempre à direita quando aplicável) */}
+                        {(isPendente || isConcluido) && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="outline" size="icon" className="h-9 w-9 shrink-0">
@@ -876,107 +948,22 @@ function MeusAudiosPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleNavigateToEdit(pedido.id)}>
-                                <Edit3 className="mr-2 h-4 w-4" />
-                                Editar Pedido
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleOpenConfirmarExclusaoModal(pedido)} className="text-red-600 hover:!text-red-600 focus:!text-red-600">
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Excluir Pedido
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleOpenHistoricoRevisoesModal(pedido)}>
-                                <Eye className="mr-2 h-4 w-4" />
-                                Ver Detalhes
-                              </DropdownMenuItem>
+                              {isPendente && (
+                                <>
+                                  <DropdownMenuItem onClick={() => handleNavigateToEdit(pedido.id)}><Edit3 className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleOpenConfirmarExclusaoModal(pedido)} className="text-red-600 hover:!text-red-600 focus:!text-red-600"><Trash2 className="mr-2 h-4 w-4" /> Excluir</DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                </>
+                              )}
+                              <DropdownMenuItem onClick={() => handleOpenHistoricoRevisoesModal(pedido)}><History className="mr-2 h-4 w-4" /> Detalhes</DropdownMenuItem>
+                              {isConcluido && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleOpenRevisaoModal(pedido, false)}><RotateCcw className="mr-2 h-4 w-4" /> Solicitar Revisão</DropdownMenuItem>
+                                </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
-                        )}
-
-                        {precisaDeResposta && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleOpenRevisaoModal(pedido, true)}
-                            className="bg-amber-500 hover:bg-amber-600 text-white flex items-center animate-pulse"
-                          >
-                            <MessageSquareWarning className="mr-2 h-4 w-4" />
-                            Responder
-                          </Button>
-                        )}
-
-                        {isConcluido && (
-                          <>
-                            <Button
-                              size="sm"
-                              onClick={() => handleAbrirModalDetalhesOuBaixar(pedido)}
-                              className={cn(
-                                "flex items-center",
-                                "bg-status-green text-primary-foreground hover:bg-green-600 dark:bg-status-green dark:hover:bg-green-600",
-                                !pedido.audio_final_url && "opacity-50 cursor-not-allowed"
-                              )}
-                              disabled={!pedido.audio_final_url}
-                            >
-                              <DownloadCloud className="mr-2 h-4 w-4" />
-                              {pedido.solicitacoes_revisao_count && pedido.solicitacoes_revisao_count > 0 ? "Ver Detalhes/Baixar" : "Baixar"}
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="icon" className="h-9 w-9 shrink-0">
-                                  <MoreVertical className="h-4 w-4" />
-                                  <span className="sr-only">Mais ações</span>
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleOpenHistoricoRevisoesModal(pedido)}>
-                                  <History className="mr-2 h-4 w-4" />
-                                  Ver Detalhes e Histórico
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleOpenRevisaoModal(pedido, false)}>
-                                  <RotateCcw className="mr-2 h-4 w-4" />
-                                  Solicitar Revisão
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </>
-                        )}
-
-                        {isEmRevisaoComAudio && (
-                          <>
-                            <Button 
-                              variant="outline"
-                              size="sm"
-                              className="opacity-70" 
-                              onClick={() => handleAbrirModalDetalhesOuBaixar(pedido)}
-                              aria-label="Baixar áudio original (atualmente em revisão)"
-                              title="Baixar áudio original (atualmente em revisão)"
-                            >
-                              <DownloadCloud className="mr-1.5 h-4 w-4" /> Original
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenHistoricoRevisoesModal(pedido)}
-                              className="flex items-center"
-                              title="Ver detalhes e histórico de revisões deste pedido"
-                            >
-                              <Eye className="mr-2 h-4 w-4" />
-                              Detalhes
-                            </Button>
-                          </>
-                        )}
-                        
-                        {pedido.status === PEDIDO_STATUS.CANCELADO && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleAbrirModalDetalhesOuBaixar(pedido)}
-                            className="flex items-center"
-                            title="Ver detalhes do pedido cancelado"
-                          >
-                            <Eye className="mr-2 h-4 w-4" />
-                            Detalhes
-                          </Button>
                         )}
                       </div>
                     </TableCell>

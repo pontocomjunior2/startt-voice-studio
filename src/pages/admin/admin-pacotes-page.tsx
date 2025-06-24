@@ -80,6 +80,7 @@ export default function AdminPacotesPage() {
       descricao: "",
       valor: 0,
       creditos_oferecidos: 0,
+      creditos_ia_oferecidos: 0,
       ativo: true,
       listavel: true,
       locutores: [],
@@ -101,6 +102,7 @@ export default function AdminPacotesPage() {
         ...pacote,
         locutores: pacote.locutores?.map((l) => l.id) || [],
         validade_dias: pacote.validade_dias || undefined,
+        creditos_ia_oferecidos: pacote.creditos_ia_oferecidos || 0,
       });
       // Sincronizar valores de teste
       setTestAtivo(pacote.ativo);
@@ -113,6 +115,7 @@ export default function AdminPacotesPage() {
         descricao: "",
         valor: 0,
         creditos_oferecidos: 0,
+        creditos_ia_oferecidos: 0,
         ativo: true,
         listavel: true,
         locutores: [],
@@ -169,6 +172,7 @@ export default function AdminPacotesPage() {
                 <TableHead>Nome</TableHead>
                 <TableHead>Valor</TableHead>
                 <TableHead>Créditos</TableHead>
+                <TableHead>Créditos IA</TableHead>
                 <TableHead>Validade</TableHead>
                 <TableHead>Locutores</TableHead>
                 <TableHead>Status</TableHead>
@@ -181,6 +185,7 @@ export default function AdminPacotesPage() {
                   <TableCell className="font-medium">{pacote.nome}</TableCell>
                   <TableCell>R$ {pacote.valor.toFixed(2)}</TableCell>
                   <TableCell>{pacote.creditos_oferecidos}</TableCell>
+                  <TableCell>{pacote.creditos_ia_oferecidos || 0}</TableCell>
                   <TableCell>{pacote.validade_dias || "N/A"}</TableCell>
                   <TableCell>{pacote.locutores?.length || 0}</TableCell>
                   <TableCell>
@@ -294,6 +299,24 @@ export default function AdminPacotesPage() {
                 {errors.creditos_oferecidos && (
                   <p className="text-red-500 text-xs mt-1">
                     {errors.creditos_oferecidos.message}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="creditos_ia_oferecidos" className="text-right">
+                Créditos IA
+              </Label>
+              <div className="col-span-3">
+                <Input
+                  id="creditos_ia_oferecidos"
+                  type="number"
+                  placeholder="Ex: 50000"
+                  {...register("creditos_ia_oferecidos")}
+                />
+                {errors.creditos_ia_oferecidos && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.creditos_ia_oferecidos.message}
                   </p>
                 )}
               </div>

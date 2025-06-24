@@ -19,12 +19,14 @@ import {
   ArrowRight,
   Clock,
   CreditCard,
-  Package
+  Package,
+  Sparkles
 } from 'lucide-react';
 import Footer from './Footer'; // Garantir que esta importação existe
 import { TextShimmer } from '@/components/ui/text-shimmer';
 import WhatsappFloatingButton from './WhatsappFloatingButton';
 import { cn } from '@/lib/utils';
+import { Skeleton } from "@/components/ui/skeleton"; // Importar o Skeleton
 
 // Tipo para os itens de navegação
 interface NavItem {
@@ -42,7 +44,7 @@ interface SocialLinkItem {
 }
 
 const AppLayout: React.FC = () => {
-  const { profile, signOut, user } = useAuth();
+  const { profile, signOut, user, isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
@@ -256,7 +258,29 @@ const AppLayout: React.FC = () => {
               </div>
             </div>
             
-            <div className="flex items-center gap-3 ml-auto">
+            <div className="flex items-center gap-4 ml-auto">
+              {/* Exibição dos Créditos */}
+              {isLoading ? (
+                // Esqueleto de Loading
+                <div className="hidden sm:flex items-center gap-4 text-sm font-medium">
+                  <Skeleton className="h-8 w-32 rounded-md" />
+                  <Skeleton className="h-8 w-24 rounded-md" />
+                </div>
+              ) : profile && (
+                <div className="hidden sm:flex items-center gap-4 text-sm font-medium animate-fadeIn">
+                  <div className="flex items-center gap-1.5 p-2 rounded-md bg-muted/50">
+                    <Voicemail className="h-4 w-4 text-sky-500" />
+                    <span>Gravação:</span>
+                    <span className="font-bold text-foreground">{profile.saldo_gravacao ?? 0}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 p-2 rounded-md bg-muted/50">
+                    <Sparkles className="h-4 w-4 text-amber-500" />
+                    <span>IA:</span>
+                    <span className="font-bold text-foreground">{profile.saldo_ia ?? 0}</span>
+                  </div>
+                </div>
+              )}
+
               <Button variant="outline" size="sm" onClick={handleLogout} disabled={isLoggingOut} className="hidden md:inline-flex dark:border-neutral-700 dark:bg-neutral-900 dark:text-gray-100 dark:hover:bg-neutral-800">
                 <LogOut className="mr-2 h-4 w-4" />
                 {isLoggingOut ? 'Saindo...' : 'Sair'}

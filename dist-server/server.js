@@ -5,11 +5,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
-// Carrega as variáveis de ambiente do arquivo .env na raiz do projeto.
-// O __dirname aponta para o diretório do arquivo JS compilado (dist-server),
-// então subimos um nível para encontrar o .env na raiz.
-const envPath = path_1.default.resolve(__dirname, '../.env');
-dotenv_1.default.config({ path: envPath });
+// Garante que as variáveis de ambiente sejam carregadas ANTES de qualquer outro import.
+// Esta é a forma mais robusta de garantir que process.env seja populado.
+const envResult = dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../.env') });
+if (envResult.error) {
+    console.warn('[Server Init] Não foi possível carregar o arquivo .env. As variáveis de ambiente devem ser injetadas externamente (ex: Docker, EasyPanel).', envResult.error.message);
+}
+else {
+    console.log('[Server Init] Arquivo .env carregado com sucesso.');
+}
 const express_1 = __importDefault(require("express"));
 const multer_1 = __importDefault(require("multer"));
 const fs_1 = __importDefault(require("fs"));
@@ -655,10 +659,14 @@ app.post('/api/revisoes/processar-upload/:clientUsername', (req, res) => {
         }
         let relativeFilePathForDb = null;
         let absoluteFilePathParaRollback = null;
+        let statusFinalRevisao = novoStatusRevisao; // Usar uma nova variável
         if (req.file) {
             const sanitizedClientName = clientUsername.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_.-]/g, '');
             relativeFilePathForDb = `/uploads/audios/${sanitizedClientName}/revisoes/${req.file.filename}`;
             absoluteFilePathParaRollback = req.file.path;
+            // CORREÇÃO: Forçar o status para 'revisado_finalizado' se um arquivo for enviado
+            statusFinalRevisao = 'revisado_finalizado';
+            console.log(`[API /processar-upload REVISAO] Arquivo detectado. Forçando status para '${statusFinalRevisao}'.`);
         }
         else if (novoStatusRevisao === 'revisado_finalizado') {
             console.error(`[API /processar-upload REVISAO] Tentativa de processar '${novoStatusRevisao}' sem arquivo. Isso não deveria ocorrer aqui.`);
@@ -695,11 +703,11 @@ app.post('/api/revisoes/processar-upload/:clientUsername', (req, res) => {
             }
             // 2. Atualizar solicitacoes_revisao
             const updateSolicitacaoPayload = {
-                status_revisao: novoStatusRevisao,
+                status_revisao: statusFinalRevisao, // Usar a variável corrigida
                 admin_feedback: adminFeedback || null,
             };
             // Adicionar data_conclusao_revisao apenas se o status for finalizador
-            if (novoStatusRevisao === 'revisado_finalizado' || novoStatusRevisao === 'negada') {
+            if (statusFinalRevisao === 'revisado_finalizado' || statusFinalRevisao === 'negada') {
                 updateSolicitacaoPayload.data_conclusao_revisao = new Date().toISOString();
             }
             console.log('[API /processar-upload REVISAO] Payload para atualizar solicitacoes_revisao:', updateSolicitacaoPayload);
@@ -710,16 +718,16 @@ app.post('/api/revisoes/processar-upload/:clientUsername', (req, res) => {
                 console.error('[API /processar-upload REVISAO] Erro ao atualizar solicitacoes_revisao:', updateSolError);
                 throw new Error(`Erro ao atualizar status da solicitação: ${updateSolError.message}`);
             }
-            console.log(`[API /processar-upload REVISAO] solicitacoes_revisao atualizada para status: ${novoStatusRevisao}`);
+            console.log(`[API /processar-upload REVISAO] solicitacoes_revisao atualizada para status: ${statusFinalRevisao}`);
             // 3. Atualizar pedidos.status
             let novoStatusPedidoPrincipal = null;
-            if (novoStatusRevisao === 'revisado_finalizado' || novoStatusRevisao === 'negada') {
+            if (statusFinalRevisao === 'revisado_finalizado' || statusFinalRevisao === 'negada') {
                 novoStatusPedidoPrincipal = 'concluido';
             }
-            else if (novoStatusRevisao === 'info_solicitada_ao_cliente') {
+            else if (statusFinalRevisao === 'info_solicitada_ao_cliente') {
                 novoStatusPedidoPrincipal = 'aguardando_cliente';
             }
-            else if (novoStatusRevisao === 'em_andamento_admin') {
+            else if (statusFinalRevisao === 'em_andamento_admin') {
                 novoStatusPedidoPrincipal = 'em_revisao';
             }
             if (novoStatusPedidoPrincipal) {
@@ -736,7 +744,7 @@ app.post('/api/revisoes/processar-upload/:clientUsername', (req, res) => {
                 }
             }
             else {
-                console.warn(`[API /processar-upload REVISAO] Nenhum novo status para o pedido principal foi definido para o status de revisão: ${novoStatusRevisao}`);
+                console.warn(`[API /processar-upload REVISAO] Nenhum novo status para o pedido principal foi definido para o status de revisão: ${statusFinalRevisao}`);
             }
             return res.status(200).json({
                 success: true,

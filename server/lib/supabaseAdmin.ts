@@ -1,10 +1,23 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Inicializa o cliente Supabase com a Service Role Key para operações de backend
-// que exigem privilégios de administrador.
-const supabaseAdmin = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+let supabaseAdminInstance: SupabaseClient | null = null;
 
-export { supabaseAdmin }; 
+const getSupabaseAdminClient = () => {
+  if (supabaseAdminInstance) {
+    return supabaseAdminInstance;
+  }
+
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error('ERRO CRÍTICO: Variáveis de ambiente Supabase não definidas no servidor.');
+    throw new Error('Configuração do servidor Supabase incompleta.');
+  }
+
+  supabaseAdminInstance = createClient(supabaseUrl, supabaseServiceKey);
+  return supabaseAdminInstance;
+};
+
+// Exportamos uma instância que será criada na primeira chamada.
+export const supabaseAdmin = getSupabaseAdminClient(); 
