@@ -9,8 +9,11 @@ export default defineConfig(({ mode }) => {
 
   return {
     define: {
-      // Expor a variável de ambiente para o código do cliente
-      'process.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL)
+      // Garante que as variáveis de ambiente VITE_* sejam substituídas no build
+      'import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY': JSON.stringify(env.VITE_MERCADOPAGO_PUBLIC_KEY),
+      'import.meta.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL),
+      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
+      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
     },
     plugins: [
       react(),
