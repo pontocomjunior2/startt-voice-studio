@@ -5,16 +5,13 @@ import * as fs from 'fs';
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
+  // O Vite, por padrão, já carrega as variáveis de ambiente.
+  // A configuração de 'define' explícita não é mais necessária se seguirmos o padrão.
 
   return {
-    define: {
-      // Garante que as variáveis de ambiente VITE_* sejam substituídas no build
-      'import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY': JSON.stringify(env.VITE_MERCADOPAGO_PUBLIC_KEY),
-      'import.meta.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL),
-      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
-      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
-    },
+    // A seção 'define' foi removida para usar o comportamento padrão do Vite.
+    // O Vite irá automaticamente substituir `import.meta.env.VITE_...`
+    // com as variáveis de ambiente fornecidas pelo EasyPanel.
     plugins: [
       react(),
       // Plugin para copiar a pasta `public` para `dist`, mas excluindo a subpasta `uploads`.
