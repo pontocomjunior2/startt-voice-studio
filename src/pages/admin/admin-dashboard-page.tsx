@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, CreditCard, ListChecks, Loader2, FileText, Eye, Save, RotateCcw, RefreshCw, MessageSquare, DownloadCloud, MessageSquareWarning, FileAudio } from 'lucide-react';
+import { Users, CreditCard, ListChecks, Loader2, FileText, Eye, Save, RotateCcw, RefreshCw, MessageSquare, DownloadCloud, MessageSquareWarning, FileAudio, Sparkles } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   Table,
@@ -190,67 +190,35 @@ function AdminDashboardPage() {
   const uploadAudioMutation = useUploadPedidoAudio();
   const updateAudioAndStatusMutation = useUpdatePedidoAudioAndStatus();
 
-  // Estado local para créditos ativos
-  const [totalCreditosAtivos, setTotalCreditosAtivos] = useState<number | null>(null);
-  const [loadingCreditosAtivos, setLoadingCreditosAtivos] = useState(true);
+  // Estados para os créditos separados
+  const [totalCreditosGravacao, setTotalCreditosGravacao] = useState<number | null>(null);
+  const [totalCreditosIA, setTotalCreditosIA] = useState<number | null>(null);
+  const [loadingCreditos, setLoadingCreditos] = useState(true);
 
-  // CORREÇÃO: Somar profiles.credits + lotes_creditos válidos
+  // CORREÇÃO: Chamar as duas novas RPCs
   const fetchCreditosAtivos = async () => {
-    setLoadingCreditosAtivos(true);
+    setLoadingCreditos(true);
     try {
-            console.log("AdminDashboard: CORREÇÃO - Calculando total via APENAS lotes_creditos válidos");
-      
-      // Buscar APENAS créditos de lotes válidos (não expirados)
-      const currentDate = new Date().toISOString();
-      const { data: lotes, error: lotesError } = await supabase
-        .from('lotes_creditos')
-        .select('quantidade_adicionada, quantidade_usada, data_validade, data_adicao')
-        .eq('status', 'ativo')
-        .or(`data_validade.is.null,data_validade.gt.${currentDate}`);
-      
-      if (lotesError) {
-        console.error("Erro ao buscar lotes de créditos:", lotesError);
-        setTotalCreditosAtivos(null);
-        return;
-      }
-      
-      // Somar APENAS lotes válidos
-      const totalValidos = lotes?.reduce((sum, lote) => 
-        sum + (lote.quantidade_adicionada - (lote.quantidade_usada || 0)), 0) || 0;
-      
-      console.log("AdminDashboard: Total de créditos válidos:", totalValidos);
-      console.log("AdminDashboard: Lotes válidos encontrados:", lotes?.length);
-      setTotalCreditosAtivos(totalValidos);
+      const [gravacaoRes, iaRes] = await Promise.all([
+        supabase.rpc('get_total_creditos_gravacao_ativos'),
+        supabase.rpc('get_total_creditos_ia_ativos')
+      ]);
+
+      if (gravacaoRes.error) throw gravacaoRes.error;
+      if (iaRes.error) throw iaRes.error;
+
+      setTotalCreditosGravacao(gravacaoRes.data);
+      setTotalCreditosIA(iaRes.data);
       
     } catch (err) {
-      console.error("Erro ao calcular créditos ativos:", err);
-      setTotalCreditosAtivos(null);
+      console.error("Erro ao buscar totais de créditos:", err);
+      toast.error("Falha ao buscar os totais de créditos dos clientes.");
+      setTotalCreditosGravacao(null);
+      setTotalCreditosIA(null);
     } finally {
-      setLoadingCreditosAtivos(false);
+      setLoadingCreditos(false);
     }
   };
-
-  /* CÓDIGO ORIGINAL (comentado para correção):
-  const fetchCreditosAtivos = async () => {
-    setLoadingCreditosAtivos(true);
-    try {
-      const { data } = await supabase.rpc('get_total_creditos_ativos');
-      let total = 0;
-      if (Array.isArray(data) && data.length > 0) {
-        total = data[0].get_total_creditos_ativos ?? data[0].total_creditos_ativos ?? data[0].sum ?? 0;
-      } else if (typeof data === 'number') {
-        total = data;
-      } else if (typeof data === 'object' && data !== null) {
-        total = data.get_total_creditos_ativos ?? data.total_creditos_ativos ?? data.sum ?? 0;
-      }
-      setTotalCreditosAtivos(total);
-    } catch (err) {
-      setTotalCreditosAtivos(null);
-    } finally {
-      setLoadingCreditosAtivos(false);
-    }
-  };
-  */
 
   // Buscar créditos ativos ao montar
   useEffect(() => {
@@ -655,13 +623,18 @@ function AdminDashboardPage() {
       iconColorClass: "text-status-blue",
     },
     {
-      title: "Créditos (Clientes)", 
-      valueKey: "totalclientcredits", // NÃO USAR MAIS ESTE VALOR
+      title: "Créditos Gravação", 
       icon: CreditCard, 
-      subtext: "Soma de créditos dos clientes",
-      iconColorClass: "text-status-green",
-      customValue: totalCreditosAtivos,
-      customLoading: loadingCreditosAtivos,
+      subtext: "Total de créditos de gravação dos clientes",
+      customValue: totalCreditosGravacao,
+      customLoading: loadingCreditos,
+    },
+    {
+      title: "Créditos IA",
+      icon: Sparkles,
+      subtext: "Total de créditos de IA dos clientes",
+      customValue: totalCreditosIA,
+      customLoading: loadingCreditos,
     },
     {
       title: "Pedidos Pendentes",
@@ -903,7 +876,9 @@ function AdminDashboardPage() {
           {(isLoadingStats ? Array.from({ length: statCardsData.length }).map((_, i) => ({ id: i, isLoading: true })) : statCardsData).map((cardInfo: any, index) => {
             let Icon = cardInfo.isLoading ? Loader2 : cardInfo.icon;
             let value;
-            if (cardInfo.title === "Créditos (Clientes)") {
+            if (cardInfo.title === "Créditos Gravação") {
+              value = cardInfo.customLoading ? null : cardInfo.customValue;
+            } else if (cardInfo.title === "Créditos IA") {
               value = cardInfo.customLoading ? null : cardInfo.customValue;
             } else {
               value = cardInfo.isLoading ? null 
@@ -924,7 +899,7 @@ function AdminDashboardPage() {
 
             return (
               <Card key={`stat-${index}`} className={`shadow-lg hover:shadow-xl transition-shadow rounded-2xl bg-card text-card-foreground border-none`}>
-                {cardInfo.isLoading || (cardInfo.title === "Correções Pendentes" && isLoadingStats) || (cardInfo.title === "Créditos (Clientes)" && cardInfo.customLoading) ? (
+                {cardInfo.isLoading || (cardInfo.title === "Correções Pendentes" && isLoadingStats) || (cardInfo.title === "Créditos Gravação" && cardInfo.customLoading) || (cardInfo.title === "Créditos IA" && cardInfo.customLoading) ? (
                   <CardContent className="flex flex-col items-center justify-center p-6">
                     <Skeleton className="h-12 w-12 rounded-full mb-3" /> 
                     <Skeleton className="h-8 w-1/2 mb-2" />      
