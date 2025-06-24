@@ -5,6 +5,19 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# Declarar os argumentos de build que serão passados pelo EasyPanel
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+ARG VITE_MERCADOPAGO_PUBLIC_KEY
+ARG VITE_API_URL
+# Adicione outros ARGs VITE_* que seu frontend precisa
+
+# Tornar os ARGs disponíveis como variáveis de ambiente para o processo de build do Vite
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+ENV VITE_MERCADOPAGO_PUBLIC_KEY=$VITE_MERCADOPAGO_PUBLIC_KEY
+ENV VITE_API_URL=$VITE_API_URL
+
 # Instalar dependências de build se necessário (mantido por segurança)
 RUN apk add --no-cache python3 make g++ git
 

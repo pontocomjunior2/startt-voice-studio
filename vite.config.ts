@@ -1,17 +1,15 @@
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import path from "path"
 import * as fs from 'fs';
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
-  // O Vite, por padrão, já carrega as variáveis de ambiente.
-  // A configuração de 'define' explícita não é mais necessária se seguirmos o padrão.
-
+export default defineConfig(() => {
+  // A configuração foi simplificada para usar o comportamento padrão do Vite,
+  // que lê as variáveis de ambiente `VITE_*` diretamente.
+  // Os ARGs do Dockerfile irão expor essas variáveis ao processo de build.
   return {
-    // A seção 'define' foi removida para usar o comportamento padrão do Vite.
-    // O Vite irá automaticamente substituir `import.meta.env.VITE_...`
-    // com as variáveis de ambiente fornecidas pelo EasyPanel.
+    // A seção 'define' não é necessária, o Vite lida com import.meta.env.VITE_*
     plugins: [
       react(),
       // Plugin para copiar a pasta `public` para `dist`, mas excluindo a subpasta `uploads`.
