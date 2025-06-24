@@ -8,7 +8,10 @@ import { supabase } from '../lib/supabaseClient';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, RefreshCw, PlusCircle, Wallet, ClipboardList, Hourglass, CheckCircle2, ListMusic, User, CreditCard } from 'lucide-react';
+import { 
+  Loader2, RefreshCw, PlusCircle, Wallet, ClipboardList, 
+  Hourglass, CheckCircle2, ListMusic, User
+} from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
@@ -281,7 +284,7 @@ function DashboardPage() {
               <Wallet className="h-5 w-5 text-startt-blue" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">{userSaldoCreditosCalculado.toLocaleString('pt-BR')}</div>
+              <div className="text-2xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">{userSaldoCreditosCalculado.toLocaleString('pt-BR')}</div>
               <p className="text-xs text-muted-foreground">Disponíveis para usar.</p>
             </CardContent>
           </Card>
@@ -292,7 +295,7 @@ function DashboardPage() {
               <ClipboardList className="h-5 w-5 text-startt-purple" />
             </CardHeader>
             <CardContent>
-              {loadingStats ? <Skeleton className="h-8 w-1/2 mb-1" /> : <div className="text-2xl font-bold text-foreground">{totalPedidos}</div>}
+              {loadingStats ? <Skeleton className="h-8 w-1/2 mb-1" /> : <div className="text-2xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">{totalPedidos}</div>}
               <p className="text-xs text-muted-foreground">Pedidos realizados.</p>
             </CardContent>
           </Card>
@@ -303,7 +306,7 @@ function DashboardPage() {
               <Hourglass className="h-5 w-5 text-startt-blue" />
             </CardHeader>
             <CardContent>
-              {loadingStats ? <Skeleton className="h-8 w-1/2 mb-1" /> : <div className="text-2xl font-bold text-foreground">{pedidosPendentes}</div>}
+              {loadingStats ? <Skeleton className="h-8 w-1/2 mb-1" /> : <div className="text-2xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">{pedidosPendentes}</div>}
               <p className="text-xs text-muted-foreground">Aguardando ou em produção.</p>
             </CardContent>
           </Card>
@@ -314,7 +317,7 @@ function DashboardPage() {
               <CheckCircle2 className="h-5 w-5 text-startt-purple" />
             </CardHeader>
             <CardContent>
-              {loadingStats ? <Skeleton className="h-8 w-1/2 mb-1" /> : <div className="text-2xl font-bold text-foreground">{pedidosConcluidos}</div>}
+              {loadingStats ? <Skeleton className="h-8 w-1/2 mb-1" /> : <div className="text-2xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">{pedidosConcluidos}</div>}
               <p className="text-xs text-muted-foreground">Prontos para download.</p>
             </CardContent>
           </Card>
@@ -341,7 +344,7 @@ function DashboardPage() {
                     <Link to={`/meus-audios#pedido-${pedido.id}`} className="block">
                       <div className="flex justify-between items-center">
                         <div>
-                          <p className="font-semibold text-amber-500 dark:text-amber-400 truncate max-w-xs sm:max-w-sm md:max-w-md">
+                          <p className="font-semibold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent truncate max-w-xs sm:max-w-sm md:max-w-md">
                             {pedido.titulo || `Pedido de ${new Date(pedido.created_at).toLocaleDateString('pt-BR')}`}
                           </p>
                           <p className="text-sm text-muted-foreground">
@@ -362,9 +365,9 @@ function DashboardPage() {
                     </Link>
                   </Card>
                 ))}
-                {pedidos.length > 3 && ( // Mostrar apenas se houver mais pedidos do que os últimos 3 exibidos
+                {pedidos.length > 3 && (
                   <div className="text-center mt-4">
-                    <Button variant="link" asChild className="text-amber-400 hover:text-amber-300 dark:text-amber-400 dark:hover:text-amber-300 underline">
+                    <Button variant="link" asChild className="text-white hover:text-gray-200 underline">
                       <Link to="/meus-audios">Ver todos os meus pedidos</Link>
                     </Button>
                   </div>
@@ -399,7 +402,7 @@ function DashboardPage() {
                         <AvatarFallback>{locutor.nome?.charAt(0).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-semibold text-amber-500 dark:text-amber-400 group-hover:text-amber-400 dark:group-hover:text-amber-300">{locutor.nome}</p>
+                        <p className="font-semibold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent group-hover:text-amber-400 dark:group-hover:text-amber-300">{locutor.nome}</p>
                         <p className="text-xs text-muted-foreground truncate max-w-xs">
                           {locutor.descricao || "Locutor Profissional"}
                         </p>
@@ -408,7 +411,7 @@ function DashboardPage() {
                   </Card>
                 ))}
                  <div className="text-center mt-4">
-                    <Button variant="link" asChild className="text-amber-400 hover:text-amber-300 dark:text-amber-400 dark:hover:text-amber-300 underline">
+                    <Button variant="link" asChild className="text-white hover:text-gray-200 underline">
                         <Link to="/locutores">Explorar todos os locutores</Link>
                     </Button>
                 </div>
@@ -427,12 +430,6 @@ function DashboardPage() {
       </div>
 
       <Separator className="my-8" />
-
-      <Button asChild size="lg" className="bg-gradient-to-r from-startt-blue to-startt-purple text-primary-foreground hover:opacity-90 mt-4">
-        <Link to="/comprar-creditos">
-          <CreditCard className="mr-2 h-5 w-5" /> Adquirir Mais Créditos
-        </Link>
-      </Button>
     </div>
   );
 }

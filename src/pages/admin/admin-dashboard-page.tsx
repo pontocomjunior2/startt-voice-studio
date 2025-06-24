@@ -852,8 +852,6 @@ function AdminDashboardPage() {
   console.log('[AdminDashboardPage Render] isProcessingAutoStatusChange:', isProcessingAutoStatusChange);
   console.log('[AdminDashboardPage Render] isUpdatingPedido:', isUpdatingPedido);
 
-  const statusHasChanged = selectedPedido && currentPedidoStatus !== selectedPedido.status;
-
   const showSalvarButtonCondition = modalActiveTab === 'detalhesPedido' && selectedPedido &&
     selectedPedido.status !== PEDIDO_STATUS.PENDENTE &&
     selectedPedido.status !== PEDIDO_STATUS.CONCLUIDO &&

@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { 
-  Bell,
   LayoutDashboard, 
   Users, 
   LogOut, 
@@ -23,7 +22,6 @@ import {
   Package
 } from 'lucide-react';
 import Footer from './Footer'; // Garantir que esta importação existe
-import { Badge } from "@/components/ui/badge";
 import { TextShimmer } from '@/components/ui/text-shimmer';
 import WhatsappFloatingButton from './WhatsappFloatingButton';
 import { cn } from '@/lib/utils';
@@ -44,7 +42,7 @@ interface SocialLinkItem {
 }
 
 const AppLayout: React.FC = () => {
-  const { profile, signOut, user, unreadNotificationsCount } = useAuth();
+  const { profile, signOut, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
@@ -89,17 +87,6 @@ const AppLayout: React.FC = () => {
     { href: 'https://youtube.com/@pontocomaudio', label: 'YouTube', icon: Youtube },
   ];
 
-  const handleBellClick = () => {
-    if (profile?.role === 'cliente') {
-      navigate('/dashboard#meus-audios');
-      // A lógica de marcar como lido e atualizar o badge já ocorre na DashboardPage
-      // ao carregar os pedidos.
-    } else {
-      console.log("Ícone de sino clicado por usuário não cliente ou sem perfil definido.");
-      // Poderia levar para uma página de notificações geral ou admin, se aplicável.
-    }
-  };
-
   const SidebarNav: React.FC = () => (
     <nav className="flex flex-col gap-1 mt-10">
       {navItems.map((item) => {
@@ -109,12 +96,14 @@ const AppLayout: React.FC = () => {
             key={item.href}
             to={item.href}
             className={cn(
-              "flex items-center w-full gap-2 rounded-md px-2 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-200 dark:hover:bg-neutral-800 transition-all duration-200",
-              isActive && "bg-neutral-100 dark:bg-neutral-900 shadow-lg text-gray-800 dark:text-gray-100 font-medium"
+              "flex items-center w-full gap-2 rounded-md px-2 py-2 text-sm transition-all duration-200",
+              isActive 
+                ? "bg-gradient-to-r from-startt-blue to-startt-purple text-white shadow-lg font-medium"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-neutral-800"
             )}
             end={item.href.indexOf('#') === -1}
           >
-            <item.icon className={cn("h-4 w-4 flex-shrink-0 text-startt-blue")} aria-hidden="true" />
+            <item.icon className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-white" : "text-startt-blue")} aria-hidden="true" />
             <span className="whitespace-nowrap">{item.label}</span>
           </NavLink>
         );
@@ -268,18 +257,6 @@ const AppLayout: React.FC = () => {
             </div>
             
             <div className="flex items-center gap-3 ml-auto">
-              <Button variant="ghost" size="icon" className='relative text-muted-foreground dark:text-gray-400 hover:text-foreground dark:hover:text-white' onClick={handleBellClick}>
-                <Bell className="h-5 w-5" />
-                {unreadNotificationsCount > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                  >
-                    {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
-                  </Badge>
-                )}
-                <span className="sr-only">Notificações</span>
-              </Button>
               <Button variant="outline" size="sm" onClick={handleLogout} disabled={isLoggingOut} className="hidden md:inline-flex dark:border-neutral-700 dark:bg-neutral-900 dark:text-gray-100 dark:hover:bg-neutral-800">
                 <LogOut className="mr-2 h-4 w-4" />
                 {isLoggingOut ? 'Saindo...' : 'Sair'}

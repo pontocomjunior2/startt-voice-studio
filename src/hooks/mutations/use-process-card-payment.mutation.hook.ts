@@ -7,45 +7,42 @@ declare global {
   }
 }
 
-interface CardPaymentParams {
+interface ProcessCardPaymentVariables {
   pacoteId: string;
   userIdCliente: string;
-  formData: any; // O objeto completo vindo do formulário com token oficial do MP
+  formData: any; // O objeto do formulário
 }
 
 // Esta função envia dados do cartão diretamente para o backend processar no MP
-const processCardPayment = async ({ pacoteId, userIdCliente, formData }: CardPaymentParams) => {
-  const { token, transaction_amount, payment_method_id, installments, payer, card_data, issuer_id } = formData;
-  const description = `Compra de créditos PontoComAudio`; // Descrição genérica
+const processCardPayment = async (variables: ProcessCardPaymentVariables) => {
+  console.log("🔍 [FRONTEND] Enviando dados para o backend...", variables);
+  const { pacoteId, userIdCliente, formData } = variables;
 
-  console.log('🔍 [FRONTEND] Enviando dados para o backend...');
+  // CORREÇÃO: Combinar todos os dados em um único objeto plano
+  const payload = {
+    pacoteId,
+    userIdCliente,
+    ...formData
+  };
 
   const response = await fetch('/api/processar-pagamento-cartao-mp', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      token, // Token (se houver)
-      card_data,
-      valorTotal: transaction_amount,
-      descricao: description,
-      installments,
-      paymentMethodId: payment_method_id,
-      issuerId: issuer_id,
-      payer,
-      userIdCliente,
-      pacoteId,
-    }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload), // Enviar o payload combinado
   });
 
-  const result = await response.json();
+  const data = await response.json();
 
-  if (!response.ok || result.status !== 'approved') {
-    console.log(`❌ [FRONTEND] Pagamento não aprovado. Status: ${result.status_detail || 'N/A'}`);
-    throw new Error(result.message || 'Erro: Pagamento não foi aprovado.');
+  if (!response.ok) {
+    console.error("❌ [FRONTEND] Resposta de erro do backend:", data);
+    const errorMessage = data.message || `Erro ${response.status} ao processar o pagamento.`;
+    throw new Error(errorMessage);
   }
 
   console.log('✅ [FRONTEND] Pagamento aprovado, aguardando webhook.');
-  return result;
+  return data;
 };
 
 // O hook de mutação

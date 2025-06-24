@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabaseClient';
 import { toast } from 'sonner';
 import { PEDIDO_STATUS } from '../../types/pedido.type';
-import { REVISAO_STATUS_ADMIN } from '../../types/revisao.type';
 
 interface UpdatePedidoAudioAndStatusVariables {
   pedidoId: string;

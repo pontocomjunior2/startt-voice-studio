@@ -142,41 +142,39 @@ const CreditCardForm = memo(({ pacote, onPaymentSuccess }: CreditCardFormProps) 
     setCardData((prev: CardData) => ({ ...prev, [field]: formattedValue }));
   }, []);
 
-  // ✅ REMOVIDO: Não criar token, enviar dados diretamente para o backend
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🔍 [FORM] Submit iniciado');
-    
-    if (!user || !pacote) {
-      console.log('❌ [FORM] Usuário ou pacote não encontrado');
+    if (!user || !pacote || !window.MercadoPago) {
+      toast.error("Erro", { description: "A página não foi carregada corretamente. Tente recarregar." });
       return;
     }
 
-    // Validações básicas
-    if (!cardData.cardNumber || !cardData.expiryDate || !cardData.securityCode || !cardData.cardholderName) {
-      toast.error('Preencha todos os campos obrigatórios');
-      return;
-    }
-
-    if (!paymentMethodId) {
-      toast.error('Bandeira do cartão não identificada. Verifique o número do cartão.');
-      return;
-    }
-
-    if (!/^\d{2}\/\d{2}$/.test(cardData.expiryDate)) {
-      toast.error('Data de validade deve estar no formato MM/AA');
-      return;
-    }
-
-    console.log('✅ [FORM] Validações passaram, enviando dados para MP via backend');
+    const mp = new window.MercadoPago(import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY);
 
     try {
-      // ✅ DADOS DIRETOS PARA O BACKEND - AGORA COM BANDEIRA E EMISSOR CORRETOS
+      // 1. ESTRUTURA CORRIGIDA para createCardToken
+      const token = await mp.createCardToken({
+        cardNumber: cardData.cardNumber.replace(/\s/g, ''),
+        cardholderName: cardData.cardholderName,
+        cardExpirationMonth: cardData.expiryDate.split('/')[0],
+        cardExpirationYear: `20${cardData.expiryDate.split('/')[1]}`, // Ano com 4 dígitos
+        securityCode: cardData.securityCode,
+        identificationType: cardData.identificationType,
+        identificationNumber: cardData.identificationNumber,
+      });
+
+      if (!token?.id) {
+        throw new Error("Não foi possível gerar o token de pagamento. Verifique os dados do cartão.");
+      }
+
+      console.log('✅ [FRONTEND] Token gerado com sucesso:', token.id);
+
+      // 2. ENVIAR APENAS O TOKEN PARA O BACKEND
       const formData = {
+        token: token.id,
         transaction_amount: pacote.valor,
-        payment_method_id: paymentMethodId, // ✅ BANDEIRA DINÂMICA
-        issuer_id: issuerId, // ✅ EMISSOR DINÂMICO
+        payment_method_id: paymentMethodId,
+        issuer_id: issuerId,
         installments: parseInt(cardData.installments),
         payer: {
           email: user.email,
@@ -185,16 +183,7 @@ const CreditCardForm = memo(({ pacote, onPaymentSuccess }: CreditCardFormProps) 
             number: cardData.identificationNumber
           }
         },
-        // Dados do cartão para processamento direto no MP
-        card_data: {
-          number: cardData.cardNumber.replace(/\s/g, ''),
-          expiry_date: cardData.expiryDate,
-          security_code: cardData.securityCode,
-          cardholder_name: cardData.cardholderName
-        }
       };
-
-      console.log('🔄 [FRONTEND] Enviando DADOS DO CARTÃO para backend (MP vai validar)');
 
       processPayment({
         pacoteId: pacote.id,
@@ -205,9 +194,12 @@ const CreditCardForm = memo(({ pacote, onPaymentSuccess }: CreditCardFormProps) 
       });
 
     } catch (error: any) {
-      console.error('❌ [ERRO]:', error);
-      toast.error('Erro ao processar cartão', {
-        description: error.message || 'Verifique os dados e tente novamente.'
+      console.error('❌ [ERRO COMPLETO DO MP]:', error);
+
+      // Tratamento de erro já corrigido
+      const errorMessage = error[0]?.message || 'Verifique os dados do cartão e tente novamente.';
+      toast.error('Erro ao Processar Cartão', {
+        description: errorMessage
       });
     }
   };

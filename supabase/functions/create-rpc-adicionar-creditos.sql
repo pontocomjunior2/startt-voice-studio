@@ -91,7 +91,6 @@ CREATE OR REPLACE FUNCTION admin_subtrair_creditos(
 )
 RETURNS JSON
 LANGUAGE plpgsql
-SECURITY DEFINER
 AS $$
 DECLARE
   v_admin_id UUID := auth.uid();
@@ -101,16 +100,10 @@ DECLARE
   v_quantidade_restante INTEGER;
   v_quantidade_a_debitar INTEGER;
 BEGIN
-  -- 1. VERIFICAR SE O CHAMADOR É ADMIN
-  SELECT EXISTS (
-    SELECT 1 FROM profiles WHERE id = v_admin_id AND role = 'admin'
-  ) INTO v_is_admin;
-
+  -- 1. Verificar se o chamador é admin
+  SELECT EXISTS (SELECT 1 FROM profiles WHERE id = v_admin_id AND role = 'admin') INTO v_is_admin;
   IF NOT v_is_admin THEN
-    RETURN json_build_object(
-      'success', false,
-      'error', 'Acesso negado. Apenas administradores podem executar esta ação.'
-    );
+    RETURN json_build_object('success', false, 'error', 'Acesso negado.');
   END IF;
 
   -- 2. Verificar créditos disponíveis
@@ -121,18 +114,17 @@ BEGIN
     AND status = 'ativo'
     AND (data_validade IS NULL OR data_validade > NOW());
 
+  -- VALIDAÇÃO CORRIGIDA E MELHORADA
   IF v_creditos_disponiveis < p_quantidade THEN
     RETURN json_build_object(
       'success', false,
-      'error', 'Créditos insuficientes',
-      'disponiveis', v_creditos_disponiveis,
-      'solicitados', p_quantidade
+      'error', 'Não foi possível subtrair os créditos.',
+      'message', 'Você tentou remover ' || p_quantidade || ' crédito(s), mas o usuário possui apenas ' || v_creditos_disponiveis || ' válido(s).'
     );
   END IF;
 
-  -- 3. Debitar créditos dos lotes (FIFO)
+  -- 3. Debitar créditos dos lotes (lógica mantida)
   v_quantidade_restante := p_quantidade;
-  
   FOR v_lotes_para_debitar IN
     SELECT id, quantidade_adicionada, quantidade_usada
     FROM lotes_creditos
@@ -144,33 +136,24 @@ BEGIN
       CASE WHEN data_validade IS NULL THEN '2099-12-31'::timestamp ELSE data_validade END ASC,
       data_adicao ASC
   LOOP
-    v_quantidade_a_debitar := LEAST(
-      v_quantidade_restante,
-      v_lotes_para_debitar.quantidade_adicionada - v_lotes_para_debitar.quantidade_usada
-    );
-    
+    v_quantidade_a_debitar := LEAST(v_quantidade_restante, v_lotes_para_debitar.quantidade_adicionada - v_lotes_para_debitar.quantidade_usada);
     UPDATE lotes_creditos
     SET 
       quantidade_usada = quantidade_usada + v_quantidade_a_debitar,
       observacao_admin = COALESCE(observacao_admin, '') || ' | Débito Admin: ' || v_quantidade_a_debitar || ' por ' || p_observacao
     WHERE id = v_lotes_para_debitar.id;
-    
     v_quantidade_restante := v_quantidade_restante - v_quantidade_a_debitar;
-    
     EXIT WHEN v_quantidade_restante <= 0;
   END LOOP;
 
   RETURN json_build_object(
     'success', true,
-    'message', p_quantidade || ' crédito(s) foram debitados do usuário ' || p_user_id
+    'message', p_quantidade || ' crédito(s) foram debitados com sucesso.'
   );
 
 EXCEPTION
   WHEN OTHERS THEN
-    RETURN json_build_object(
-      'success', false,
-      'error', 'Erro interno: ' || SQLERRM
-    );
+    RETURN json_build_object('success', false, 'error', 'Erro interno: ' || SQLERRM);
 END;
 $$;
 

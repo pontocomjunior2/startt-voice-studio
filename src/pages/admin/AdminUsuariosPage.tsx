@@ -66,111 +66,37 @@ function AdminUsuariosPage() {
   const [isLocutorModalOpen, setIsLocutorModalOpen] = useState(false);
   const [selectedUserForLocutores, setSelectedUserForLocutores] = useState<UserProfile | null>(null);
 
-  const [userFilter, setUserFilter] = useState('');
-
-  const { data: initialUsers = [], isLoading: isLoadingInitialUsers, isError: isFetchUsersError, error: fetchUsersError } = useFetchAdminUsers();
-  const { mutate: updateUserRole, isPending: isUpdatingRole } = useUpdateUserRole();
-
-  const [usersWithCalculatedCredit, setUsersWithCalculatedCredit] = useState<UserProfile[]>([]);
-  const [isCalculatingBalances, setIsCalculatingBalances] = useState(false);
   const [isDebitModalOpen, setIsDebitModalOpen] = useState(false);
   const [selectedUserForDebit, setSelectedUserForDebit] = useState<UserProfile | null>(null);
   const [debitAmount, setDebitAmount] = useState<string>('');
   const [debitReason, setDebitReason] = useState('');
   const [isDebiting, setIsDebiting] = useState(false);
+  
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedUserForDelete, setSelectedUserForDelete] = useState<UserProfile | null>(null);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
+  const [userFilter, setUserFilter] = useState('');
+
+  const { data: initialUsers = [], isLoading: isLoadingUsers, isError, error } = useFetchAdminUsers();
+  const { mutate: updateUserRole, isPending: isUpdatingRole } = useUpdateUserRole();
+  const [usersWithDetails, setUsersWithDetails] = useState<UserProfile[]>([]);
+
   useEffect(() => {
-    // CORREÇÃO: Somar profiles.credits + lotes_creditos válidos
-    const fetchBalancesForUsers = async () => {
+    const fetchDetailsForUsers = async () => {
       if (initialUsers && initialUsers.length > 0) {
-        setIsCalculatingBalances(true);
-        console.log("AdminUsuariosPage: CORREÇÃO - Somando profiles.credits + lotes_creditos válidos");
-        
-                 try {
-           console.log("AdminUsuariosPage: DEBUGGING - Iniciando cálculo de saldos para usuários:", initialUsers.length);
-           
-           const usersWithBalances = await Promise.all(initialUsers.map(async (user) => {
-             console.log(`AdminUsuariosPage: DEBUGGING - Processando usuário ${user.id} (${user.username})`);
-             
-             // Primeiro, vamos verificar TODOS os lotes deste usuário
-             const { data: todosLotes } = await supabase
-               .from('lotes_creditos')
-               .select('*')
-               .eq('user_id', user.id);
-             
-             console.log(`AdminUsuariosPage: DEBUGGING - Todos os lotes do usuário ${user.id}:`, todosLotes);
-             
-             // Buscar APENAS créditos de lotes_creditos válidos (não expirados)
-             const currentDate = new Date().toISOString();
-             const { data: lotes, error: lotesError } = await supabase
-               .from('lotes_creditos')
-               .select('quantidade_adicionada, quantidade_usada, data_validade, data_adicao, status')
-               .eq('user_id', user.id)
-               .eq('status', 'ativo')
-               .or(`data_validade.is.null,data_validade.gt.${currentDate}`);
-             
-             console.log(`AdminUsuariosPage: DEBUGGING - Lotes válidos do usuário ${user.id}:`, lotes);
-             
-             if (lotesError) {
-               console.error(`AdminUsuariosPage: Erro ao buscar lotes para usuário ${user.id}:`, lotesError);
-               return { ...user, saldoCalculadoCreditos: 0 };
-             }
-             
-             // Somar APENAS lotes_creditos válidos não usados
-             const creditosValidos = lotes?.reduce((sum, lote) => {
-               const saldoLote = lote.quantidade_adicionada - (lote.quantidade_usada || 0);
-               console.log(`AdminUsuariosPage: DEBUGGING - Usuário ${user.id} Lote - adicionado: ${lote.quantidade_adicionada}, usado: ${lote.quantidade_usada}, saldo: ${saldoLote}`);
-               return sum + saldoLote;
-             }, 0) || 0;
-             
-             console.log(`AdminUsuariosPage: DEBUGGING - Usuário ${user.id} - Total créditos válidos: ${creditosValidos}`);
-             
-             return { ...user, saldoCalculadoCreditos: creditosValidos };
-           }));
-          
-          setUsersWithCalculatedCredit(usersWithBalances);
-        } catch (error) {
-          console.error("AdminUsuariosPage: Erro ao processar saldos de usuários:", error);
-          setUsersWithCalculatedCredit(initialUsers.map(u => ({...u, saldoCalculadoCreditos: u.credits || 0 })));
-        } finally {
-          setIsCalculatingBalances(false);
-        }
+        const detailedUsers = await Promise.all(initialUsers.map(async (user) => {
+          const { data, error } = await supabase.rpc('get_user_details_for_admin', { p_user_id: user.id });
+          if (error) {
+            return { ...user, saldoCalculadoCreditos: 0, pacotes_ativos: [] };
+          }
+          return { ...user, ...data };
+        }));
+        setUsersWithDetails(detailedUsers);
       }
     };
-
-    fetchBalancesForUsers();
-
-    /* CÓDIGO ORIGINAL (comentado para correção):
-    const fetchBalancesForUsers = async () => {
-      if (initialUsers && initialUsers.length > 0) {
-        setIsCalculatingBalances(true);
-        try {
-          const usersWithBalances = await Promise.all(initialUsers.map(async (user) => {
-            const { data: saldoData, error: saldoError } = await supabase.rpc('get_saldo_creditos_validos', {
-              p_user_id: user.id
-            });
-            if (saldoError) {
-              console.error(`AdminUsuariosPage: Erro ao buscar saldo para usuário ${user.id}:`, saldoError);
-              return { ...user, saldoCalculadoCreditos: user.credits || 0 };
-            }
-            return { ...user, saldoCalculadoCreditos: saldoData ?? 0 };
-          }));
-          setUsersWithCalculatedCredit(usersWithBalances);
-        } catch (error) {
-          console.error("AdminUsuariosPage: Erro ao processar saldos de usuários:", error);
-          setUsersWithCalculatedCredit(initialUsers.map(u => ({...u, saldoCalculadoCreditos: u.credits || 0 })));
-        } finally {
-          setIsCalculatingBalances(false);
-        }
-      }
-    };
-
-    fetchBalancesForUsers();
-    */
+    fetchDetailsForUsers();
   }, [initialUsers]);
 
   const openCreditModal = (user: UserProfile) => {
@@ -273,20 +199,29 @@ function AdminUsuariosPage() {
     }
     setIsDebiting(true);
     try {
-      const { error } = await supabase.rpc('admin_subtrair_creditos', {
+      const { data: result, error } = await supabase.rpc('admin_subtrair_creditos', {
         p_user_id: selectedUserForDebit.id,
         p_quantidade: parseInt(debitAmount, 10),
         p_observacao: debitReason.trim()
       });
+
       if (error) {
-        toast.error("Erro ao subtrair créditos", { description: error.message });
-        return;
+        throw new Error(error.message);
       }
-      toast.success("Créditos subtraídos com sucesso!");
+      
+      if (result && result.success === false) {
+        throw new Error(result.message || result.error || "Ocorreu um erro retornado pelo servidor.");
+      }
+
+      toast.success(result?.message || "Créditos subtraídos com sucesso!");
+      
       await queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
+      
       setIsDebitModalOpen(false);
     } catch (err: any) {
-      toast.error("Erro ao subtrair créditos", { description: err.message });
+      toast.error("Falha ao subtrair créditos", { 
+        description: err.message || "Ocorreu um erro inesperado." 
+      });
     } finally {
       setIsDebiting(false);
     }
@@ -322,13 +257,13 @@ function AdminUsuariosPage() {
     }
   };
 
-  const filteredUsers = usersWithCalculatedCredit.filter(user => 
+  const filteredUsers = usersWithDetails.filter(user => 
     (user.full_name?.toLowerCase().includes(userFilter.toLowerCase())) ||
     (user.username?.toLowerCase().includes(userFilter.toLowerCase()))
   );
   
-  if (isFetchUsersError && fetchUsersError) {
-    return <div className="p-4 text-red-500">Erro ao carregar usuários: {fetchUsersError.message}</div>;
+  if (isError && error) {
+    return <div className="p-4 text-red-500">Erro ao carregar usuários: {error.message}</div>;
   }
 
   return (
@@ -349,10 +284,10 @@ function AdminUsuariosPage() {
         />
       </div>
 
-      {isLoadingInitialUsers || isCalculatingBalances ? (
+      {isLoadingUsers ? (
         <div className="flex items-center justify-center py-10">
           <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
-          <p className="ml-2">{isLoadingInitialUsers ? 'Carregando usuários...' : 'Calculando saldos...'}</p>
+          <p className="ml-2">Carregando usuários...</p>
         </div>
       ) : (
         <div className="overflow-x-auto relative border border-border rounded-md admin-table-fix-dark-border">
@@ -363,6 +298,7 @@ function AdminUsuariosPage() {
                 <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Nome Completo</TableHead>
                 <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Usuário/Email</TableHead>
                 <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Créditos</TableHead>
+                <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Pacotes Ativos</TableHead>
                 <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Role Atual</TableHead>
                 <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Última Atualização</TableHead>
                 <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Ações</TableHead>
@@ -374,6 +310,19 @@ function AdminUsuariosPage() {
                   <TableCell className="font-medium px-4 py-3 whitespace-nowrap">{user.full_name || user.username || 'N/A'}</TableCell>
                   <TableCell className="px-4 py-3 whitespace-nowrap">{user.username || 'N/A'}</TableCell>
                   <TableCell className="px-4 py-3 whitespace-nowrap">{user.saldoCalculadoCreditos ?? 0}</TableCell>
+                  <TableCell className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex flex-wrap gap-1">
+                      {user.pacotes_ativos && user.pacotes_ativos.length > 0 ? (
+                        user.pacotes_ativos.map(pacoteNome => (
+                          <Badge key={pacoteNome} variant="outline" className="text-xs">
+                            {pacoteNome}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-xs text-muted-foreground">N/A</span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="px-4 py-3 whitespace-nowrap">
                     <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
                       {user.role || 'N/A'}

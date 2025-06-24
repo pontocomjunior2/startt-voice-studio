@@ -25,8 +25,6 @@ export default function ComprarCreditosPage() {
   // A restauração a partir do localStorage foi removida.
   const [pacoteSelecionado, setPacoteSelecionado] = useState<Pacote | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
-  const [lastSelectedPaymentMethod, setLastSelectedPaymentMethod] = useState<string | null>(null);
-  
   const [isLoadingQrCode, setIsLoadingQrCode] = useState(false);
   const [qrCodeBase64MP, setQrCodeBase64MP] = useState<string | null>(null);
   const [qrCodePayloadMP, setQrCodePayloadMP] = useState<string | null>(null);
@@ -77,7 +75,6 @@ export default function ComprarCreditosPage() {
   // Função para lidar com mudança de método de pagamento
   const handlePaymentMethodChange = useCallback((method: string) => {
     setSelectedPaymentMethod(method);
-    setLastSelectedPaymentMethod(method);
     
     if (method === 'pix' && pacoteSelecionado && !qrCodeBase64MP) {
       generatePix();
@@ -132,7 +129,6 @@ export default function ComprarCreditosPage() {
     // Não precisa mais limpar localStorage, apenas o estado local
     setPacoteSelecionado(null);
     setSelectedPaymentMethod(null);
-    setLastSelectedPaymentMethod(null);
     setQrCodeBase64MP(null);
     setQrCodePayloadMP(null);
     setTempoRestanteSegundosMP(null);

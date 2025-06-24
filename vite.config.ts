@@ -14,34 +14,23 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
-      // Plugin para copiar a pasta `public` para `dist` na produção, mas excluindo a subpasta `uploads`.
-      // Isso é mais robusto que usar publicDir, que não suporta exclusões.
+      // Plugin para copiar a pasta `public` para `dist`, mas excluindo a subpasta `uploads`.
       {
         name: 'copy-public-excluding-uploads',
-        apply: 'build', // Executar apenas durante o build de produção
+        apply: 'build',
         closeBundle() {
           const publicDir = path.resolve(__dirname, 'public');
           const distDir = path.resolve(__dirname, 'dist');
-          const uploadsInPublic = path.join(publicDir, 'uploads');
-          const uploadsInDist = path.join(distDir, 'uploads');
+          
+          // Copia todos os arquivos e subdiretórios, exceto 'uploads'
+          fs.readdirSync(publicDir).forEach(file => {
+            const srcPath = path.join(publicDir, file);
+            const destPath = path.join(distDir, file);
 
-          // 1. Temporariamente move a pasta uploads para fora
-          if (fs.existsSync(uploadsInPublic)) {
-            fs.renameSync(uploadsInPublic, path.join(__dirname, 'temp_uploads'));
-          }
-
-          // 2. Copia o restante da pasta public
-          fs.cpSync(publicDir, distDir, { recursive: true });
-
-          // 3. Remove a pasta uploads que pode ter sido copiada para dist (se vazia)
-          if (fs.existsSync(uploadsInDist)) {
-            fs.rmSync(uploadsInDist, { recursive: true, force: true });
-          }
-
-          // 4. Move a pasta uploads de volta para o lugar original
-          if (fs.existsSync(path.join(__dirname, 'temp_uploads'))) {
-            fs.renameSync(path.join(__dirname, 'temp_uploads'), uploadsInPublic);
-          }
+            if (file !== 'uploads') {
+              fs.cpSync(srcPath, destPath, { recursive: true });
+            }
+          });
         }
       }
     ],

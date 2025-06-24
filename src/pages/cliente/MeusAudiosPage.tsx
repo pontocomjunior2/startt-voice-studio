@@ -1,38 +1,26 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../contexts/AuthContext'; // Ajustar caminho se necessário
+import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Card pode ser útil para a mensagem de "nenhum pedido"
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { toast } from 'sonner';
-import { supabase } from '../../lib/supabaseClient'; // Ajustar caminho se necessário
+import { supabase } from '../../lib/supabaseClient';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, Edit3, History, Eye, MoreVertical, Trash2, MessageSquare, FileAudio, XCircle, Paperclip, ThumbsUp, MessageSquareWarning, Send, RotateCcw } from 'lucide-react'; // Ícones necessários, Edit3 ou History para revisão, Adicionado Trash2 e MessageSquare
-import { Clock, CheckCircle, AlertCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom'; // Link para o botão de novo pedido
-import { solicitarRevisaoAction, excluirPedidoAction } from '@/actions/pedido-actions'; // Importar a action
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogClose, // Para o botão de fechar/cancelar
-} from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { PEDIDO_STATUS } from '@/types/pedido.type'; // Manter PEDIDO_STATUS aqui
-import { REVISAO_STATUS_ADMIN } from '@/types/revisao.type'; // Garantir que esta importação esteja correta
-import type { Pedido, TipoStatusPedido } from '@/types/pedido.type'; // Importar tipos com type
-import { startOfDay, endOfDay } from 'date-fns';
+import { 
+  Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, 
+  Edit3, History, Eye, MoreVertical, Trash2, FileAudio, XCircle, Paperclip, 
+  ThumbsUp, MessageSquareWarning, Send, Clock, CheckCircle, AlertCircle, RotateCcw 
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { solicitarRevisaoAction, excluirPedidoAction } from '@/actions/pedido-actions';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { PEDIDO_STATUS } from '@/types/pedido.type';
+import { REVISAO_STATUS_ADMIN } from '@/types/revisao.type';
+import type { Pedido, TipoStatusPedido } from '@/types/pedido.type';
 import { DetalhesPedidoDownloadDialog } from '@/components/cliente/detalhes-pedido-download-dialog';
 import { useDropzone } from 'react-dropzone';
 import { useFetchRevisoesParaCliente } from '@/hooks/cliente/use-fetch-revisoes-para-cliente.hook';
@@ -329,16 +317,6 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
   );
 };
 
-// Hook de debounce
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(handler);
-  }, [value, delay]);
-  return debouncedValue;
-}
-
 function MeusAudiosPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
@@ -353,7 +331,7 @@ function MeusAudiosPage() {
   const [submittingRevisao, setSubmittingRevisao] = useState(false);
   
   const [isModoResposta, setIsModoResposta] = useState(false);
-  const [solicitacaoParaResponderId, setSolicitacaoParaResponderId] = useState<string | null>(null);
+  const [solicitacaoParaResponder, setSolicitacaoParaResponder] = useState<{id: string, admin_feedback: string} | null>(null);
 
   const [isHistoricoRevisoesModalOpen, setIsHistoricoRevisoesModalOpen] = useState(false);
   const [pedidoParaHistoricoRevisoes, setPedidoParaHistoricoRevisoes] = useState<Pedido | null>(null);
@@ -365,11 +343,7 @@ function MeusAudiosPage() {
   const [pedidoParaExcluir, setPedidoParaExcluir] = useState<Pedido | null>(null);
   const [submittingExclusao, setSubmittingExclusao] = useState(false);
 
-  // NOVO ESTADO: Armazena a mensagem correta a ser exibida no modal
-  const [mensagemAdminParaExibir, setMensagemAdminParaExibir] = useState<string | null>(null);
-
   const [filtroTitulo, setFiltroTitulo] = useState("");
-  const debouncedFiltroTitulo = useDebounce(filtroTitulo, 400);
   const [filtroStatus, setFiltroStatus] = useState<string>("__all__");
   const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined);
   const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
@@ -453,36 +427,23 @@ function MeusAudiosPage() {
     setPedidoParaRevisao(pedido);
     setDescricaoRevisao("");
     setIsModoResposta(modoResposta);
-    setAudioGuiaRevisaoFile(null);
-    setMensagemAdminParaExibir(null); // Limpa o estado anterior
-
+    
     if (modoResposta) {
-      // CENÁRIO 1: A pendência vem de uma SOLICITAÇÃO DE REVISÃO
-      const revisaoPendente = pedido.solicitacoes_revisao?.find(
-        (r) => r.status_revisao === REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE
-      );
-
-      if (revisaoPendente) {
-        setMensagemAdminParaExibir(revisaoPendente.admin_feedback || "O admin solicitou mais informações sobre a revisão, mas a mensagem não foi encontrada.");
-        setSolicitacaoParaResponderId(revisaoPendente.id);
-        setIsRevisaoModalOpen(true);
-        return; // Encerra aqui para não cair no próximo `if`
-      }
-
-      // CENÁRIO 2: A pendência vem do PEDIDO ORIGINAL
-      if (pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && pedido.admin_message) {
-        setMensagemAdminParaExibir(pedido.admin_message);
-        setSolicitacaoParaResponderId('admin_message_response'); // Identificador especial
-        setIsRevisaoModalOpen(true);
-        return;
-      }
+      const { data, error } = await supabase
+        .from('solicitacoes_revisao')
+        .select('id, admin_feedback')
+        .eq('pedido_id', pedido.id)
+        .eq('status_revisao', REVISAO_STATUS_ADMIN.INFO_SOLICITADA_AO_CLIENTE)
+        .limit(1).single();
       
-      // Se chegou aqui, não há pendência válida para responder
-      toast.error("Nenhuma pendência encontrada", { description: "Não há solicitações de informação ativas para este pedido." });
-
+      if (error || !data) {
+        toast.error("Pendência não encontrada.");
+      } else {
+        setSolicitacaoParaResponder({id: data.id, admin_feedback: data.admin_feedback || "O admin solicitou mais informações."});
+        setIsRevisaoModalOpen(true);
+      }
     } else {
-      // Abre o modal para uma NOVA solicitação de revisão
-      setSolicitacaoParaResponderId(null);
+      setSolicitacaoParaResponder(null);
       setIsRevisaoModalOpen(true);
     }
   };
@@ -521,7 +482,7 @@ function MeusAudiosPage() {
       });
 
       if (resultado?.data?.success) {
-        setPedidos(prev => prev.map(p => p.id === resultado.data.pedidoId ? { ...p, status: resultado.data.novoStatus as TipoStatusPedido } : p));
+        setPedidos(prev => prev.map(p => p.id === resultado.data!.pedidoId ? { ...p, status: resultado.data!.novoStatus as TipoStatusPedido } : p));
         toast.success("Revisão Solicitada");
         setIsRevisaoModalOpen(false);
       } else {
@@ -537,105 +498,13 @@ function MeusAudiosPage() {
 
   const handleAcaoPrincipalModalRevisao = () => {
     if (isModoResposta) {
-      if (!solicitacaoParaResponderId) {
-        toast.error("Erro", { description: "ID da solicitação não encontrado." });
-        return;
-      }
-
-      // Verificar se é resposta a mensagem do admin (via admin_message)
-      if (solicitacaoParaResponderId === 'admin_message_response' && pedidoParaRevisao) {
-        handleResponderMensagemAdmin();
-        return;
-      }
-
-      // Fluxo normal de resposta a solicitação de revisão
+      if (!solicitacaoParaResponder?.id) return;
       executarEnviarResposta({
-        solicitacaoId: solicitacaoParaResponderId,
+        solicitacaoId: solicitacaoParaResponder.id,
         respostaCliente: descricaoRevisao,
       });
     } else {
       handleSolicitarRevisao();
-    }
-  };
-
-  const handleResponderMensagemAdmin = async () => {
-    if (!pedidoParaRevisao || !descricaoRevisao.trim()) {
-      toast.error("Resposta Obrigatória", { description: "Por favor, forneça as informações solicitadas pelo admin." });
-      return;
-    }
-
-    setSubmittingRevisao(true);
-    let uploadedAudioRespostaUrl: string | null = null;
-
-    try {
-      // 1. Fazer upload do arquivo de áudio se houver
-      if (audioGuiaRevisaoFile) {
-        setIsUploadingGuiaRevisao(true);
-        const uploadFormData = new FormData();
-        uploadFormData.append('audioGuia', audioGuiaRevisaoFile);
-        
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/upload-guia-revisao`, {
-          method: 'POST',
-          body: uploadFormData,
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido no upload.' }));
-          throw new Error(errorData.message);
-        }
-        
-        const result = await response.json();
-        if (result.success && result.filePath) {
-          uploadedAudioRespostaUrl = result.filePath;
-          console.log("Áudio de resposta enviado com sucesso:", uploadedAudioRespostaUrl);
-        } else {
-          throw new Error(result.message || "Servidor não retornou o caminho do arquivo.");
-        }
-      }
-
-      // 2. Atualizar o pedido com a resposta do cliente e mudar status para "em_analise"
-      const updateData: any = {
-        cliente_resposta_info: descricaoRevisao.trim(),
-        status: PEDIDO_STATUS.EM_ANALISE,
-        data_resposta_cliente: new Date().toISOString()
-      };
-
-      // Adicionar URL do áudio se foi feito upload
-      if (uploadedAudioRespostaUrl) {
-        updateData.cliente_audio_resposta_url = uploadedAudioRespostaUrl;
-      }
-
-      const { error } = await supabase
-        .from('pedidos')
-        .update(updateData)
-        .eq('id', pedidoParaRevisao.id);
-
-      if (error) {
-        console.error("Erro ao salvar resposta do cliente:", error);
-        toast.error("Erro", { description: "Não foi possível salvar sua resposta." });
-        return;
-      }
-
-      // 3. Atualizar o estado local
-      setPedidos(prev => prev.map(p => 
-        p.id === pedidoParaRevisao.id 
-          ? { ...p, status: PEDIDO_STATUS.EM_ANALISE as TipoStatusPedido }
-          : p
-      ));
-
-      const successMessage = uploadedAudioRespostaUrl 
-        ? "Sua resposta e arquivo de áudio foram enviados com sucesso!"
-        : "Sua resposta foi enviada com sucesso!";
-      
-      toast.success("Resposta Enviada", { description: successMessage });
-      setIsRevisaoModalOpen(false);
-
-    } catch (error: any) {
-      console.error("Erro ao responder mensagem do admin:", error);
-      toast.error("Erro", { description: error.message || "Ocorreu um erro inesperado ao enviar sua resposta." });
-    } finally {
-      setSubmittingRevisao(false);
-      setIsUploadingGuiaRevisao(false);
     }
   };
 
@@ -741,6 +610,12 @@ function MeusAudiosPage() {
       setSubmittingExclusao(false);
     }
   };
+
+  useEffect(() => {
+    if (profile?.id) {
+      fetchAllPedidos();
+    }
+  }, [filtroTitulo, filtroStatus, dataInicio, dataFim, profile?.id]);
 
   if (loadingPedidos) {
     return (
@@ -1117,51 +992,24 @@ function MeusAudiosPage() {
       <Dialog open={isRevisaoModalOpen} onOpenChange={setIsRevisaoModalOpen}>
         <DialogContent className="sm:max-w-[600px] bg-neutral-900 text-white">
           <DialogHeader>
-            <DialogTitle className="text-xl">
-              {isModoResposta ? "Responder Solicitação do Admin" : "Solicitar Revisão do Áudio"}
-            </DialogTitle>
+            <DialogTitle>{isModoResposta ? "Responder Pendência" : "Solicitar Revisão do Áudio"}</DialogTitle>
             <DialogDescription>
               Pedido: #{pedidoParaRevisao?.id_pedido_serial}
-              {pedidoParaRevisao?.titulo && ` - ${pedidoParaRevisao.titulo}`}
             </DialogDescription>
           </DialogHeader>
-          
-          {isModoResposta && mensagemAdminParaExibir && (
-            <div className="my-4 p-4 border-l-4 border-amber-500 bg-amber-900/20 rounded-r-lg">
-              <div className="flex items-center mb-2">
-                <MessageSquareWarning className="h-5 w-5 text-amber-400 mr-2" />
-                <Label className="font-semibold text-amber-300">Mensagem do Admin:</Label>
+          {isModoResposta && (
+            <div className="my-4">
+              <Label className="font-semibold">Mensagem do Admin:</Label>
+              <div className="mt-1 p-2 border rounded bg-muted">
+                {solicitacaoParaResponder?.admin_feedback || "Carregando mensagem..."}
               </div>
-              <div className="p-3 bg-amber-950/30 rounded text-sm border border-amber-800 whitespace-pre-wrap">
-                {mensagemAdminParaExibir}
-              </div>
-              <p className="text-xs text-amber-400 mt-2">
-                ⚠️ Por favor, leia com atenção e forneça as informações solicitadas.
-              </p>
             </div>
           )}
-          <div className="space-y-2">
-            <Label htmlFor="descricao-resposta" className="text-white font-medium">
-              {isModoResposta ? "Sua Resposta" : "Descrição da Revisão"} <span className="text-red-400">*</span>
-            </Label>
-            <Textarea
-              id="descricao-resposta"
-              placeholder={
-                isModoResposta 
-                  ? "Descreva as informações solicitadas pelo admin..." 
-                  : "Descreva o que precisa ser corrigido..."
-              }
-              value={descricaoRevisao}
-              onChange={(e) => setDescricaoRevisao(e.target.value)}
-              rows={4}
-              className="bg-neutral-800 border-neutral-700 text-white placeholder:text-neutral-400"
-            />
-            <p className="text-xs text-neutral-400">
-              {isModoResposta 
-                ? "Forneça todas as informações que o admin solicitou." 
-                : "Mínimo de 10 caracteres."}
-            </p>
-          </div>
+          <Textarea
+            placeholder={isModoResposta ? "Digite sua resposta aqui..." : "Descreva o que precisa ser corrigido..."}
+            value={descricaoRevisao}
+            onChange={(e) => setDescricaoRevisao(e.target.value)}
+          />
           <div className="my-1">
             <Label htmlFor="audio-guia-revisao-dropzone" className="text-white font-medium mb-2 block">
               Áudio Guia para Revisão <span className="text-neutral-300 font-normal">(Opcional)</span>
