@@ -3,31 +3,17 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Declarar os argumentos de build que serão usados no build do frontend
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_ANON_KEY
-ARG VITE_DOWNLOAD_PROXY_URL
-ARG VITE_API_URL
-ARG VITE_ADMIN_SECRET
-
-# Tornar os argumentos disponíveis como variáveis de ambiente para o processo de build
-ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
-ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
-ENV VITE_DOWNLOAD_PROXY_URL=$VITE_DOWNLOAD_PROXY_URL
-ENV VITE_API_URL=$VITE_API_URL
-ENV VITE_ADMIN_SECRET=$VITE_ADMIN_SECRET
-
 # Instalar dependências de build
 RUN apk add --no-cache python3 make g++ git
 
-# Copiar arquivos de pacote e instalar TODAS as dependências
+# Copiar arquivos de pacote e instalar dependências
 COPY package.json package-lock.json* ./
 RUN npm install
 
-# Copiar o resto do código e configurações
+# Copiar o resto do código, INCLUINDO o .env.production
 COPY . .
 
-# Build do frontend e backend
+# Build do frontend e backend (Vite usará .env.production)
 RUN npm run build
 RUN npm run build:server
 

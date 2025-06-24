@@ -1,0 +1,63 @@
+# Dockerfile.simples - Versão Otimizada com Cache de Dependências e .env
+
+# Estágio 1: Builder
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# 1. Copiar apenas os arquivos de definição de dependências.
+COPY package.json package-lock.json* ./
+
+# 2. Instalar dependências. Esta camada será cacheada se os arquivos acima não mudarem.
+RUN npm install
+
+# 3. Copiar o restante do código da aplicação, incluindo o .env.production.
+COPY . .
+
+# 4. Construir a aplicação.
+RUN npm run build
+RUN npm run build:server
+
+# 5. Remover dependências de desenvolvimento.
+RUN npm prune --production
+
+
+# Estágio 2: Produção
+# Este estágio cria a imagem final, que é leve e contém apenas o necessário para rodar.
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Criar um usuário não-root para segurança.
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+
+# Instalar dependências essenciais de runtime.
+RUN apk add --no-cache dumb-init curl
+
+# Copiar os artefatos do estágio de build.
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/dist-server ./dist-server
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/package.json .
+
+# Criar e dar permissão para os diretórios que podem ser montados como volumes.
+RUN mkdir -p public/uploads temp && \
+    chown -R nodejs:nodejs public/uploads temp
+
+# Mudar para o usuário não-root.
+USER nodejs
+
+# Definir a porta da aplicação.
+ENV PORT=80
+ENV NODE_ENV=production
+
+EXPOSE 80
+
+# Health check para verificar se a aplicação está saudável.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+  CMD curl -f http://localhost:80/api/health || exit 1
+
+# Comando de inicialização usando dumb-init para gerenciar sinais corretamente.
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD ["node", "dist-server/server.js"] 
