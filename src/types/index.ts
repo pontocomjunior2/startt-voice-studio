@@ -2,7 +2,7 @@ export interface Locutor {
   id: string;
   created_at?: string;
   nome: string;
-  descricao?: string | null;
+  bio?: string | null;
   avatar_url?: string | null;
   amostra_audio_url: string;
   tipo_voz?: string;
