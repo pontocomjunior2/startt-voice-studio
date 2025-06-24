@@ -1,23 +1,27 @@
+# Dockerfile Final - Otimizado para Cache e Compatível com EasyPanel
+
 # Estágio 1: Build
 FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Instalar dependências de build
+# Instalar dependências de build se necessário (mantido por segurança)
 RUN apk add --no-cache python3 make g++ git
 
-# Copiar arquivos de pacote e instalar dependências
+# 1. Copiar apenas os arquivos de definição de dependências primeiro.
 COPY package.json package-lock.json* ./
+
+# 2. Instalar TODAS as dependências. Esta camada será cacheada.
 RUN npm install
 
-# Copiar o resto do código, INCLUINDO o .env.production
+# 3. Copiar o restante do código da aplicação.
 COPY . .
 
-# Build do frontend e backend (Vite usará .env.production)
+# 4. Construir o frontend e o backend. O Vite usará as variáveis do EasyPanel.
 RUN npm run build
 RUN npm run build:server
 
-# Remover dependências de desenvolvimento para preparar para o próximo estágio
+# 5. Remover dependências de desenvolvimento.
 RUN npm prune --production
 
 # Estágio 2: Produção
