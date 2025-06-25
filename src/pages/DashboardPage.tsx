@@ -26,7 +26,7 @@ interface Pedido {
   audio_final_url: string | null;
   downloaded_at: string | null;
   cliente_notificado_em: string | null;
-  locutores: { nome: string } | null;
+  locutores: { nome_artistico: string } | null;
   titulo?: string;
 }
 
@@ -36,15 +36,15 @@ interface UltimoPedidoItem {
   titulo?: string | null;
   status: 'pendente' | 'gravando' | 'concluido' | 'cancelado' | 'em_revisao' | 'aguardando_cliente' | 'rejeitado';
   created_at: string;
-  locutores: { nome: string } | null;
+  locutores: { nome_artistico: string } | null;
 }
 
 // Definir um tipo para Locutor (para exibição de favoritos)
 interface LocutorExibicao {
   id: string;
-  nome: string;
+  nome_artistico: string;
   avatar_url?: string | null;
-  descricao?: string | null;
+  bio?: string | null;
 }
 
 function DashboardPage() {
@@ -116,7 +116,7 @@ function DashboardPage() {
           audio_final_url,
           downloaded_at,
           cliente_notificado_em,
-          locutores ( nome ) 
+          locutores ( nome_artistico ) 
         `)
         .eq('user_id', profile.id)
         .order('created_at', { ascending: false });
@@ -170,7 +170,7 @@ function DashboardPage() {
           titulo,
           status,
           created_at,
-          locutores ( nome )
+          locutores ( nome_artistico )
         `)
         .eq('user_id', profile.id)
         .order('created_at', { ascending: false })
@@ -182,7 +182,7 @@ function DashboardPage() {
         console.log('[DashboardPage] Último Pedido Raw - ID:', pedido.id, 'Título:', pedido.titulo, 'Locutores Raw:', pedido.locutores);
         const locutorProcessado = Array.isArray(pedido.locutores) && pedido.locutores.length > 0 
                                     ? pedido.locutores[0] 
-                                    : (pedido.locutores && typeof pedido.locutores === 'object' && pedido.locutores !== null && 'nome' in pedido.locutores ? pedido.locutores : null);
+                                    : (pedido.locutores && typeof pedido.locutores === 'object' && pedido.locutores !== null && 'nome_artistico' in pedido.locutores ? pedido.locutores : null);
         
         console.log('[DashboardPage] Último Pedido Mapeado - ID:', pedido.id, 'Título:', pedido.titulo, 'Locutor Processado:', locutorProcessado);
         return {
@@ -204,7 +204,7 @@ function DashboardPage() {
         const ids = favoritosIdsData.map(f => f.locutor_id);
         const { data: locutoresData, error: locutoresError } = await supabase
           .from('locutores')
-          .select('id, nome, avatar_url, descricao')
+          .select('id, nome_artistico, avatar_url, bio')
           .in('id', ids)
           .limit(3); 
 
@@ -377,7 +377,7 @@ function DashboardPage() {
                             {pedido.titulo || `Pedido de ${new Date(pedido.created_at).toLocaleDateString('pt-BR')}`}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            Locutor: {pedido.locutores?.nome || 'N/A'}
+                            Locutor: {pedido.locutores?.nome_artistico || 'N/A'}
                           </p>
                         </div>
                         <Badge variant={
@@ -427,13 +427,13 @@ function DashboardPage() {
                   <Card key={locutor.id} className="p-3 hover:shadow-lg transition-shadow rounded-lg bg-card text-card-foreground border-none">
                     <Link to={`/gravar-locucao?locutorId=${locutor.id}`} className="flex items-center space-x-3 group">
                       <Avatar className="h-12 w-12 border">
-                        <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome} />
-                        <AvatarFallback>{locutor.nome?.charAt(0).toUpperCase()}</AvatarFallback>
+                        <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome_artistico} />
+                        <AvatarFallback>{locutor.nome_artistico?.charAt(0).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-semibold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent group-hover:text-amber-400 dark:group-hover:text-amber-300">{locutor.nome}</p>
+                        <p className="font-semibold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent group-hover:text-amber-400 dark:group-hover:text-amber-300">{locutor.nome_artistico}</p>
                         <p className="text-xs text-muted-foreground truncate max-w-xs">
-                          {locutor.descricao || "Locutor Profissional"}
+                          {locutor.bio || "Locutor Profissional"}
                         </p>
                       </div>
                     </Link>

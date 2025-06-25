@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { cn } from '@/lib/utils';
-import { PlayCircle, Send, Loader2, UserCircle, Users, ChevronLeft, ChevronRight, Heart, Filter, Star, AlertTriangle, FileAudio, XCircle, Sparkles, RefreshCw } from 'lucide-react';
+import { PlayCircle, Send, Loader2, UserCircle, Users, ChevronLeft, ChevronRight, Heart, Filter, Star, AlertTriangle, FileAudio, XCircle, Sparkles, RefreshCw, User } from 'lucide-react';
 import { Separator } from "@/components/ui/separator";
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -39,6 +39,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDropzone } from 'react-dropzone';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { useGenerateAiAudio } from '@/hooks/mutations/use-generate-ai-audio.mutation.hook';
 
 const estilosLocucaoOpcoes = [
   { id: 'padrao', label: 'Padrão' },
@@ -160,6 +161,11 @@ function GravarLocucaoPage() {
 
   const { control, handleSubmit, setValue, reset, formState: { isSubmitting, isValid: isFormValid, errors }, watch, trigger, getValues, setError: setFormError } = formHook;
 
+  const { mutate: generateAiAudio, isPending: isGeneratingAi } = useGenerateAiAudio();
+
+  const [tipoGravacao, setTipoGravacao] = useState<'humana' | 'ia'>('humana');
+  const [custoIa, setCustoIa] = useState(0);
+
   // Definição das funções com useCallback ANTES dos useEffects que dependem delas
   const fetchLocutores = useCallback(async () => {
     if (!user) {
@@ -173,6 +179,9 @@ function GravarLocucaoPage() {
       // CHAMADA CORRIGIDA PARA A RPC
       const { data: locutoresData, error: locutoresError } = await supabase
         .rpc('get_locutores_disponiveis_para_cliente', { p_user_id: user.id });
+
+      // >>> ADICIONE ESTA LINHA AQUI <<<
+      console.log('[DEBUG 1] DADOS BRUTOS RECEBIDOS DA RPC:', locutoresData);
 
       if (locutoresError) throw locutoresError;
       
@@ -399,32 +408,24 @@ function GravarLocucaoPage() {
   
   useEffect(() => {
     const currentScript = getValues("scriptText") || "";
-    const segundos = calcularTempoEstimadoSegundos(currentScript, velocidadeSelecionada);
-    setTempoEstimadoSegundos(segundos);
-
-    if (segundos === 0 && currentScript.trim() === '') {
-      setEstimatedCredits(0);
-      return;
-    }
-
-    // Blocos de 40 segundos
-    const SECONDS_PER_CREDIT_BLOCK = 40;
-    let blocosDeCreditoBase = Math.max(1, Math.ceil(segundos / SECONDS_PER_CREDIT_BLOCK));
-
-    // Diferenciação por tipo de áudio
-    const tipoAudio = getValues("tipoAudio");
-    let creditosFinais = 0;
-    if (tipoAudio === 'produzido') {
-      creditosFinais = blocosDeCreditoBase * 2;
-    } else if (tipoAudio === 'off') {
-      creditosFinais = blocosDeCreditoBase * 1;
+    
+    if (tipoGravacao === 'humana') {
+      const segundos = calcularTempoEstimadoSegundos(currentScript, velocidadeSelecionada);
+      setTempoEstimadoSegundos(segundos);
+      if (segundos === 0 && currentScript.trim() === '') {
+        setEstimatedCredits(0);
+        return;
+      }
+      const blocosDeCreditoBase = Math.max(1, Math.ceil(segundos / 40));
+      const tipoAudio = getValues("tipoAudio");
+      setEstimatedCredits(tipoAudio === 'produzido' ? blocosDeCreditoBase * 2 : blocosDeCreditoBase);
+      setCustoIa(0);
     } else {
-      creditosFinais = 0; // Não definido ou inválido
+      const custo = currentScript.trim().length;
+      setCustoIa(custo);
+      setEstimatedCredits(0);
     }
-    setEstimatedCredits(creditosFinais);
-
-    console.log(`[Créditos Calc] Seg: ${segundos}, Blocos Base: ${blocosDeCreditoBase}, Tipo: ${tipoAudio}, Créditos Finais: ${creditosFinais}`);
-  }, [watchedScriptText, velocidadeSelecionada, watch("tipoAudio"), getValues, setTempoEstimadoSegundos, setEstimatedCredits]);
+  }, [watchedScriptText, velocidadeSelecionada, watch("tipoAudio"), getValues, tipoGravacao]);
 
   // Funções de navegação para paginação de locutores
   // Remover: const handleNextLocutoresPage = () => { ... }
@@ -490,17 +491,36 @@ function GravarLocucaoPage() {
   });
 
   const onSubmitForm = async (values: z.infer<typeof multiStepGravarLocucaoFormSchema>) => {
-    // console.log('[GravarLocucaoPage] onSubmitForm - Valores recebidos:', values);
-    // console.log('[GravarLocucaoPage] onSubmitForm - Locutor selecionado (estado):', selectedLocutor);
-    // console.log('[GravarLocucaoPage] onSubmitForm - Locutor ID do formulário (getValues):', getValues('locutorId'));
-    // console.log('[GravarLocucaoPage] onSubmitForm - Profile:', profile);
-    // console.log('[GravarLocucaoPage] onSubmitForm - User:', user);
     if (!user || !profile) {
       toast.error("Erro de Autenticação", { description: "Usuário não autenticado. Faça login novamente." });
       return;
     }
+    
+    if (tipoGravacao === 'ia') {
+      if (!selectedLocutor) {
+        toast.error("Erro", { description: "Nenhum locutor selecionado para a gravação com IA." });
+        return;
+      }
+      if (!values.scriptText || values.scriptText.trim().length < 10) {
+        toast.error("Roteiro Inválido", { description: "O roteiro deve ter pelo menos 10 caracteres." });
+        return;
+      }
+      
+      generateAiAudio({
+        scriptText: values.scriptText,
+        locutorId: selectedLocutor.id,
+        tituloPedido: values.tituloPedido || 'Pedido de Áudio (IA)',
+        userId: user.id // Passando o userId para o backend
+      }, {
+        onSuccess: () => {
+          refreshProfile(); // Atualiza os saldos de créditos
+          navigate('/meus-audios');
+        }
+      });
+      return;
+    }
 
-    // Nova lógica de validação e obtenção do locutor para submissão
+    // Lógica para gravação humana continua aqui...
     const locutorIdFromForm = values.locutorId;
     if (!locutorIdFromForm) {
       toast.error("Erro de Validação", { description: "Nenhum locutor selecionado no formulário. Volte para a Etapa 2 e selecione um." });
@@ -511,22 +531,16 @@ function GravarLocucaoPage() {
     const locutorParaSubmissao = locutores.find(l => l.id === locutorIdFromForm);
     if (!locutorParaSubmissao) {
       toast.error("Erro de Validação", { description: "O locutor selecionado no formulário é inválido. Volte para a Etapa 2 e selecione um válido." });
-      setValue("locutorId", "", { shouldValidate: true, shouldTouch: true }); // Limpa o campo inválido
-      setSelectedLocutor(null); // Limpa também o estado React para consistência da UI
+      setValue("locutorId", "", { shouldValidate: true, shouldTouch: true });
+      setSelectedLocutor(null);
       setCurrentStep(2);
       return;
     }
     
-    // Se chegou aqui, locutorParaSubmissao contém os dados do locutor válidos baseados no formulário.
-    // Para garantir que a UI (como o resumo do locutor na Etapa 3) e o estado geral estejam consistentes,
-    // podemos atualizar o estado selectedLocutor, embora a lógica de submissão usará locutorParaSubmissao.
     if (!selectedLocutor || selectedLocutor.id !== locutorParaSubmissao.id) {
-        // Isso é mais uma sincronização para a UI, caso estivesse dessincronizada.
-        // A lógica de submissão usará locutorParaSubmissao diretamente.
         setSelectedLocutor(locutorParaSubmissao);
     }
 
-    // Validação de créditos e roteiro apenas para novos pedidos
     if (!editingPedidoIdParam) {
       if ((profile.saldo_gravacao ?? 0) < estimatedCredits) {
         toast.error("Créditos Insuficientes", { description: `Você precisa de ${estimatedCredits} créditos de gravação, mas seu saldo é de ${profile.saldo_gravacao ?? 0}.` });
@@ -541,7 +555,6 @@ function GravarLocucaoPage() {
         setFormError("scriptText", { type: "manual", message: "O roteiro deve ter pelo menos 10 caracteres." });
         return;
       }
-      console.log('[GravarLocucaoPage] VALIDAÇÃO OK: Créditos suficientes.');
     }
 
     if (editingPedidoIdParam) {
@@ -895,6 +908,9 @@ function GravarLocucaoPage() {
       setRoteiroSendoRegenerado(false);
     }
   };
+
+  // >>> ADICIONE ESTA LINHA AQUI <<<
+  console.log('[DEBUG 2] ESTADO ATUAL DO LOCUTOR SELECIONADO:', selectedLocutor);
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -1268,6 +1284,30 @@ function GravarLocucaoPage() {
                     </p>
                   </div>
 
+                  {/* >>> Bloco de código inserido <<< */}
+                  {selectedLocutor.ia_disponivel && (
+                    <div className="p-4 border bg-card rounded-lg shadow-inner">
+                      <Label className="text-base font-semibold text-foreground">Tipo de Gravação</Label>
+                      <RadioGroup
+                        value={tipoGravacao}
+                        onValueChange={(value: 'humana' | 'ia') => setTipoGravacao(value)}
+                        className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-4"
+                      >
+                        <Label htmlFor="tipo-humana" className={cn("flex flex-col items-center justify-center p-4 rounded-lg border-2 cursor-pointer transition-all", tipoGravacao === 'humana' ? 'border-primary bg-primary/10' : 'border-border')}>
+                          <RadioGroupItem value="humana" id="tipo-humana" className="sr-only" />
+                          <User className="h-6 w-6 mb-2" />
+                          <span className="font-bold">Gravação Humana</span>
+                        </Label>
+                        <Label htmlFor="tipo-ia" className={cn("flex flex-col items-center justify-center p-4 rounded-lg border-2 cursor-pointer transition-all", tipoGravacao === 'ia' ? 'border-primary bg-primary/10' : 'border-border')}>
+                          <RadioGroupItem value="ia" id="tipo-ia" className="sr-only" />
+                          <Sparkles className="h-6 w-6 mb-2" />
+                          <span className="font-bold">✨ Gravar com IA</span>
+                        </Label>
+                      </RadioGroup>
+                    </div>
+                  )}
+
+                  {/* O resto do formulário */}
                   <FormField
                     control={control}
                     name="tituloPedido"
@@ -1461,35 +1501,28 @@ function GravarLocucaoPage() {
                         </div>
                         <Separator orientation="vertical" className="hidden sm:block h-12 self-center bg-border/70" />
                         <div className='text-center sm:text-left px-2'>
-                            <p className="text-sm text-muted-foreground mb-1">Créditos Estimados:</p>
-                            <p className="text-3xl font-bold text-foreground tabular-nums">
-                            {estimatedCredits}
-                            </p>
-                            {getValues("tipoAudio") === 'produzido' && estimatedCredits > 0 && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                (2 créditos por bloco de 40s para áudio produzido)
+                            <p className="text-sm text-muted-foreground mb-1">Custo Estimado:</p>
+                            {tipoGravacao === 'humana' ? (
+                              <p className="text-3xl font-bold text-foreground tabular-nums">
+                                {estimatedCredits} <span className="text-lg">Créditos de Gravação</span>
                               </p>
-                            )}
-                            {getValues("tipoAudio") === 'off' && estimatedCredits > 0 && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                (1 crédito por bloco de 40s para áudio em off)
+                            ) : (
+                              <p className="text-3xl font-bold text-foreground tabular-nums">
+                                {(custoIa).toLocaleString('pt-BR')} <span className="text-lg">Créditos IA</span>
                               </p>
                             )}
                         </div>
                     </div>
-                     {(profile?.saldo_gravacao ?? 0) < estimatedCredits && estimatedCredits > 0 && (
+                    {tipoGravacao === 'humana' && (profile?.saldo_gravacao ?? 0) < estimatedCredits && estimatedCredits > 0 && (
                       <div className="text-center mt-4 p-3 bg-destructive/10 rounded-md">
-                        <p className="text-sm font-medium text-destructive">
-                          Você não tem créditos suficientes para este pedido.
-                        </p>
-                        <Button
-                          type="button"
-                          onClick={() => navigate('/comprar-creditos')}
-                          className="mt-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold shadow-lg hover:opacity-90"
-                          size="sm"
-                        >
-                          Adicionar Créditos
-                        </Button>
+                        <p className="text-sm font-medium text-destructive">Você não tem créditos de gravação suficientes para este pedido.</p>
+                        <Button type="button" onClick={() => navigate('/comprar-creditos')} className="mt-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold shadow-lg hover:opacity-90" size="sm">Adicionar Créditos</Button>
+                      </div>
+                    )}
+                    {tipoGravacao === 'ia' && (profile?.saldo_ia ?? 0) < custoIa && custoIa > 0 && (
+                      <div className="text-center mt-4 p-3 bg-destructive/10 rounded-md">
+                        <p className="text-sm font-medium text-destructive">Você não tem Créditos IA suficientes para este roteiro.</p>
+                        <Button type="button" onClick={() => navigate('/comprar-creditos')} className="mt-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold shadow-lg hover:opacity-90" size="sm">Adicionar Créditos</Button>
                       </div>
                     )}
                   </div>
@@ -1749,20 +1782,22 @@ function GravarLocucaoPage() {
                             type="submit"
                             size="lg"
                             disabled={
-                                isSubmitting || 
+                                isSubmitting || isGeneratingAi || // Adicionado isGeneratingAi
                                 !isFormValid ||
                                 !selectedLocutor || 
-                                estimatedCredits === 0 ||
-                                (profile?.saldo_gravacao ?? 0) < estimatedCredits
+                                (tipoGravacao === 'humana' && estimatedCredits === 0 && (getValues("scriptText") || "").trim().length > 0) ||
+                                (tipoGravacao === 'humana' && (profile?.saldo_gravacao ?? 0) < estimatedCredits) ||
+                                (tipoGravacao === 'ia' && (profile?.saldo_ia ?? 0) < custoIa) ||
+                                (tipoGravacao === 'ia' && custoIa === 0 && (getValues("scriptText") || "").trim().length > 0)
                             }
                             className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90"
                           >
-                            {isSubmitting ? (
+                            {(isSubmitting || isGeneratingAi) ? ( // Adicionado isGeneratingAi
                               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                             ) : (
                               <Send className="mr-2 h-5 w-5" />
                             )}
-                            {editingPedidoIdParam ? `Enviar Alteração (${estimatedCredits} créditos)` : `Enviar Pedido (${estimatedCredits} créditos)`}
+                            {isSubmitting ? 'Enviando Pedido...' : (isGeneratingAi ? 'Gerando Áudio IA...' : 'Enviar Pedido')}
                           </Button>
                         </span>
                       </TooltipTrigger>

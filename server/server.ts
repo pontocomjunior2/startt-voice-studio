@@ -38,6 +38,7 @@ import webhookMpPagamentosRouter from './api/webhook-mp-pagamentos';
 import { processarPagamentoCartaoMP } from './api/processar-pagamento-cartao-mp';
 import testeCreditosHandler from './api/teste-creditos';
 import verificarCreditosHandler from './api/verificar-creditos';
+import { gerarAudioIAHandler } from './api/gerar-audio-ia';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -1000,6 +1001,9 @@ app.get('/health', (req, res) => {
 
 // ROTA: Geração de roteiro com IA Gemini
 app.post('/api/gerar-roteiro-ia', gerarRoteiroIAHandler);
+
+// NOVA ROTA: Geração de áudio com IA
+app.post('/api/ia/gerar-audio', gerarAudioIAHandler);
 
 // ROTA: Processamento de pagamento com cartão
 app.post('/api/processar-pagamento-cartao-mp', processarPagamentoCartaoMP);

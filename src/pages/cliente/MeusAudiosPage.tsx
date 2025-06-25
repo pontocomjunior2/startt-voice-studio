@@ -30,6 +30,7 @@ import { useAction } from 'next-safe-action/hooks';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePickerSingle } from '@/components/ui/date-picker-single';
 import { Input } from '@/components/ui/input';
+import { useFetchPedidosCliente } from '../../hooks/queries/use-fetch-pedidos-cliente.hook';
 
 // Componente para o Dialog de Histórico de Revisões
 interface HistoricoRevisoesDialogProps {
@@ -245,7 +246,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
                 <div className="font-medium text-neutral-300">Título:</div>
                 <div className="md:col-span-2">{pedido.titulo || <span className="italic text-neutral-400">N/A</span>}</div>
                 <div className="font-medium text-neutral-300">Locutor:</div>
-                <div className="md:col-span-2">{pedido.locutores?.nome || <span className="italic text-neutral-400">Não definido</span>}</div>
+                <div className="md:col-span-2">{pedido.locutores?.nome_artistico || <span className="italic text-neutral-400">Não definido</span>}</div>
                 <div className="font-medium text-neutral-300">Estilo de Áudio:</div>
                 <div className="md:col-span-2">{pedido.estilo_locucao || <span className="italic text-neutral-400">N/A</span>}</div>
                 <div className="font-medium text-neutral-300 self-start">Tipo de Áudio:</div>
@@ -322,9 +323,13 @@ function MeusAudiosPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
 
-  const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [loadingPedidos, setLoadingPedidos] = useState(true);
-  const [errorLoadingPedidos, setErrorLoadingPedidos] = useState<string | null>(null);
+  const { 
+    data: pedidos = [], 
+    isLoading: loadingPedidos, 
+    isError: errorLoadingPedidos,
+    error,
+    refetch: fetchAllPedidos 
+  } = useFetchPedidosCliente();
 
   const [isRevisaoModalOpen, setIsRevisaoModalOpen] = useState(false);
   const [pedidoParaRevisao, setPedidoParaRevisao] = useState<Pedido | null>(null);
@@ -387,48 +392,6 @@ function MeusAudiosPage() {
     }
   });
 
-  const fetchAllPedidos = async () => {
-    if (!profile?.id) {
-      setLoadingPedidos(false);
-      return;
-    }
-    setLoadingPedidos(true);
-    const { data, error } = await supabase
-      .from('pedidos')
-      .select(`
-        id, id_pedido_serial, created_at, texto_roteiro, titulo, creditos_debitados, status,
-        audio_final_url, downloaded_at, cliente_notificado_em, tipo_audio, estilo_locucao,
-        orientacoes, admin_cancel_reason, admin_message, cliente_resposta_info, 
-        data_resposta_cliente, cliente_audio_resposta_url,
-        locutores ( nome ),
-        solicitacoes_revisao (
-          id,
-          status_revisao,
-          admin_feedback,
-          versoes_audio_revisao ( audio_url, enviado_em )
-        )
-      `)
-      .eq('user_id', profile.id)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      setErrorLoadingPedidos(error.message);
-    } else {
-      const mappedPedidos = (data || []).map((item: any) => ({
-        ...item,
-        locutores: Array.isArray(item.locutores) ? item.locutores[0] : item.locutores,
-      }));
-      setPedidos(mappedPedidos as Pedido[]);
-    }
-    setLoadingPedidos(false);
-  };
-
-  useEffect(() => {
-    if (profile?.id) {
-      fetchAllPedidos();
-    }
-  }, [profile?.id]);
-  
   const handleOpenRevisaoModal = async (pedido: Pedido, modoResposta = false) => {
     setPedidoParaRevisao(pedido);
     setDescricaoRevisao("");
@@ -488,7 +451,7 @@ function MeusAudiosPage() {
       });
 
       if (resultado?.data?.success) {
-        setPedidos(prev => prev.map(p => p.id === resultado.data!.pedidoId ? { ...p, status: resultado.data!.novoStatus as TipoStatusPedido } : p));
+        fetchAllPedidos();
         toast.success("Revisão Solicitada");
         setIsRevisaoModalOpen(false);
       } else {
@@ -536,7 +499,7 @@ function MeusAudiosPage() {
         if (error) {
           console.warn("Não foi possível marcar o pedido como baixado:", error);
         } else {
-          setPedidos(prev => prev.map(p => p.id === pedido.id ? {...p, downloaded_at: new Date().toISOString()} : p)); // Corrigido para p.id === pedido.id
+          fetchAllPedidos();
         }
       }
     } catch (error) {
@@ -590,7 +553,7 @@ function MeusAudiosPage() {
       if (resultado?.data?.success === true && typeof resultado.data?.pedidoId === 'string') {
         toast.success("Pedido Excluído", { description: "Seu pedido foi excluído com sucesso." });
         const pedidoExcluidoId = resultado.data.pedidoId!
-        setPedidos(prevPedidos => prevPedidos.filter(p => p.id !== pedidoExcluidoId));
+        fetchAllPedidos();
         setIsConfirmarExclusaoModalOpen(false);
         setPedidoParaExcluir(null);
       } else {
@@ -617,29 +580,14 @@ function MeusAudiosPage() {
     }
   };
 
-  useEffect(() => {
-    if (profile?.id) {
-      fetchAllPedidos();
-    }
-  }, [filtroTitulo, filtroStatus, dataInicio, dataFim, profile?.id]);
-
-  if (loadingPedidos) {
-    return (
-      <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-150px)]">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-muted-foreground">Carregando seus áudios...</p>
-      </div>
-    );
-  }
-
   if (errorLoadingPedidos) {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
         <h2 className="text-xl font-semibold text-red-600 mb-2">Erro ao Carregar Áudios</h2>
-        <p className="text-muted-foreground mb-4">{errorLoadingPedidos}</p>
-        <Button onClick={fetchAllPedidos} variant="outline">
-          <Loader2 className={`mr-2 h-4 w-4 ${loadingPedidos ? 'animate-spin' : 'hidden'}`} />
+        <p className="text-muted-foreground mb-4">{error?.message || "Ocorreu um erro desconhecido."}</p>
+        <Button onClick={() => fetchAllPedidos()} variant="outline">
+          <RefreshCw className={`mr-2 h-4 w-4 ${loadingPedidos ? 'animate-spin' : 'hidden'}`} />
           Tentar Novamente
         </Button>
       </div>
@@ -822,7 +770,7 @@ function MeusAudiosPage() {
                         </span>
                       </TableCell>
                       <TableCell className="px-4 py-3 font-medium whitespace-nowrap text-sm text-foreground">
-                        {pedido.locutores?.nome || <span className="text-muted-foreground italic">N/A</span>}
+                        {pedido.locutores?.nome_artistico || <span className="text-muted-foreground italic">N/A</span>}
                       </TableCell>
                       <TableCell className="px-6 py-3 text-sm text-muted-foreground max-w-xs">
                         <div>

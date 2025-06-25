@@ -23,9 +23,9 @@ const fetchPacotes = async (): Promise<PacoteComLocutores[]> => {
     .select(`
       *,
       creditos_ia_oferecidos,
-      locutores: locutores (
+      locutores (
         id,
-        nome
+        nome_artistico
       )
     `)
     .order('nome', { ascending: true });
@@ -35,14 +35,8 @@ const fetchPacotes = async (): Promise<PacoteComLocutores[]> => {
     throw new Error(error.message);
   }
 
-  // Ajuste para garantir que o campo se chame nome_artistico no frontend
-  return (data || []).map(pacote => ({
-    ...pacote,
-    locutores: pacote.locutores.map((loc: any) => ({
-      ...loc,
-      nome_artistico: loc.nome 
-    }))
-  }));
+  // O mapeamento manual não é mais necessário
+  return data as PacoteComLocutores[] || [];
 };
 
 // O hook customizado que usa o useQuery do TanStack Query

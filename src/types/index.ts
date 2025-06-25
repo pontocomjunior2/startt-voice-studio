@@ -12,6 +12,8 @@ export interface Locutor {
    */
   demos?: { url: string; estilo?: string }[];
   nome_artistico: string;
+  ia_disponivel?: boolean;
+  ia_voice_id?: string | null;
 }
 
 export type PedidoStatus = 'pendente' | 'gravando' | 'concluido' | 'cancelado' | 'rejeitado' | 'em_revisao';

@@ -351,7 +351,7 @@ function AdminDashboardPage() {
           audio_final_url, audio_guia_url, downloaded_at, cliente_notificado_em,
           admin_message, cliente_resposta_info, data_resposta_cliente, cliente_audio_resposta_url,
           profile:profiles ( id, full_name, email, username ),
-          locutores ( id, nome )
+          locutores ( id, nome_artistico )
         `)
         .order('created_at', { ascending: false })
         .range(from, to);
@@ -402,7 +402,7 @@ function AdminDashboardPage() {
               username: profileData.username,
               email: profileData.email,
             } : null,
-            locutores: locutorData ? { nome: locutorData.nome } : null,
+            locutores: locutorData ? { nome_artistico: locutorData.nome_artistico } : null,
             audio_final_url: p.audio_final_url,
             audio_guia_url: p.audio_guia_url,
             titulo: p.titulo,
@@ -1066,7 +1066,7 @@ function AdminDashboardPage() {
                         <div className="font-medium">{pedido.profile?.full_name || pedido.profile?.username || 'N/A'}</div>
                         <div className="text-xs text-muted-foreground">{pedido.profile?.email}</div>
                       </TableCell>
-                      <TableCell>{pedido.locutores?.nome || 'Não definido'}</TableCell>
+                      <TableCell>{pedido.locutores?.nome_artistico || 'Não definido'}</TableCell>
                       <TableCell className="max-w-[200px] truncate" title={pedido.titulo || ''}>{pedido.titulo || 'Sem título'}</TableCell>
                       <TableCell>{format(new Date(pedido.created_at), 'dd/MM/yy HH:mm', { locale: ptBR })}</TableCell>
                       <TableCell>
@@ -1286,7 +1286,7 @@ function AdminDashboardPage() {
                 <div className="md:col-span-2 text-foreground">{selectedPedido.titulo || 'N/A'}</div>
 
                 <div className="font-medium text-foreground">Locutor:</div>
-                <div className="md:col-span-2 text-foreground">{selectedPedido.locutores?.nome || 'N/A'}</div>
+                <div className="md:col-span-2 text-foreground">{selectedPedido.locutores?.nome_artistico || 'N/A'}</div>
 
                 <div className="font-medium text-foreground">Estilo de Locução:</div>
                 <div className="md:col-span-2 text-foreground">{selectedPedido.estilo_locucao || 'N/A'}</div>

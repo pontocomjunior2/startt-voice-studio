@@ -37,6 +37,7 @@ const webhook_mp_pagamentos_1 = __importDefault(require("./api/webhook-mp-pagame
 const processar_pagamento_cartao_mp_1 = require("./api/processar-pagamento-cartao-mp");
 const teste_creditos_1 = __importDefault(require("./api/teste-creditos"));
 const verificar_creditos_1 = __importDefault(require("./api/verificar-creditos"));
+const gerar_audio_ia_1 = require("./api/gerar-audio-ia");
 const app = (0, express_1.default)();
 app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT) || 3001; // Porta para o servidor backend
@@ -924,6 +925,8 @@ app.get('/health', (req, res) => {
 });
 // ROTA: Geração de roteiro com IA Gemini
 app.post('/api/gerar-roteiro-ia', gerar_roteiro_ia_1.default);
+// NOVA ROTA: Geração de áudio com IA
+app.post('/api/ia/gerar-audio', gerar_audio_ia_1.gerarAudioIAHandler);
 // ROTA: Processamento de pagamento com cartão
 app.post('/api/processar-pagamento-cartao-mp', processar_pagamento_cartao_mp_1.processarPagamentoCartaoMP);
 // ROTA: Teste de créditos direto

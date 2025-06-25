@@ -40,13 +40,16 @@ import { Badge } from "@/components/ui/badge";
 import { InputUploadImagemLocutor } from '@/components/admin/input-upload-imagem-locutor';
 import { InputUploadAudioLocutor } from '@/components/admin/input-upload-audio-locutor';
 import { Switch } from "@/components/ui/switch";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 // Interface para o tipo Locutor (ajuste conforme sua tabela)
 interface Locutor {
   id: string;
   created_at?: string;
-  nome: string;
-  descricao?: string | null;
+  nome_artistico: string;
+  bio?: string | null;
   avatar_url?: string | null;
   ativo?: boolean;
   amostra_audio_url?: string | null;
@@ -86,7 +89,7 @@ function AdminLocutoresPage() {
       const { data, error } = await supabase
         .from('locutores')
         .select('*')
-        .order('nome', { ascending: true });
+        .order('nome_artistico', { ascending: true });
       if (error) {
         console.error("Erro ao buscar locutores:", error);
         throw error;
@@ -128,8 +131,8 @@ function AdminLocutoresPage() {
   const handleOpenModal = (locutor: Locutor | null) => {
     if (locutor) {
       setEditingLocutor(locutor);
-      setNome(locutor.nome);
-      setDescricao(locutor.descricao || '');
+      setNome(locutor.nome_artistico);
+      setDescricao(locutor.bio || '');
       setAvatarUrl(locutor.avatar_url || '');
       setDemos(locutor.demos || []);
       setAtivo(locutor.ativo === undefined ? true : locutor.ativo);
@@ -146,12 +149,12 @@ function AdminLocutoresPage() {
     try {
       // Montar objeto apenas com campos da tabela locutores
       const locutorData = {
-        nome,
-        descricao: descricao || null,
+        nome_artistico: nome,
+        bio: descricao || null,
         avatar_url: avatarUrl || null,
         ativo,
         ia_disponivel: iaDisponivel,
-        ia_voice_id: iaDisponivel ? (iaVoiceId || null) : null, // Só salva o ID se a IA estiver ativa
+        ia_voice_id: iaDisponivel ? (iaVoiceId || null) : null,
       };
 
       let error, locutorId;
@@ -226,7 +229,7 @@ function AdminLocutoresPage() {
         console.error("Erro ao desativar locutor:", error);
         throw error;
       }
-      toast.success(`Locutor "${locutorToDelete.nome}" desativado com sucesso.`);
+      toast.success(`Locutor "${locutorToDelete.nome_artistico}" desativado com sucesso.`);
       setLocutorToDelete(null); // Fecha o AlertDialog
       fetchAllLocutores();
     } catch (err: any) {
@@ -237,7 +240,7 @@ function AdminLocutoresPage() {
   };
 
   const filteredLocutores = locutores.filter(locutor =>
-    locutor.nome.toLowerCase().includes(locutorFilter.toLowerCase())
+    (locutor.nome_artistico || '').toLowerCase().includes(locutorFilter.toLowerCase())
   );
 
   return (
@@ -278,8 +281,8 @@ function AdminLocutoresPage() {
             <TableBody className="bg-card divide-y divide-border">
               {filteredLocutores.map((locutor) => (
                 <TableRow key={locutor.id} className="hover:bg-muted/50 odd:bg-muted/20">
-                  <TableCell className="font-medium px-4 py-3 whitespace-nowrap">{locutor.nome}</TableCell>
-                  <TableCell className="px-4 py-3 whitespace-nowrap">{locutor.descricao?.substring(0, 50)}{locutor.descricao && locutor.descricao.length > 50 ? '...' : ''}</TableCell>
+                  <TableCell className="font-medium px-4 py-3 whitespace-nowrap">{locutor.nome_artistico}</TableCell>
+                  <TableCell className="px-4 py-3 whitespace-nowrap">{locutor.bio?.substring(0, 50)}{locutor.bio && locutor.bio.length > 50 ? '...' : ''}</TableCell>
                   <TableCell className="text-center px-4 py-3 whitespace-nowrap">
                     <Badge variant={locutor.ativo ? 'default' : 'outline'} className={locutor.ativo ? 'bg-status-green text-white' : ''}>
                       {locutor.ativo ? 'Sim' : 'Não'}
@@ -316,125 +319,107 @@ function AdminLocutoresPage() {
         setIsLocutorModalOpen(isOpen);
         if (!isOpen) resetFormStates();
       }}>
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>{editingLocutor ? 'Editar Locutor' : 'Adicionar Novo Locutor'}</DialogTitle>
+            <DialogTitle>{editingLocutor ? `Editar Locutor: ${editingLocutor.nome_artistico}` : 'Adicionar Novo Locutor'}</DialogTitle>
             <DialogDescription>
-              {editingLocutor ? `Modifique os dados de ${editingLocutor.nome}.` : 'Preencha os dados do novo locutor.'}
+              {editingLocutor ? `Modifique os dados de ${editingLocutor.nome_artistico}.` : 'Preencha os dados do novo locutor.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4 max-h-[80vh] overflow-y-auto">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="nome-locutor" className="text-right">Nome</Label>
-              <Input id="nome-locutor" value={nome} onChange={(e) => setNome(e.target.value)} className="col-span-3" disabled={isSaving} />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="descricao-locutor" className="text-right">Descrição</Label>
-              <Textarea id="descricao-locutor" value={descricao} onChange={(e) => setDescricao(e.target.value)} className="col-span-3" rows={3} disabled={isSaving} />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="avatar-url-locutor" className="text-right">Avatar</Label>
-              <div className="col-span-3">
-                <InputUploadImagemLocutor
-                  name="avatar-url-locutor"
-                  label="Avatar do Locutor"
-                  value={avatarUrl}
-                  onChange={setAvatarUrl}
-                />
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4">
+            
+            {/* Coluna Esquerda */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="nome-locutor">Nome</Label>
+                <Input id="nome-locutor" value={nome} onChange={(e) => setNome(e.target.value)} disabled={isSaving} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="descricao-locutor">Descrição (Bio)</Label>
+                <Textarea id="descricao-locutor" value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={4} disabled={isSaving} />
+              </div>
+              <div className="space-y-2">
+                <Label>Avatar</Label>
+                <InputUploadImagemLocutor name="avatar-url-locutor" label="Avatar do Locutor" value={avatarUrl} onChange={setAvatarUrl} />
+              </div>
+              <Separator />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <Label htmlFor="ativo-locutor" className="font-medium">Ativo</Label>
+                  <Checkbox id="ativo-locutor" checked={ativo} onCheckedChange={(checked) => setAtivo(Boolean(checked))} disabled={isSaving} />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <Label htmlFor="ia-disponivel" className="font-medium">Gravação por IA</Label>
+                  <Switch id="ia-disponivel" checked={iaDisponivel} onCheckedChange={setIaDisponivel} />
+                </div>
+                {iaDisponivel && (
+                  <div className="space-y-2 pl-4 border-l-2 border-primary">
+                    <Label htmlFor="ia-voice-id">ElevenLabs Voice ID</Label>
+                    <Input id="ia-voice-id" value={iaVoiceId} onChange={(e) => setIaVoiceId(e.target.value)} placeholder="ID da voz clonada"/>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label className="text-right pt-2">Demos</Label>
-              <div className="col-span-3 flex flex-col gap-4">
-                {demos.map((demo, idx) => (
-                  <div key={idx} className="flex flex-col gap-2 p-4 border rounded bg-muted/10 mb-2 relative">
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs font-semibold text-foreground">Estilo</label>
-                      <select
-                        className="border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                        value={demo.estilo}
-                        onChange={e => {
+
+            {/* Coluna Direita */}
+            <div className="space-y-4 flex flex-col">
+              <h3 className="text-lg font-semibold border-b pb-2">Demos de Áudio</h3>
+              <ScrollArea className="flex-grow h-[50vh] w-full rounded-md border p-4">
+                {demos.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-10">Nenhuma demo adicionada.</div>
+                ) : (
+                  demos.map((demo, idx) => (
+                    <div key={idx} className="flex flex-col gap-3 p-3 border rounded bg-muted/20 mb-4 relative">
+                      <Button variant="ghost" size="icon" className="absolute top-1 right-1 text-destructive h-6 w-6" onClick={() => setDemos(demos.filter((_, i) => i !== idx))}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                      <div className="space-y-1">
+                        <Label>Estilo</Label>
+                        <select className="w-full border rounded px-2 py-1.5 text-sm" value={demo.estilo} onChange={(e) => {
                           const newDemos = [...demos];
                           newDemos[idx].estilo = e.target.value;
                           setDemos(newDemos);
-                        }}
-                      >
-                        <option value="">Selecione o estilo</option>
-                        <option value="padrao">Padrão</option>
-                        <option value="impacto">Impacto</option>
-                        <option value="jovem">Jovem</option>
-                        <option value="varejo">Varejo</option>
-                        <option value="institucional">Institucional</option>
-                        <option value="up_festas">Up/Festas</option>
-                        <option value="jornalistico">Jornalístico</option>
-                        <option value="outro">Outro</option>
-                      </select>
+                        }}>
+                          <option value="">Selecione o estilo</option>
+                          <option value="padrao">Padrão</option>
+                          <option value="impacto">Impacto</option>
+                          <option value="jovem">Jovem</option>
+                          <option value="varejo">Varejo</option>
+                          <option value="institucional">Institucional</option>
+                          <option value="up_festas">Up/Festas</option>
+                          <option value="jornalistico">Jornalístico</option>
+                          <option value="outro">Outro</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Amostra de Áudio</Label>
+                        <InputUploadAudioLocutor
+                          name={`demo-audio-${idx}`}
+                          label="Amostra de Áudio"
+                          value={demo.url}
+                          onChange={url => {
+                            const newDemos = [...demos];
+                            newDemos[idx].url = url;
+                            setDemos(newDemos);
+                          }}
+                          uploadUrl={`http://localhost:3001/api/upload/demo?nomeLocutor=${encodeURIComponent(nome)}&estilo=${encodeURIComponent(demo.estilo)}`}
+                          disabled={!demo.estilo}
+                        />
+                      </div>
                     </div>
-                    <div className="flex flex-col gap-2 mt-2">
-                      <InputUploadAudioLocutor
-                        name={`demo-audio-${idx}`}
-                        label="Amostra de Áudio"
-                        value={demo.url}
-                        onChange={url => {
-                          const newDemos = [...demos];
-                          newDemos[idx].url = url;
-                          setDemos(newDemos);
-                        }}
-                        uploadUrl={`http://localhost:3001/api/upload/demo?nomeLocutor=${encodeURIComponent(nome)}&estilo=${encodeURIComponent(demo.estilo)}`}
-                        disabled={!demo.estilo}
-                      />
-                      {!demo.estilo && (
-                        <span className="text-xs text-red-600">Selecione o estilo antes de enviar o áudio.</span>
-                      )}
-                    </div>
-                    <div className="flex justify-end mt-2">
-                      <button
-                        type="button"
-                        className="text-red-600 hover:text-red-800 text-xs font-bold px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-red-400"
-                        onClick={() => setDemos(demos.filter((_, i) => i !== idx))}
-                        aria-label="Remover demo"
-                      >Remover</button>
-                    </div>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  className="mt-2 px-3 py-2 rounded bg-gradient-to-r from-startt-blue to-startt-purple text-white text-sm font-semibold hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                  onClick={() => setDemos([...demos, { estilo: '', url: '' }])}
-                >Adicionar nova demo</button>
-              </div>
+                  ))
+                )}
+              </ScrollArea>
+              <Button type="button" className="w-full" onClick={() => setDemos([...demos, { estilo: '', url: '' }])}>Adicionar Demo</Button>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="ativo-locutor" className="text-right">Ativo</Label>
-              <div className="col-span-3 flex items-center">
-                <Checkbox id="ativo-locutor" checked={ativo} onCheckedChange={(checked) => setAtivo(Boolean(checked))} disabled={isSaving} />
-              </div>
-            </div>
-
-            <Separator className="my-2 col-span-4" />
-
-            {/* SEÇÃO DE IA */}
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Gravação por IA</Label>
-              <div className="col-span-3 flex items-center space-x-2">
-                <Switch id="ia-disponivel" checked={iaDisponivel} onCheckedChange={setIaDisponivel} />
-                <Label htmlFor="ia-disponivel">Disponível para "Gravar com IA"</Label>
-              </div>
-            </div>
-
-            {iaDisponivel && (
-              <div className="grid grid-cols-4 items-center gap-4 animate-fadeIn">
-                <Label htmlFor="ia-voice-id" className="text-right">ElevenLabs Voice ID</Label>
-                <Input id="ia-voice-id" value={iaVoiceId} onChange={(e) => setIaVoiceId(e.target.value)} className="col-span-3" placeholder="ID da voz clonada na ElevenLabs"/>
-              </div>
-            )}
           </div>
+
           <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={isSaving}>Cancelar</Button>
-            </DialogClose>
-            <Button type="button" onClick={handleSaveLocutor} disabled={isSaving} className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90">
-              {isSaving ? 'Salvando...' : 'Salvar'}
+            <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
+            <Button type="button" onClick={handleSaveLocutor} disabled={isSaving}>
+              {isSaving ? <Loader2 className="animate-spin mr-2"/> : null}
+              Salvar
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -448,7 +433,7 @@ function AdminLocutoresPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Desativação</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja desativar o locutor "{locutorToDelete?.nome}"? 
+              Tem certeza que deseja desativar o locutor "{locutorToDelete?.nome_artistico}"? 
               Ele não aparecerá mais para seleção de novos pedidos, mas o histórico será mantido.
             </AlertDialogDescription>
           </AlertDialogHeader>

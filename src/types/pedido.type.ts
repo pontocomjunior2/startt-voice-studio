@@ -76,7 +76,7 @@ export interface Pedido {
   cliente_resposta_info?: string | null;
   data_resposta_cliente?: string | null;
   cliente_audio_resposta_url?: string | null;
-  locutores: { nome: string } | null;
+  locutores: { nome_artistico: string } | null;
   solicitacoes_revisao?: {
     id: string;
     status_revisao: string;

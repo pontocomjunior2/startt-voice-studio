@@ -9,20 +9,16 @@ export interface LocutorSelecao {
 const fetchLocutoresList = async (): Promise<LocutorSelecao[]> => {
   const { data, error } = await supabase
     .from('locutores')
-    .select('id, nome') // Buscando a coluna 'nome'
-    .eq('ativo', true) // Buscamos apenas locutores ativos para seleção
-    .order('nome', { ascending: true });
+    .select('id, nome_artistico')
+    .eq('ativo', true)
+    .order('nome_artistico', { ascending: true });
 
   if (error) {
     console.error("Erro ao buscar lista de locutores:", error);
     throw new Error(error.message);
   }
 
-  // Mapeando para o formato esperado pelo frontend
-  return (data || []).map(locutor => ({
-    id: locutor.id,
-    nome_artistico: locutor.nome,
-  }));
+  return data || [];
 };
 
 export const useFetchLocutoresList = () => {
