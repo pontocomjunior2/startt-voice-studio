@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { Session, User, AuthChangeEvent, SignUpWithPasswordCredentials } from '@supabase/supabase-js';
 import { AuthError } from '@supabase/supabase-js';
@@ -454,7 +454,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const value = {
+  const value = useMemo(() => ({
     session,
     user,
     profile,
@@ -468,7 +468,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     refreshProfile,
     unreadNotificationsCount,
     refreshNotifications,
-  };
+  }), [session, user, profile, isLoading, isProcessing, isFetchingProfile, error, unreadNotificationsCount]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

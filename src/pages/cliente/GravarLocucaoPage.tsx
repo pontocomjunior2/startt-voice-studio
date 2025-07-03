@@ -40,6 +40,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useDropzone } from 'react-dropzone';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useGenerateAiAudio } from '@/hooks/mutations/use-generate-ai-audio.mutation.hook';
+import { useFetchAllowedLocutores, type LocutorCatalogo } from '@/hooks/queries/use-fetch-allowed-locutores.hook';
 
 const estilosLocucaoOpcoes = [
   { id: 'padrao', label: 'Padrão' },
@@ -109,6 +110,8 @@ function GravarLocucaoPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  const { data: locutores = [], isLoading: loadingLocutores, isError: hasErrorLocutores, error: errorLocutores } = useFetchAllowedLocutores();
+
   // Lógica de pré-seleção e edição
   const editingPedidoIdParam = searchParams.get('pedidoId');
   const locutorIdParam = searchParams.get('locutorId');
@@ -116,10 +119,7 @@ function GravarLocucaoPage() {
   // console.log('[GravarLocucaoPage] editingPedidoIdParam da URL:', editingPedidoIdParam);
 
   const [currentStep, setCurrentStep] = useState<number>(1);
-  const [locutores, setLocutores] = useState<Locutor[]>([]);
-  const [loadingLocutores, setLoadingLocutores] = useState(true);
-  const [errorLocutores, setErrorLocutores] = useState<string | null>(null);
-  const [selectedLocutor, setSelectedLocutor] = useState<Locutor | null>(null);
+  const [selectedLocutor, setSelectedLocutor] = useState<LocutorCatalogo | null>(null);
   const [estimatedCredits, setEstimatedCredits] = useState(0);
   const [tempoEstimadoSegundos, setTempoEstimadoSegundos] = useState(0);
   const [velocidadeSelecionada, setVelocidadeSelecionada] = useState<VelocidadeLocucaoTipo>(VELOCIDADE_LOCUCAO.NORMAL);
@@ -161,65 +161,35 @@ function GravarLocucaoPage() {
 
   const { control, handleSubmit, setValue, reset, formState: { isSubmitting, isValid: isFormValid, errors }, watch, trigger, getValues, setError: setFormError } = formHook;
 
+  const watchedScriptText = watch("scriptText");
+  const watchedTipoAudio = watch("tipoAudio");
+
   const { mutate: generateAiAudio, isPending: isGeneratingAi } = useGenerateAiAudio();
 
   const [tipoGravacao, setTipoGravacao] = useState<'humana' | 'ia'>('humana');
   const [custoIa, setCustoIa] = useState(0);
 
-  // Definição das funções com useCallback ANTES dos useEffects que dependem delas
-  const fetchLocutores = useCallback(async () => {
-    if (!user) {
-      setLocutores([]);
-      setLoadingLocutores(false);
-      return;
-    }
-    setLoadingLocutores(true);
-    setErrorLocutores(null);
-    try {
-      // CHAMADA CORRIGIDA PARA A RPC
-      const { data: locutoresData, error: locutoresError } = await supabase
-        .rpc('get_locutores_disponiveis_para_cliente', { p_user_id: user.id });
+  useEffect(() => {
+    const currentScript = getValues("scriptText") || "";
+    let newEstimatedCredits = 0;
+    let newCustoIa = 0;
 
-      // >>> ADICIONE ESTA LINHA AQUI <<<
-      console.log('[DEBUG 1] DADOS BRUTOS RECEBIDOS DA RPC:', locutoresData);
-
-      if (locutoresError) throw locutoresError;
-      
-      const locutoresComDemos = await Promise.all((locutoresData || []).map(async (locutor: any) => {
-        try {
-          const res = await fetch(`/api/locutor/${locutor.id}/demos`);
-          if (!res.ok) return { ...locutor, demos: [] };
-          const json = await res.json();
-          return { ...locutor, demos: json.demos || [] };
-        } catch (e) {
-          return { ...locutor, demos: [] };
-        }
-      }));
-      setLocutores(locutoresComDemos as Locutor[]);
-
-      // Busca de favoritos continua igual
-      if (user.id) {
-        const { data: favoritosData, error: favoritosError } = await supabase
-          .from('locutores_favoritos')
-          .select('locutor_id')
-          .eq('user_id', user.id);
-
-        if (favoritosError) {
-          console.error("Erro ao buscar locutores favoritos:", favoritosError);
-        } else {
-          setIdsLocutoresFavoritos(favoritosData?.map(f => f.locutor_id) || []);
-        }
+    if (tipoGravacao === 'humana') {
+      const segundos = calcularTempoEstimadoSegundos(currentScript, velocidadeSelecionada);
+      setTempoEstimadoSegundos(segundos);
+      if (segundos > 0 || currentScript.trim() !== '') {
+        const blocosDeCreditoBase = Math.max(1, Math.ceil(segundos / 40));
+        newEstimatedCredits = watchedTipoAudio === 'produzido' ? blocosDeCreditoBase * 2 : blocosDeCreditoBase;
       }
-
-    } catch (error: any) {
-      console.error('Erro ao buscar locutores disponíveis:', error);
-      setErrorLocutores('Não foi possível carregar os locutores. Verifique se você possui créditos válidos.');
-      setLocutores([]);
-    } finally {
-      setLoadingLocutores(false);
+    } else { // tipoGravacao === 'ia'
+      newCustoIa = currentScript.trim().length;
     }
-  }, [user]); // Removido supabase das dependências pois é estável
 
+    setEstimatedCredits(newEstimatedCredits);
+    setCustoIa(newCustoIa);
+  }, [watchedScriptText, velocidadeSelecionada, tipoGravacao, watchedTipoAudio]);
+
+  // Definição das funções com useCallback ANTES dos useEffects que dependem delas
   const fetchPedidoParaEdicao = useCallback(async (pedidoId: string) => {
     if (!user) {
       toast.error("Autenticação necessária", { description: "Faça login para editar seu pedido." });
@@ -277,7 +247,7 @@ function GravarLocucaoPage() {
       });
 
       if (pedidoData.locutores) {
-        const locutorDoPedido = pedidoData.locutores as unknown as Locutor;
+        const locutorDoPedido = pedidoData.locutores as unknown as LocutorCatalogo;
         if (locutorDoPedido && locutorDoPedido.id === pedidoData.locutor_id) {
           setSelectedLocutor(locutorDoPedido);
         }
@@ -317,7 +287,6 @@ function GravarLocucaoPage() {
 
   const watchedLocutorId = watch("locutorId");
   const watchedEstiloLocucao = watch("estiloLocucao");
-  const watchedScriptText = watch("scriptText");
 
   // Efeito para carregar dados para edição OU aplicar pré-seleção
   useEffect(() => {
@@ -354,7 +323,7 @@ function GravarLocucaoPage() {
         if (locutor) {
           if (selectedLocutor?.id !== locutor.id) {
             setSelectedLocutor(locutor);
-            // console.log('[GravarLocucaoPage] Locutor pré-selecionado definido no estado selectedLocutor:', locutor.nome);
+            // console.log('[GravarLocucaoPage] Locutor pré-selecionado definido no estado selectedLocutor:', locutor.nome_artistico);
             if (currentStep === 1 && getValues("tipoAudio")) {
                 // setCurrentStep(2); 
                 // console.log('[GravarLocucaoPage] Tipo de áudio já existe, poderia avançar para etapa 2.');
@@ -401,11 +370,6 @@ function GravarLocucaoPage() {
   const indexOfFirstLocutor = indexOfLastLocutor - LOCUTORES_PER_PAGE;
   // currentLocutoresToDisplay é calculado depois, com base nos locutores filtrados.
 
-  // Este useEffect deve vir DEPOIS da definição de fetchLocutores
-  useEffect(() => {
-    fetchLocutores();
-  }, [fetchLocutores]);
-  
   useEffect(() => {
     const currentScript = getValues("scriptText") || "";
     
@@ -497,27 +461,25 @@ function GravarLocucaoPage() {
     }
     
     if (tipoGravacao === 'ia') {
-      if (!selectedLocutor) {
-        toast.error("Erro", { description: "Nenhum locutor selecionado para a gravação com IA." });
-        return;
-      }
-      if (!values.scriptText || values.scriptText.trim().length < 10) {
-        toast.error("Roteiro Inválido", { description: "O roteiro deve ter pelo menos 10 caracteres." });
+      if (!selectedLocutor || !selectedLocutor.ia_voice_id) {
+        toast.error("Erro", { description: "Locutor habilitado para IA ou seu ID de voz não foi encontrado." });
         return;
       }
       
       generateAiAudio({
-        scriptText: values.scriptText,
-        locutorId: selectedLocutor.id,
-        tituloPedido: values.tituloPedido || 'Pedido de Áudio (IA)',
-        userId: user.id // Passando o userId para o backend
+        texto_roteiro: values.scriptText || '',
+        locutor_id: selectedLocutor.id,
+        tituloPedido: values.tituloPedido || 'Pedido de IA',
+        userId: user.id
       }, {
         onSuccess: () => {
-          refreshProfile(); // Atualiza os saldos de créditos
+          // A invalidação de queries já acontece no hook, então o refresh do profile aqui pode ser redundante, mas não prejudicial.
+          refreshProfile(); 
+          // Redireciona para a página de áudios após o sucesso
           navigate('/meus-audios');
         }
       });
-      return;
+      return; // Importante para não continuar com a lógica de gravação humana
     }
 
     // Lógica para gravação humana continua aqui...
@@ -541,19 +503,22 @@ function GravarLocucaoPage() {
         setSelectedLocutor(locutorParaSubmissao);
     }
 
-    if (!editingPedidoIdParam) {
-      if ((profile.saldo_gravacao ?? 0) < estimatedCredits) {
+    // Bloco de Validação para Gravação HUMANA
+    if (tipoGravacao === 'humana' && !editingPedidoIdParam) {
+      if ((profile?.saldo_gravacao ?? 0) < estimatedCredits) {
         toast.error("Créditos Insuficientes", { description: `Você precisa de ${estimatedCredits} créditos de gravação, mas seu saldo é de ${profile.saldo_gravacao ?? 0}.` });
         return;
       }
-      if (estimatedCredits === 0 && values.scriptText && values.scriptText.trim().length > 0) {
-        toast.error("Erro no Pedido", { description: "O roteiro parece válido, mas não foram calculados créditos. Verifique o texto." });
-        return;
-      }
-      if (estimatedCredits === 0 && (!values.scriptText || values.scriptText.trim().length < 10)) {
-        toast.error("Roteiro Inválido", { description: "O roteiro deve ter pelo menos 10 caracteres." });
-        setFormError("scriptText", { type: "manual", message: "O roteiro deve ter pelo menos 10 caracteres." });
-        return;
+      if (estimatedCredits === 0) {
+        if (values.scriptText && values.scriptText.trim().length > 0) {
+          toast.error("Erro no Pedido", { description: "O roteiro parece válido, mas não foram calculados créditos. Verifique o texto." });
+          return;
+        }
+        if (!values.scriptText || values.scriptText.trim().length < 10) {
+          toast.error("Roteiro Inválido", { description: "O roteiro deve ter pelo menos 10 caracteres." });
+          setFormError("scriptText", { type: "manual", message: "O roteiro deve ter pelo menos 10 caracteres." });
+          return;
+        }
       }
     }
 
@@ -799,8 +764,8 @@ function GravarLocucaoPage() {
   };
 
   // Helper para demos do locutor (para evitar linter e problemas de tipagem)
-  const getLocutorDemos = (locutor: Locutor): { url: string; estilo?: string }[] => {
-    return Array.isArray((locutor as any).demos) ? (locutor as any).demos as { url: string; estilo?: string }[] : [];
+  const getLocutorDemos = (locutor: LocutorCatalogo): { url: string; estilo?: string }[] => {
+    return Array.isArray(locutor.demos) ? locutor.demos : [];
   };
 
   useEffect(() => {
@@ -1062,24 +1027,24 @@ function GravarLocucaoPage() {
                       <p className="ml-3">Carregando locutores...</p>
                     </div>
                   )}
-                  {errorLocutores && (
+                  {hasErrorLocutores && (
                     <div className="text-center py-10 text-red-600">
                       <Users className="mx-auto h-12 w-12 text-red-500" />
                       <p className="mt-2 font-semibold">Erro ao carregar locutores</p>
-                      <p className="text-sm text-muted-foreground">{errorLocutores}</p>
-                      <Button onClick={fetchLocutores} variant="outline" className="mt-4">
+                      <p className="text-sm text-muted-foreground">{errorLocutores?.message || 'Ocorreu um erro desconhecido.'}</p>
+                      <Button onClick={() => window.location.reload()} variant="outline" className="mt-4">
                         Tentar Novamente
                       </Button>
                     </div>
                   )}
-                  {!loadingLocutores && !errorLocutores && locutores.length === 0 && (
+                  {!loadingLocutores && !hasErrorLocutores && locutores.length === 0 && (
                      <div className="text-center py-10">
                         <Users className="mx-auto h-12 w-12 text-muted-foreground" />
                         <p className="mt-2 font-semibold">Nenhum locutor disponível</p>
                         <p className="text-sm text-muted-foreground">Não há locutores cadastrados ou ativos no momento.</p>
                       </div>
                   )}
-                  {!loadingLocutores && !errorLocutores && locutores.length > 0 && (
+                  {!loadingLocutores && !hasErrorLocutores && locutores.length > 0 && (
                     <>
                       {/* Lógica de filtragem */}
                       {(() => {
@@ -1782,17 +1747,21 @@ function GravarLocucaoPage() {
                             type="submit"
                             size="lg"
                             disabled={
-                                isSubmitting || isGeneratingAi || // Adicionado isGeneratingAi
-                                !isFormValid ||
-                                !selectedLocutor || 
-                                (tipoGravacao === 'humana' && estimatedCredits === 0 && (getValues("scriptText") || "").trim().length > 0) ||
-                                (tipoGravacao === 'humana' && (profile?.saldo_gravacao ?? 0) < estimatedCredits) ||
-                                (tipoGravacao === 'ia' && (profile?.saldo_ia ?? 0) < custoIa) ||
-                                (tipoGravacao === 'ia' && custoIa === 0 && (getValues("scriptText") || "").trim().length > 0)
+                              isSubmitting || isGeneratingAi ||
+                              // Validações explícitas que substituem isFormValid
+                              !getValues("tituloPedido") ||
+                              (getValues("tituloPedido") || '').trim().length < 3 ||
+                              !getValues("estiloLocucao") ||
+                              (getValues("estiloLocucao") === 'outro' && !(getValues("outroEstiloEspecificacao") || '').trim()) ||
+                              !getValues("scriptText") ||
+                              (getValues("scriptText") || '').trim().length < 10 ||
+                              // Validações de Saldo
+                              (tipoGravacao === 'humana' && (profile?.saldo_gravacao ?? 0) < estimatedCredits) ||
+                              (tipoGravacao === 'ia' && (profile?.saldo_ia ?? 0) < custoIa)
                             }
                             className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90"
                           >
-                            {(isSubmitting || isGeneratingAi) ? ( // Adicionado isGeneratingAi
+                            {(isSubmitting || isGeneratingAi) ? (
                               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                             ) : (
                               <Send className="mr-2 h-5 w-5" />
@@ -1801,21 +1770,23 @@ function GravarLocucaoPage() {
                           </Button>
                         </span>
                       </TooltipTrigger>
-                      {(!isFormValid && selectedLocutor && estimatedCredits > 0 && (profile?.saldo_gravacao ?? 0) >= estimatedCredits) && (
-                        <TooltipContent side="top" align="center" className="bg-destructive text-destructive-foreground">
-                          <p>Corrija os erros no formulário para enviar.</p>
-                        </TooltipContent>
-                      )}
-                      {(estimatedCredits > 0 && (profile?.saldo_gravacao ?? 0) < estimatedCredits) && (
-                         <TooltipContent side="top" align="center" className="bg-destructive text-destructive-foreground">
-                          <p>Você não tem créditos suficientes para este pedido.</p>
-                        </TooltipContent>
-                      )}
-                      {(estimatedCredits === 0 && (getValues("scriptText") || "").trim().length >= 10) && (
-                        <TooltipContent side="top" align="center" className="bg-destructive text-destructive-foreground">
-                          <p>Erro no cálculo de créditos. Verifique o roteiro.</p>
-                        </TooltipContent>
-                      )}
+                      <TooltipContent>
+                        {!getValues("scriptText") || (getValues("scriptText") || '').trim().length < 10 ? (
+                          <p>O roteiro deve ter pelo menos 10 caracteres.</p>
+                        ) : !getValues("tituloPedido") || (getValues("tituloPedido") || '').trim().length < 3 ? (
+                          <p>O título do pedido deve ter pelo menos 3 caracteres.</p>
+                        ) : !getValues("estiloLocucao") ? (
+                          <p>Por favor, selecione um estilo de locução.</p>
+                        ) : getValues("estiloLocucao") === 'outro' && !(getValues("outroEstiloEspecificacao") || '').trim() ? (
+                          <p>Por favor, especifique o estilo "Outro".</p>
+                        ) : tipoGravacao === 'humana' && (profile?.saldo_gravacao ?? 0) < estimatedCredits ? (
+                          <p>Créditos de gravação insuficientes.</p>
+                        ) : tipoGravacao === 'ia' && (profile?.saldo_ia ?? 0) < custoIa ? (
+                          <p>Créditos de IA insuficientes.</p>
+                        ) : (
+                          <p>Preencha todos os campos obrigatórios.</p>
+                        )}
+                      </TooltipContent>
                     </Tooltip>
                   )}
                 </div>

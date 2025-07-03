@@ -1,4 +1,3 @@
-import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -14,6 +13,9 @@ import {
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { useFetchClientDashboardStats } from '@/hooks/queries/use-fetch-client-dashboard-stats.hook';
+import { useFetchClientOrders } from '@/hooks/queries/use-fetch-client-orders.hook';
+import { useFetchDashboardSections } from '@/hooks/queries/use-fetch-dashboard-sections.hook';
 
 // Definir um tipo para Pedido
 interface Pedido {
@@ -50,185 +52,22 @@ interface LocutorExibicao {
 function DashboardPage() {
   const { user, profile, isLoading, isFetchingProfile, refreshProfile, refreshNotifications } = useAuth();
   const navigate = useNavigate();
+  
+  const { data: stats, isLoading: loadingStats, refetch: refetchStats } = useFetchClientDashboardStats();
+  const { data: pedidos = [], isLoading: loadingPedidos, refetch: refetchPedidos } = useFetchClientOrders();
+  const { data: sectionsData, isLoading: loadingSecoesDashboard, refetch: refetchSections } = useFetchDashboardSections();
 
-  const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [loadingPedidos, setLoadingPedidos] = useState(true);
+  const ultimosPedidos = sectionsData?.ultimosPedidos || [];
+  const locutoresFavoritosExibicao = sectionsData?.locutoresFavoritos || [];
 
-  // Stats do Dashboard
-  const [totalPedidos, setTotalPedidos] = useState(0);
-  const [pedidosPendentes, setPedidosPendentes] = useState(0);
-  const [pedidosConcluidos, setPedidosConcluidos] = useState(0);
-  const [loadingStats, setLoadingStats] = useState(true);
-
-  // Novos estados para seções adicionais
-  const [ultimosPedidos, setUltimosPedidos] = useState<UltimoPedidoItem[]>([]);
-  const [locutoresFavoritosExibicao, setLocutoresFavoritosExibicao] = useState<LocutorExibicao[]>([]);
-  const [loadingSecoesDashboard, setLoadingSecoesDashboard] = useState(true);
-
-  const fetchClientDashboardStats = async () => {
-    if (!profile?.id) return;
-    setLoadingStats(true);
-    try {
-      const { count: totalCount, error: totalError } = await supabase
-        .from('pedidos')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', profile.id);
-      if (totalError) { console.error(totalError); throw totalError; }
-      setTotalPedidos(totalCount ?? 0);
-
-      const { count: pendentesCount, error: pendentesError } = await supabase
-        .from('pedidos')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', profile.id)
-        .in('status', ['pendente', 'gravando', 'em_producao', 'em_analise']);
-      if (pendentesError) { console.error(pendentesError); throw pendentesError; }
-      setPedidosPendentes(pendentesCount ?? 0);
-
-      const { count: concluidosCount, error: concluidosError } = await supabase
-        .from('pedidos')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', profile.id)
-        .eq('status', 'concluido');
-      if (concluidosError) { console.error(concluidosError); throw concluidosError; }
-      setPedidosConcluidos(concluidosCount ?? 0);
-
-    } catch (error: any) {
-      console.error("Erro ao buscar estatísticas do cliente:", error);
-      toast.error("Erro ao Carregar Estatísticas", { description: error.message || "Não foi possível carregar os dados do seu painel." });
-    } finally {
-      setLoadingStats(false);
-    }
+  const handleRefreshAll = async () => {
+    await Promise.all([
+      refreshProfile?.(),
+      refetchStats(),
+      refetchPedidos(),
+      refetchSections(),
+    ]);
   };
-
-  const fetchPedidos = async () => {
-    if (!profile?.id) return;
-    setLoadingPedidos(true);
-    try {
-      const { data, error } = await supabase
-        .from('pedidos')
-        .select(`
-          id,
-          id_pedido_serial,
-          created_at,
-          texto_roteiro,
-          creditos_debitados,
-          status,
-          audio_final_url,
-          downloaded_at,
-          cliente_notificado_em,
-          locutores ( nome_artistico ) 
-        `)
-        .eq('user_id', profile.id)
-        .order('created_at', { ascending: false });
-
-      if (error) { console.error(error); throw error; }
-      
-      const mappedPedidos: Pedido[] = (data || []).map((pedido: any) => ({
-        ...pedido,
-        locutores: Array.isArray(pedido.locutores) ? pedido.locutores[0] : pedido.locutores,
-      }));
-      setPedidos(mappedPedidos);
-
-      if (mappedPedidos && mappedPedidos.length > 0) {
-        const now = new Date().toISOString();
-        const pedidosToMarkAsNotified = mappedPedidos
-          .filter(p => p.status === 'concluido' && p.cliente_notificado_em === null)
-          .map(p => p.id);
-
-        if (pedidosToMarkAsNotified.length > 0) {
-          const { error: updateError } = await supabase
-            .from('pedidos')
-            .update({ cliente_notificado_em: now })
-            .in('id', pedidosToMarkAsNotified);
-          if (updateError) {
-            console.error("DashboardPage: Erro ao marcar pedidos como notificados:", updateError);
-          } else if (refreshNotifications) {
-            setTimeout(() => { refreshNotifications(); }, 1000);
-          }
-        }
-      }
-
-    } catch (err: any) {
-      console.error('Erro ao buscar pedidos:', err);
-      toast.error("Erro ao Carregar Histórico", { description: err.message || "Não foi possível carregar seus pedidos." });
-    } finally {
-      setLoadingPedidos(false);
-    }
-  };
-
-  // Função refatorada para buscar dados das novas seções
-  const fetchDadosAdicionaisDashboard = useCallback(async () => {
-    if (!profile?.id) return;
-
-    setLoadingSecoesDashboard(true);
-    try {
-      // 1. Buscar Últimos Pedidos (ex: 3 mais recentes)
-      const { data: pedidosDataRaw, error: pedidosError } = await supabase
-        .from('pedidos')
-        .select(`
-          id,
-          titulo,
-          status,
-          created_at,
-          locutores ( nome_artistico )
-        `)
-        .eq('user_id', profile.id)
-        .order('created_at', { ascending: false })
-        .limit(3);
-
-      if (pedidosError) throw pedidosError;
-      
-      const mappedUltimosPedidos: UltimoPedidoItem[] = (pedidosDataRaw || []).map((pedido: any) => {
-        console.log('[DashboardPage] Último Pedido Raw - ID:', pedido.id, 'Título:', pedido.titulo, 'Locutores Raw:', pedido.locutores);
-        const locutorProcessado = Array.isArray(pedido.locutores) && pedido.locutores.length > 0 
-                                    ? pedido.locutores[0] 
-                                    : (pedido.locutores && typeof pedido.locutores === 'object' && pedido.locutores !== null && 'nome_artistico' in pedido.locutores ? pedido.locutores : null);
-        
-        console.log('[DashboardPage] Último Pedido Mapeado - ID:', pedido.id, 'Título:', pedido.titulo, 'Locutor Processado:', locutorProcessado);
-        return {
-          ...pedido,
-          locutores: locutorProcessado,
-        };
-      });
-      setUltimosPedidos(mappedUltimosPedidos);
-
-      // 2. Buscar Locutores Favoritos e seus detalhes
-      const { data: favoritosIdsData, error: favoritosIdsError } = await supabase
-        .from('locutores_favoritos')
-        .select('locutor_id')
-        .eq('user_id', profile.id);
-
-      if (favoritosIdsError) throw favoritosIdsError;
-
-      if (favoritosIdsData && favoritosIdsData.length > 0) {
-        const ids = favoritosIdsData.map(f => f.locutor_id);
-        const { data: locutoresData, error: locutoresError } = await supabase
-          .from('locutores')
-          .select('id, nome_artistico, avatar_url, bio')
-          .in('id', ids)
-          .limit(3); 
-
-        if (locutoresError) throw locutoresError;
-        setLocutoresFavoritosExibicao(locutoresData || []);
-      } else {
-        setLocutoresFavoritosExibicao([]);
-      }
-
-    } catch (error: any) {
-      console.error("Erro ao buscar dados adicionais para o dashboard:", error);
-      toast.error("Erro ao Carregar Seções", { description: error.message || "Não foi possível carregar todas as informações do painel." });
-    } finally {
-      setLoadingSecoesDashboard(false);
-    }
-  }, [profile?.id, supabase]); // Dependências do useCallback
-
-  useEffect(() => {
-    if (profile?.id) {
-      fetchPedidos();
-      fetchClientDashboardStats();
-      fetchDadosAdicionaisDashboard(); // Chamar a função refatorada
-    }
-  }, [profile?.id, fetchDadosAdicionaisDashboard]); // Adicionar fetchDadosAdicionaisDashboard às dependências
 
   if (isLoading || isFetchingProfile) {
     return (
@@ -257,16 +96,11 @@ function DashboardPage() {
           <Button 
             variant="outline" 
             size="icon" 
-            onClick={async () => {
-              await refreshProfile?.();
-              fetchPedidos();
-              fetchClientDashboardStats();
-              fetchDadosAdicionaisDashboard(); // Chamar a função refatorada
-            }}
-            disabled={loadingPedidos || loadingStats || isFetchingProfile || loadingSecoesDashboard}
+            onClick={handleRefreshAll}
+            disabled={isFetchingProfile || loadingStats || loadingPedidos || loadingSecoesDashboard}
             aria-label="Atualizar painel"
           >
-            <RefreshCw className={cn("h-4 w-4", (loadingPedidos || loadingStats || isFetchingProfile || loadingSecoesDashboard) && "animate-spin")} />
+            <RefreshCw className={cn("h-4 w-4", (isFetchingProfile || loadingStats || loadingPedidos || loadingSecoesDashboard) && "animate-spin")} />
           </Button>
           <Button onClick={() => navigate('/gravar-locucao')} className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90">
             <PlusCircle className="mr-2 h-4 w-4" /> Novo Áudio
@@ -320,22 +154,11 @@ function DashboardPage() {
 
           <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground border-none">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Pedidos</CardTitle>
-              <ClipboardList className="h-5 w-5 text-startt-purple" />
-            </CardHeader>
-            <CardContent>
-              {loadingStats ? <Skeleton className="h-8 w-1/2 mb-1" /> : <div className="text-2xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">{totalPedidos}</div>}
-              <p className="text-xs text-muted-foreground">Pedidos realizados.</p>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm hover:shadow-md transition-shadow rounded-lg bg-card text-card-foreground border-none">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pendentes / Em Andamento</CardTitle>
               <Hourglass className="h-5 w-5 text-startt-blue" />
             </CardHeader>
             <CardContent>
-              {loadingStats ? <Skeleton className="h-8 w-1/2 mb-1" /> : <div className="text-2xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">{pedidosPendentes}</div>}
+              {loadingStats ? <Skeleton className="h-8 w-1/2 mb-1" /> : <div className="text-2xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">{stats?.pedidosPendentes ?? 0}</div>}
               <p className="text-xs text-muted-foreground">Aguardando ou em produção.</p>
             </CardContent>
           </Card>
@@ -346,7 +169,7 @@ function DashboardPage() {
               <CheckCircle2 className="h-5 w-5 text-startt-purple" />
             </CardHeader>
             <CardContent>
-              {loadingStats ? <Skeleton className="h-8 w-1/2 mb-1" /> : <div className="text-2xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">{pedidosConcluidos}</div>}
+              {loadingStats ? <Skeleton className="h-8 w-1/2 mb-1" /> : <div className="text-2xl font-bold bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">{stats?.pedidosConcluidos ?? 0}</div>}
               <p className="text-xs text-muted-foreground">Prontos para download.</p>
             </CardContent>
           </Card>

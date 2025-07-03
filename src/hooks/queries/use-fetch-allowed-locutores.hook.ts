@@ -8,7 +8,12 @@ export interface LocutorCatalogo {
   nome_artistico: string;
   avatar_url: string | null;
   bio: string | null;
-  // Adicione outros campos que a RPC retorna, se houver
+  ia_disponivel: boolean;
+  ia_voice_id: string | null;
+  demos: Array<{
+    url: string;
+    estilo?: string;
+  }>;
 }
 
 // A função que chama a nossa RPC de lógica de negócio

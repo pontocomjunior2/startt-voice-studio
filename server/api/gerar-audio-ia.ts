@@ -1,6 +1,21 @@
+import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { Request, Response } from 'express';
-import axios from 'axios';
+import { Readable } from 'stream';
+import fs from 'fs/promises';
+import path from 'path';
+
+// Helper function to convert a stream to a buffer
+async function streamToBuffer(stream: ReadableStream<Uint8Array>): Promise<Buffer> {
+  const chunks: Uint8Array[] = [];
+  const reader = stream.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks);
+}
 
 // Função auxiliar para simplificar a resposta de erro
 const sendError = (res: Response, message: string, status = 500) => {
@@ -9,6 +24,8 @@ const sendError = (res: Response, message: string, status = 500) => {
 };
 
 export const gerarAudioIAHandler = async (req: Request, res: Response) => {
+  let pedidoId: number | null = null; // Variável para armazenar o ID do pedido
+
   try {
     // 1. Receber e Validar Dados
     const { texto_roteiro, locutor_id, tituloPedido, userId } = req.body;
@@ -46,6 +63,7 @@ export const gerarAudioIAHandler = async (req: Request, res: Response) => {
         status: 'gerando_ia',
         gerado_por_ia: true,
         creditos_ia_debitados: custoIa,
+        creditos_debitados: 0,
         tipo_audio: 'off_ia', // Novo tipo para diferenciar
       })
       .select('id')
@@ -54,62 +72,66 @@ export const gerarAudioIAHandler = async (req: Request, res: Response) => {
     if (pedidoError || !novoPedido) {
       return sendError(res, `Falha ao criar o registro do pedido: ${pedidoError?.message}`);
     }
-    const pedidoId = novoPedido.id;
+    pedidoId = novoPedido.id; // Armazena o ID do pedido
 
     // 4. Debitar Créditos (Operação Atômica)
-    const { data: debitoOk, error: debitoError } = await supabaseAdmin.rpc('debitar_creditos_ia', {
+    const { error: debitoError } = await supabaseAdmin.rpc('debitar_creditos_ia', {
       p_user_id: userId,
       p_custo_ia: custoIa,
     });
 
-    if (debitoError || !debitoOk) {
+    if (debitoError) {
       await supabaseAdmin.from('pedidos').update({ status: 'falhou', admin_notes: `Falha no débito de créditos: ${debitoError?.message}` }).eq('id', pedidoId);
       return sendError(res, `Saldo de Créditos IA insuficiente ou erro no débito: ${debitoError?.message}`, 402); // 402 Payment Required
     }
 
-    // 5. Chamar a API da ElevenLabs
+    // 5. Chamar a API da ElevenLabs com Stream
     const apiKey = process.env.ELEVENLABS_API_KEY;
     if (!apiKey) {
       await supabaseAdmin.from('pedidos').update({ status: 'falhou', admin_notes: 'Chave de API da ElevenLabs não configurada no servidor.' }).eq('id', pedidoId);
       return sendError(res, 'Configuração do serviço de IA incompleta no servidor.');
     }
 
-    const elevenLabsResponse = await axios.post(
-      `https://api.elevenlabs.io/v1/text-to-speech/${ia_voice_id}`,
-      { text: texto_roteiro, model_id: 'eleven_multilingual_v2' },
-      { headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' }, responseType: 'arraybuffer' }
+    const elevenlabs = new ElevenLabsClient({
+      apiKey: apiKey,
+    });
+    
+    const audioStream = await elevenlabs.textToSpeech.stream(
+      ia_voice_id,
+      {
+        text: texto_roteiro,
+        modelId: 'eleven_multilingual_v2',
+      }
     );
 
-    // 6. Fazer Upload do Áudio Gerado
-    const audioBuffer = Buffer.from(elevenLabsResponse.data);
-    const filePath = `public/ia_audios/${userId}/${pedidoId}.mp3`;
+    // ETAPA 5.5: Converter o stream para um Buffer
+    const audioBuffer = await streamToBuffer(audioStream);
 
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from('audios')
-      .upload(filePath, audioBuffer, { contentType: 'audio/mpeg', upsert: true });
+    // 6. Salvar o Áudio no Sistema de Arquivos Local
+    const relativeDir = path.join('public', 'ia_audios', userId);
+    const absoluteDir = path.resolve(relativeDir);
+    await fs.mkdir(absoluteDir, { recursive: true });
 
-    if (uploadError) {
-      await supabaseAdmin.from('pedidos').update({ status: 'falhou', admin_notes: `Falha no upload para o Supabase Storage: ${uploadError.message}` }).eq('id', pedidoId);
-      return sendError(res, `Erro ao salvar o áudio gerado: ${uploadError.message}`);
-    }
+    const fileName = `${pedidoId}.mp3`;
+    const absoluteFilePath = path.join(absoluteDir, fileName);
+    await fs.writeFile(absoluteFilePath, audioBuffer);
     
-    const { data: publicUrlData } = supabaseAdmin.storage.from('audios').getPublicUrl(filePath);
-    const audioFinalUrl = publicUrlData.publicUrl;
+    // 7. Gerar a URL pública local
+    const publicUrl = `/${path.join('ia_audios', userId, fileName).replace(/\\/g, '/')}`;
 
-    // 7. Finalizar o Pedido
+    // 8. Finalizar o Pedido com a URL local
     await supabaseAdmin.from('pedidos').update({
       status: 'concluido',
-      audio_final_url: audioFinalUrl,
+      audio_final_url: publicUrl
     }).eq('id', pedidoId);
     
-    // 8. Retornar Sucesso
-    res.status(200).json({ success: true, message: 'Áudio gerado com sucesso!', audioUrl: audioFinalUrl, pedidoId });
+    // 9. Retornar Sucesso
+    res.status(200).json({ success: true, message: 'Áudio gerado com sucesso!', audioUrl: publicUrl, pedidoId });
 
   } catch (error: any) {
     console.error(`[Gerar Audio IA] Erro inesperado:`, error);
     const errorMessage = error.response?.data ? JSON.stringify(error.response.data) : error.message;
     // Se o pedido já foi criado, tenta marcar como falho
-    const pedidoId = req.body?.id;
     if (pedidoId) {
       await supabaseAdmin.from('pedidos').update({ status: 'falhou', admin_notes: `Erro inesperado no processo: ${errorMessage}` }).eq('id', pedidoId);
     }
