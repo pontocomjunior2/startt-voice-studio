@@ -159,7 +159,7 @@ function GravarLocucaoPage() {
     },
   });
 
-  const { control, handleSubmit, setValue, reset, formState: { isSubmitting, isValid: isFormValid, errors }, watch, trigger, getValues, setError: setFormError } = formHook;
+  const { control, handleSubmit, setValue, reset, formState: { isSubmitting, errors }, watch, trigger, getValues, setError: setFormError } = formHook;
 
   const watchedScriptText = watch("scriptText");
   const watchedTipoAudio = watch("tipoAudio");

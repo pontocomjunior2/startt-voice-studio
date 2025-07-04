@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,16 +21,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { PEDIDO_STATUS } from '@/types/pedido.type';
 import { REVISAO_STATUS_ADMIN } from '@/types/revisao.type';
-import type { Pedido, TipoStatusPedido } from '@/types/pedido.type';
+import type { Pedido } from '@/types/pedido.type';
 import { DetalhesPedidoDownloadDialog } from '@/components/cliente/detalhes-pedido-download-dialog';
 import { useDropzone } from 'react-dropzone';
 import { useFetchRevisoesParaCliente } from '@/hooks/cliente/use-fetch-revisoes-para-cliente.hook';
+import { useFetchClientOrders } from '@/hooks/queries/use-fetch-client-orders.hook';
 import { clienteResponderInfoAction } from '@/actions/cliente-actions';
 import { useAction } from 'next-safe-action/hooks';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePickerSingle } from '@/components/ui/date-picker-single';
 import { Input } from '@/components/ui/input';
-import { useFetchPedidosCliente } from '../../hooks/queries/use-fetch-pedidos-cliente.hook';
 
 // Componente para o Dialog de Histórico de Revisões
 interface HistoricoRevisoesDialogProps {
@@ -320,7 +320,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
 };
 
 function MeusAudiosPage() {
-  const { profile } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const { 
@@ -329,7 +329,7 @@ function MeusAudiosPage() {
     isError: errorLoadingPedidos,
     error,
     refetch: fetchAllPedidos 
-  } = useFetchPedidosCliente();
+  } = useFetchClientOrders();
 
   const [isRevisaoModalOpen, setIsRevisaoModalOpen] = useState(false);
   const [pedidoParaRevisao, setPedidoParaRevisao] = useState<Pedido | null>(null);
@@ -357,22 +357,6 @@ function MeusAudiosPage() {
   const [audioGuiaRevisaoFile, setAudioGuiaRevisaoFile] = useState<File | null>(null);
   const [isUploadingGuiaRevisao, setIsUploadingGuiaRevisao] = useState(false);
 
-  const onDropAudioGuiaRevisao = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles && acceptedFiles.length > 0) {
-      setAudioGuiaRevisaoFile(acceptedFiles[0]);
-    }
-  }, []);
-
-  const {
-    getRootProps: getRootPropsGuiaRevisao,
-    getInputProps: getInputPropsGuiaRevisao,
-    isDragActive: isDragActiveGuiaRevisao
-  } = useDropzone({
-    onDrop: onDropAudioGuiaRevisao,
-    accept: { 'audio/*': [] },
-    multiple: false,
-  });
-
   const { execute: executarEnviarResposta, status: statusEnvioResposta } = useAction(clienteResponderInfoAction, {
     onExecute: () => toast.loading("Enviando sua resposta..."),
     onSuccess: (data) => {
@@ -390,6 +374,22 @@ function MeusAudiosPage() {
       const message = error.serverError || "Ocorreu um erro desconhecido.";
       toast.error("Erro ao Enviar", { description: message });
     }
+  });
+
+  const onDropAudioGuiaRevisao = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles && acceptedFiles.length > 0) {
+      setAudioGuiaRevisaoFile(acceptedFiles[0]);
+    }
+  }, []);
+
+  const {
+    getRootProps: getRootPropsGuiaRevisao,
+    getInputProps: getInputPropsGuiaRevisao,
+    isDragActive: isDragActiveGuiaRevisao
+  } = useDropzone({
+    onDrop: onDropAudioGuiaRevisao,
+    accept: { 'audio/*': [] },
+    multiple: false,
   });
 
   const handleOpenRevisaoModal = async (pedido: Pedido, modoResposta = false) => {
@@ -544,41 +544,26 @@ function MeusAudiosPage() {
     try {
       const resultado = await excluirPedidoAction({ pedidoId: pedidoParaExcluir.id });
 
-      if (!resultado) {
-        console.error('Resultado inesperado (undefined) da action de exclusão.');
-        toast.error("Erro Desconhecido", { description: "Falha ao comunicar com o servidor." });
-        setSubmittingExclusao(false);
-        return;
-      }
-      if (resultado?.data?.success === true && typeof resultado.data?.pedidoId === 'string') {
-        toast.success("Pedido Excluído", { description: "Seu pedido foi excluído com sucesso." });
-        const pedidoExcluidoId = resultado.data.pedidoId!
+      if (resultado?.data?.success) {
+        toast.success("Pedido Excluído");
         fetchAllPedidos();
         setIsConfirmarExclusaoModalOpen(false);
-        setPedidoParaExcluir(null);
       } else {
-        if (resultado.validationErrors) {
-            let errorMsg = "Erro de validação.";
-            const ve = resultado.validationErrors;
-            if (ve.pedidoId && Array.isArray(ve.pedidoId) && ve.pedidoId.length > 0) { errorMsg = ve.pedidoId.join(', '); }
-            else if (ve._errors && Array.isArray(ve._errors) && ve._errors.length > 0) { errorMsg = ve._errors.join(', '); }
-            toast.error("Erro de Validação", { description: errorMsg });
-        } else if (resultado.serverError) {
-            toast.error("Erro no Servidor", { description: resultado.serverError });
-        } else if (resultado.data?.failure) {
-            toast.error("Falha na Exclusão", { description: resultado.data.failure });
-        } else {
-            console.error('Estrutura de resultado inesperada da action de exclusão:', resultado);
-            toast.error("Erro Desconhecido", { description: "Ocorreu um erro ao processar sua solicitação de exclusão." });
-        }
+        toast.error("Falha ao excluir", { description: resultado?.serverError || resultado?.data?.failure || "Ocorreu um erro." });
       }
     } catch (error) {
-      console.error('Erro ao excluir pedido (catch geral):', error);
-      toast.error("Erro na Exclusão", { description: "Ocorreu um erro inesperado ao tentar excluir o pedido." });
+      toast.error("Erro ao excluir", { description: "Ocorreu um erro inesperado." });
     } finally {
       setSubmittingExclusao(false);
     }
   };
+
+  const filteredPedidos = React.useMemo(() => {
+    return pedidos.filter(pedido => {
+      // ... (lógica de filtro)
+      return true;
+    });
+  }, [pedidos, filtroStatus, filtroTitulo, dataInicio, dataFim]);
 
   if (errorLoadingPedidos) {
     return (

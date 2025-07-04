@@ -5,7 +5,18 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { PlusCircle, Wallet, Sparkles, AlertTriangle, Package, MinusCircle } from 'lucide-react';
+import {
+  Loader2,
+  History,
+  CreditCard,
+  PlusCircle,
+  FileText,
+  DollarSign,
+  Wallet,
+  Sparkles,
+  MinusCircle,
+  Package
+} from 'lucide-react';
 
 interface TimelineEvent {
   tipo: 'LOTE_ADICIONADO' | 'PEDIDO_CRIADO';

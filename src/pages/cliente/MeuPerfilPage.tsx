@@ -272,8 +272,12 @@ function MeuPerfilPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="mb-4">
-              <Label className="text-sm font-medium text-muted-foreground">Saldo de Créditos</Label>
-              <p className="text-2xl font-bold">{profile?.saldoCalculadoCreditos ?? 0}</p>
+              <Label className="text-sm font-medium text-muted-foreground">Créditos de Gravação</Label>
+              <p className="text-2xl font-bold">{profile?.saldo_gravacao ?? 0}</p>
+            </div>
+            <div className="mb-4">
+              <Label className="text-sm font-medium text-muted-foreground">Créditos de IA</Label>
+              <p className="text-2xl font-bold">{profile?.saldo_ia ?? 0}</p>
             </div>
             <Button variant="outline" asChild className="w-full sm:w-auto">
               <Link to="/historico-creditos">
