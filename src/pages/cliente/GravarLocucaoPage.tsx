@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
-import { useFetchPacotes } from '@/hooks/queries/use-fetch-pacotes.hook';
 import { useGenerateAiAudio } from '@/hooks/mutations/use-generate-ai-audio.mutation.hook';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,19 +10,15 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { 
-  AlertCircle, Mic, MicIcon, Sparkles, Upload, Volume2, VolumeX, Play, Pause, Download, Info,
   UserCircle, Users, Heart, PlayCircle, ChevronLeft, ChevronRight, FileAudio, XCircle,
-  Loader2, RefreshCw, Send, AlertTriangle, Star, Filter, User
+  Loader2, RefreshCw, Send, AlertTriangle, Star, Filter, User, Sparkles
 } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useSpring, animated } from 'react-spring';
 import { obterMensagemSucessoAleatoria } from '@/utils/messageUtils';

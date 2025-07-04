@@ -1,26 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
-  Loader2,
-  History,
-  CreditCard,
-  PlusCircle,
-  FileText,
-  DollarSign,
   Wallet,
   Sparkles,
   MinusCircle,
   Package,
-  Plus,
-  Minus,
-  Clock
+  PlusCircle
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 

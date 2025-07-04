@@ -9,8 +9,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  Loader2, RefreshCw, PlusCircle, Wallet, ClipboardList, 
-  Hourglass, CheckCircle2, ListMusic, User, Sparkles, FileAudio, TrendingUp, Calendar
+  Loader2, RefreshCw, PlusCircle, Wallet,
+  Hourglass, CheckCircle2, User, Sparkles, ListMusic
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -18,22 +18,7 @@ import { useFetchClientDashboardStats } from '@/hooks/queries/use-fetch-client-d
 import { useFetchClientOrders } from '@/hooks/queries/use-fetch-client-orders.hook';
 import { useFetchDashboardSections } from '@/hooks/queries/use-fetch-dashboard-sections.hook';
 
-// Definir um tipo para Pedido
-interface Pedido {
-  id: string;
-  id_pedido_serial: number;
-  created_at: string;
-  texto_roteiro: string;
-  creditos_debitados: number;
-  status: 'pendente' | 'gravando' | 'concluido' | 'cancelado' | 'em_revisao' | 'aguardando_cliente' | 'rejeitado';
-  audio_final_url: string | null;
-  downloaded_at: string | null;
-  cliente_notificado_em: string | null;
-  locutores: { nome_artistico: string } | null;
-  titulo?: string;
-}
-
-// Tipo específico para os últimos pedidos exibidos no dashboard
+// Tipos para o dashboard
 interface UltimoPedidoItem {
   id: string;
   titulo?: string | null;
@@ -42,7 +27,6 @@ interface UltimoPedidoItem {
   locutores: { nome_artistico: string } | null;
 }
 
-// Definir um tipo para Locutor (para exibição de favoritos)
 interface LocutorExibicao {
   id: string;
   nome_artistico: string;
@@ -51,7 +35,7 @@ interface LocutorExibicao {
 }
 
 function DashboardPage() {
-  const { user, profile, isLoading, isFetchingProfile, refreshProfile, refreshNotifications } = useAuth();
+  const { user, profile, isLoading, isFetchingProfile, refreshProfile } = useAuth();
   const navigate = useNavigate();
   
   const { data: stats, isLoading: loadingStats, refetch: refetchStats } = useFetchClientDashboardStats();
