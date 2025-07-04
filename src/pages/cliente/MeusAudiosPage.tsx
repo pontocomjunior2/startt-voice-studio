@@ -691,10 +691,6 @@ export default function MeusAudiosPage() {
       ) : (
         <div className="overflow-x-auto relative rounded-lg shadow-md bg-card overflow-hidden border-none">
           <Table>
-            <TableCaption className="py-4 text-sm text-muted-foreground">
-              Seu histórico completo de pedidos de áudio. 
-              {pedidos.length > 10 && `Exibindo ${pedidos.length} pedidos.`}
-            </TableCaption>
             <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">Nº Pedido</TableHead>

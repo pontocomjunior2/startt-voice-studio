@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
-import { 
+import {
   UserCircle, Users, Heart, PlayCircle, ChevronLeft, ChevronRight, FileAudio, XCircle,
   Loader2, RefreshCw, Send, AlertTriangle, Star, Filter, User, Sparkles
 } from 'lucide-react';

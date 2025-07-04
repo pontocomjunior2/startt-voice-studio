@@ -34,8 +34,15 @@ export const calcularTempoEstimadoSegundos = (texto: string, velocidade: Velocid
 
 // Função para formatar segundos em MM:SS
 export const formatarSegundosParaMMSS = (totalSegundos: number): string => {
-  const minutos = Math.floor(totalSegundos / 60);
-  const segundos = totalSegundos % 60;
+  // Tratar números negativos como zero
+  if (totalSegundos < 0) {
+    return '00:00';
+  }
+  
+  // Arredondar para baixo para lidar com decimais
+  const segundosInteiros = Math.floor(totalSegundos);
+  const minutos = Math.floor(segundosInteiros / 60);
+  const segundos = segundosInteiros % 60;
   const minutosFormatados = String(minutos).padStart(2, '0');
   const segundosFormatados = String(segundos).padStart(2, '0');
   return `${minutosFormatados}:${segundosFormatados}`;

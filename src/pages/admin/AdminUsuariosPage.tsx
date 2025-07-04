@@ -7,4 +7,4 @@ export default function AdminUsuariosPage() {
       <p className="text-muted-foreground">Página em desenvolvimento...</p>
     </div>
   );
-} 
+}
