@@ -1,4 +1,5 @@
-import { useAuth } from '../contexts/AuthContext';
+import React from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Loader2, RefreshCw, PlusCircle, Wallet, ClipboardList, 
-  Hourglass, CheckCircle2, ListMusic, User, Sparkles
+  Hourglass, CheckCircle2, ListMusic, User, Sparkles, FileAudio, TrendingUp, Calendar
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';

@@ -60,7 +60,7 @@ export const PedidoTableRow: React.FC<PedidoTableRowProps> = ({
         </span>
       </TableCell>
       <TableCell className="px-4 py-3 font-medium whitespace-nowrap text-sm text-foreground">
-        {pedido.locutores?.nome || <span className="text-muted-foreground italic">N/A</span>}
+        {pedido.locutores?.nome_artistico || <span className="text-muted-foreground italic">N/A</span>}
       </TableCell>
       <TableCell className="px-6 py-3 max-w-md text-sm text-muted-foreground">
         <p className="truncate" title={pedido.titulo || 'Título não disponível'}>

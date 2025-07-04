@@ -1,46 +1,47 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from 'sonner';
-import { supabase } from '@/lib/supabaseClient';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { cn } from '@/lib/utils';
-import { PlayCircle, Send, Loader2, UserCircle, Users, ChevronLeft, ChevronRight, Heart, Filter, Star, AlertTriangle, FileAudio, XCircle, Sparkles, RefreshCw, User } from 'lucide-react';
-import { Separator } from "@/components/ui/separator";
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
-import { Form, FormControl, FormField, FormItem, FormMessage, FormLabel } from '@/components/ui/form';
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  VELOCIDADE_LOCUCAO,
-  type VelocidadeLocucaoTipo,
-  calcularTempoEstimadoSegundos,
-  formatarSegundosParaMMSS,
-} from "@/utils/locutionTimeUtils";
-import { type Locutor } from '@/types';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { useAuth } from '@/contexts/AuthContext';
+import { useFetchPacotes } from '@/hooks/queries/use-fetch-pacotes.hook';
+import { useGenerateAiAudio } from '@/hooks/mutations/use-generate-ai-audio.mutation.hook';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { toast } from 'sonner';
+import { 
+  AlertCircle, Mic, MicIcon, Sparkles, Upload, Volume2, VolumeX, Play, Pause, Download, Info,
+  UserCircle, Users, Heart, PlayCircle, ChevronLeft, ChevronRight, FileAudio, XCircle,
+  Loader2, RefreshCw, Send, AlertTriangle, Star, Filter, User
+} from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useSpring, animated } from 'react-spring';
 import { obterMensagemSucessoAleatoria } from '@/utils/messageUtils';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PEDIDO_STATUS } from '@/types/pedido.type';
 import { atualizarPedidoAction } from '@/actions/pedido-actions';
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDropzone } from 'react-dropzone';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { useGenerateAiAudio } from '@/hooks/mutations/use-generate-ai-audio.mutation.hook';
 import { useFetchAllowedLocutores, type LocutorCatalogo } from '@/hooks/queries/use-fetch-allowed-locutores.hook';
+import { supabase } from '@/lib/supabaseClient';
+import { cn } from '@/lib/utils';
+import {
+  VELOCIDADE_LOCUCAO,
+  type VelocidadeLocucaoTipo,
+  calcularTempoEstimadoSegundos,
+  formatarSegundosParaMMSS,
+} from "@/utils/locutionTimeUtils";
 
 const estilosLocucaoOpcoes = [
   { id: 'padrao', label: 'Padrão' },
@@ -369,7 +370,7 @@ function GravarLocucaoPage() {
   const indexOfLastLocutor = currentPageLocutores * LOCUTORES_PER_PAGE;
   const indexOfFirstLocutor = indexOfLastLocutor - LOCUTORES_PER_PAGE;
   // currentLocutoresToDisplay é calculado depois, com base nos locutores filtrados.
-
+  
   useEffect(() => {
     const currentScript = getValues("scriptText") || "";
     
@@ -511,13 +512,13 @@ function GravarLocucaoPage() {
       }
       if (estimatedCredits === 0) {
         if (values.scriptText && values.scriptText.trim().length > 0) {
-          toast.error("Erro no Pedido", { description: "O roteiro parece válido, mas não foram calculados créditos. Verifique o texto." });
-          return;
-        }
+        toast.error("Erro no Pedido", { description: "O roteiro parece válido, mas não foram calculados créditos. Verifique o texto." });
+        return;
+      }
         if (!values.scriptText || values.scriptText.trim().length < 10) {
-          toast.error("Roteiro Inválido", { description: "O roteiro deve ter pelo menos 10 caracteres." });
-          setFormError("scriptText", { type: "manual", message: "O roteiro deve ter pelo menos 10 caracteres." });
-          return;
+        toast.error("Roteiro Inválido", { description: "O roteiro deve ter pelo menos 10 caracteres." });
+        setFormError("scriptText", { type: "manual", message: "O roteiro deve ter pelo menos 10 caracteres." });
+        return;
         }
       }
     }
@@ -1756,7 +1757,7 @@ function GravarLocucaoPage() {
                               !getValues("scriptText") ||
                               (getValues("scriptText") || '').trim().length < 10 ||
                               // Validações de Saldo
-                              (tipoGravacao === 'humana' && (profile?.saldo_gravacao ?? 0) < estimatedCredits) ||
+                                (tipoGravacao === 'humana' && (profile?.saldo_gravacao ?? 0) < estimatedCredits) ||
                               (tipoGravacao === 'ia' && (profile?.saldo_ia ?? 0) < custoIa)
                             }
                             className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90"
@@ -1786,7 +1787,7 @@ function GravarLocucaoPage() {
                         ) : (
                           <p>Preencha todos os campos obrigatórios.</p>
                         )}
-                      </TooltipContent>
+                        </TooltipContent>
                     </Tooltip>
                   )}
                 </div>

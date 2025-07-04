@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabaseClient';
-import { Card } from '@/components/ui/card';
+import { useAuth } from '@/contexts/AuthContext';
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
@@ -15,8 +17,12 @@ import {
   Wallet,
   Sparkles,
   MinusCircle,
-  Package
+  Package,
+  Plus,
+  Minus,
+  Clock
 } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
 
 interface TimelineEvent {
   tipo: 'LOTE_ADICIONADO' | 'PEDIDO_CRIADO';

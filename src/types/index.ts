@@ -35,7 +35,7 @@ export interface Pedido {
   cliente_notificado_em?: string | null;
   id_pedido_serial: string;
   solicitacoes_revisao_count?: number;
-  locutores?: { nome: string } | null;
+  locutores?: { nome_artistico: string } | null;
   tipo_audio?: string;
   audio_final_url?: string | null;
 }

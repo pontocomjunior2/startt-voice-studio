@@ -43,7 +43,7 @@ export interface AdminPedido {
   status: string; // Pode ser TipoStatusPedido, mas mantendo string por consistência com o hook original
   user_id: string;
   profile: ProfileInPedido | null;
-  locutores: { nome: string } | null;
+  locutores: { nome_artistico: string } | null;
   audio_final_url?: string | null;
   titulo: string;
   estilo_locucao?: string;

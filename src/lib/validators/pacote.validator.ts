@@ -3,15 +3,16 @@ import { z } from 'zod';
 // Schema de validação para a criação e edição de pacotes
 export const pacoteSchema = z.object({
   id: z.string().optional(),
-  nome: z.string().min(3, { message: "O nome deve ter pelo menos 3 caracteres." }),
+  nome: z.string().min(1, 'Nome é obrigatório'),
   descricao: z.string().optional(),
-  valor: z.coerce.number().min(0, { message: "O valor deve ser um número positivo." }),
-  creditos_oferecidos: z.coerce.number().int().min(1, { message: "A quantidade de créditos deve ser no mínimo 1." }),
-  creditos_ia_oferecidos: z.coerce.number().int().min(0).optional().default(0),
+  valor: z.number().min(0, 'Valor deve ser maior ou igual a 0'),
+  creditos_oferecidos: z.number().min(1, 'Créditos oferecidos deve ser maior que 0'),
+  creditos_ia_oferecidos: z.number().min(0, 'Créditos IA oferecidos deve ser maior ou igual a 0'),
   ativo: z.boolean(),
   listavel: z.boolean(),
   locutores: z.array(z.string()).optional(),
-  validade_dias: z.coerce.number().int().min(1, { message: "A validade deve ser de no mínimo 1 dia." }).optional().nullable(),
+  validade_dias: z.number().min(1).optional(),
+  categoria: z.string().optional()
 });
 
 // Extrai o tipo TypeScript do schema Zod para usarmos em nossos componentes e hooks

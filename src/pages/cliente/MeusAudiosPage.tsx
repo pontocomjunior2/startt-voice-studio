@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -319,7 +319,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
   );
 };
 
-function MeusAudiosPage() {
+export default function MeusAudiosPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -350,7 +350,7 @@ function MeusAudiosPage() {
   const [submittingExclusao, setSubmittingExclusao] = useState(false);
 
   const [filtroTitulo, setFiltroTitulo] = useState("");
-  const [filtroStatus, setFiltroStatus] = useState<string>("__all__");
+  const [filtroStatus, setFiltroStatus] = useState('todos');
   const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined);
   const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
 
@@ -1032,6 +1032,4 @@ function MeusAudiosPage() {
 
     </div>
   );
-}
-
-export default MeusAudiosPage; 
+} 

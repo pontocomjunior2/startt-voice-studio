@@ -48,8 +48,8 @@ const fetchAdminActiveOrders = async (): Promise<AdminPedido[]> => {
       ? pedido.profiles as ProfileInPedido 
       : null;
 
-    const locutorInfo: { nome: string } | null = pedido.locutores && typeof pedido.locutores === 'object' && pedido.locutores.nome
-      ? { nome: pedido.locutores.nome }
+    const locutorInfo: { nome_artistico: string } | null = pedido.locutores && typeof pedido.locutores === 'object' && pedido.locutores.nome
+      ? { nome_artistico: pedido.locutores.nome }
       : null;
 
     const result = {

@@ -271,7 +271,7 @@ export const DetalhesPedidoDownloadDialog: React.FC<DetalhesPedidoDownloadDialog
                   <div className="font-medium text-neutral-300">Título:</div>
                   <div className="md:col-span-2">{pedidoDisplay?.titulo || <span className="italic text-neutral-400">N/A</span>}</div>
                   <div className="font-medium text-neutral-300">Locutor:</div>
-                  <div className="md:col-span-2">{pedidoDisplay?.locutores?.nome || <span className="italic text-neutral-400">Não definido</span>}</div>
+                  <div className="md:col-span-2">{pedidoDisplay?.locutores?.nome_artistico || <span className="italic text-neutral-400">Não definido</span>}</div>
                   <div className="font-medium text-neutral-300">Estilo de Áudio:</div>
                   <div className="md:col-span-2">{pedidoDisplay?.estilo_locucao || <span className="italic text-neutral-400">N/A</span>}</div>
                   <div className="font-medium text-neutral-300 self-start">Tipo de Áudio:</div>

@@ -47,7 +47,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ManageClientLocutoresModal } from '@/components/admin/manage-client-locutores-modal';
 
-function AdminUsuariosPage() {
+export default function AdminUsuariosPage() {
   const { profile: adminProfile } = useAuth();
   const queryClient = useQueryClient();
 
@@ -70,7 +70,9 @@ function AdminUsuariosPage() {
   const [isDeletingUser, setIsDeletingUser] = useState(false);
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-  const [userFilter, setUserFilter] = useState('');
+  const [filtroNome, setFiltroNome] = useState('');
+  const [filtroStatus, setFiltroStatus] = useState('todos');
+  const [filtroTipo, setFiltroTipo] = useState('todos');
 
   const { data: users = [], isLoading: isLoadingUsers, isError, error, refetch: refetchUsers } = useFetchAdminUsers();
   const { mutate: updateUserRole, isPending: isUpdatingRole } = useUpdateUserRole();
@@ -175,8 +177,8 @@ function AdminUsuariosPage() {
   };
 
   const filteredUsers = users.filter(user => 
-    (user.full_name?.toLowerCase().includes(userFilter.toLowerCase())) ||
-    (user.username?.toLowerCase().includes(userFilter.toLowerCase()))
+    (user.full_name?.toLowerCase().includes(filtroNome.toLowerCase())) ||
+    (user.username?.toLowerCase().includes(filtroNome.toLowerCase()))
   );
   
   if (isError && error) {
@@ -195,8 +197,8 @@ function AdminUsuariosPage() {
         <Input 
           type="text"
           placeholder="Filtrar por nome ou usuário..."
-          value={userFilter}
-          onChange={(e) => setUserFilter(e.target.value)}
+          value={filtroNome}
+          onChange={(e) => setFiltroNome(e.target.value)}
           className="max-w-sm"
         />
       </div>
@@ -394,6 +396,4 @@ function AdminUsuariosPage() {
       />
     </div>
   );
-}
-
-export default AdminUsuariosPage; 
+} 
