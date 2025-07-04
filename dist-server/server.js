@@ -239,7 +239,7 @@ app.post('/api/upload/demo', (req, res, next) => {
             const { data: locutores, error: locutorError } = await supabase
                 .from('locutores')
                 .select('id')
-                .ilike('nome', nomeLocutor);
+                .ilike('nome_artistico', nomeLocutor);
             if (locutorError || !locutores || locutores.length === 0) {
                 return res.status(404).json({ message: 'Locutor não encontrado para nome informado.' });
             }
