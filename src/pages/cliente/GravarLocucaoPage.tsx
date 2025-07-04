@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import {
   UserCircle, Users, Heart, PlayCircle, ChevronLeft, ChevronRight, FileAudio, XCircle,
-  Loader2, RefreshCw, Send, AlertTriangle, Star, Filter, User, Sparkles
+  Loader2, RefreshCw, Send, AlertTriangle, Star, Filter, User, Sparkles, Headphones, Download
 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useSpring, animated } from 'react-spring';
@@ -27,7 +27,7 @@ import { PEDIDO_STATUS } from '@/types/pedido.type';
 import { atualizarPedidoAction } from '@/actions/pedido-actions';
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { useDropzone } from 'react-dropzone';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { useFetchAllowedLocutores, type LocutorCatalogo } from '@/hooks/queries/use-fetch-allowed-locutores.hook';
 import { supabase } from '@/lib/supabaseClient';
 import { cn } from '@/lib/utils';
@@ -37,6 +37,7 @@ import {
   calcularTempoEstimadoSegundos,
   formatarSegundosParaMMSS,
 } from "@/utils/locutionTimeUtils";
+import { Badge } from '@/components/ui/badge';
 
 const estilosLocucaoOpcoes = [
   { id: 'padrao', label: 'Padrão' },
@@ -873,6 +874,34 @@ function GravarLocucaoPage() {
   // >>> ADICIONE ESTA LINHA AQUI <<<
   console.log('[DEBUG 2] ESTADO ATUAL DO LOCUTOR SELECIONADO:', selectedLocutor);
 
+  const [filtroNome, setFiltroNome] = useState('');
+  const [filtroEstilo, setFiltroEstilo] = useState('all');
+
+  // Extrair estilos únicos a partir dos demos de todos os locutores
+  const estilosUnicos = useMemo(() => {
+    return Array.from(new Set(
+      locutores.flatMap((l: LocutorCatalogo) => l.demos?.map(d => d.estilo).filter(Boolean) || [])
+    ));
+  }, [locutores]);
+
+  const locutoresFiltrados: LocutorCatalogo[] = useMemo(() => {
+    return locutores.filter((locutor: LocutorCatalogo) => {
+      const nomeMatch = (locutor.nome_artistico || '').toLowerCase().includes(filtroNome.toLowerCase());
+      const estiloMatch = filtroEstilo === 'all' || (locutor.demos?.some(d => d.estilo === filtroEstilo));
+      return nomeMatch && estiloMatch;
+    });
+  }, [locutores, filtroNome, filtroEstilo]);
+
+  // Função para selecionar locutor
+  const handleSelectLocutor = (locutor: LocutorCatalogo) => {
+    setSelectedLocutor(locutor);
+    setValue('locutorId', locutor.id, { shouldValidate: true });
+  };
+
+  // Adicione no início do componente:
+  const [modalAmostrasLocutorId, setModalAmostrasLocutorId] = useState<string | null>(null);
+  const [audioPlaying, setAudioPlaying] = useState<HTMLAudioElement | null>(null);
+
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
       <audio ref={audioPreviewRef} className="hidden" />
@@ -976,262 +1005,161 @@ function GravarLocucaoPage() {
 
               {/* ETAPA 2: SELEÇÃO DE LOCUTOR */}
               {currentStep === 2 && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <h2 className="text-2xl font-semibold">Selecione o Locutor</h2>
-                    <p className="text-muted-foreground">Escolha a voz para o seu projeto.</p>
+                <div className="w-full max-w-2xl mx-auto">
+                  {/* Filtros */}
+                  <div className="flex flex-col md:flex-row md:items-end gap-4 mb-6">
+                    <div className="flex-1">
+                      <Label htmlFor="filtro-nome">Buscar por nome</Label>
+                      <Input
+                        id="filtro-nome"
+                        placeholder="Digite o nome do locutor..."
+                        value={filtroNome}
+                        onChange={e => setFiltroNome(e.target.value)}
+                      />
                   </div>
-
-                  {/* Controle de Filtro de Favoritos com Button */}
-                  <div className="flex justify-start my-4"> {/* Ajustado para justify-start, pode ser center ou end conforme preferência */}
-                    <Button
-                      type="button"
-                      variant={mostrarApenasFavoritos ? "secondary" : "outline"}
-                      onClick={() => {
-                        const novoEstadoFiltro = !mostrarApenasFavoritos;
-                        setMostrarApenasFavoritos(novoEstadoFiltro);
-                        setCurrentPageLocutores(1); // Resetar paginação
-
-                        const locutorIdAtual = getValues("locutorId");
-                        if (locutorIdAtual) {
-                          if (novoEstadoFiltro && !idsLocutoresFavoritos.includes(locutorIdAtual)) {
-                            setSelectedLocutor(null);
-                            setValue("locutorId", "", { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-                            // Se já estiver na etapa de seleção de locutor, acionar validação para mostrar erro se campo ficou vazio
-                            if (currentStep === 2) {
-                              trigger("locutorId"); 
-                            }
-                          }
-                        }
-                      }}
-                      className="flex items-center gap-2 group"
-                    >
-                      {mostrarApenasFavoritos ? (
-                        <Star className="h-4 w-4 text-startt-blue fill-startt-blue transition-all group-hover:scale-110" />
-                      ) : (
-                        <Filter className="h-4 w-4 text-muted-foreground transition-all group-hover:text-startt-blue" />
-                      )}
-                      <span>
-                        {mostrarApenasFavoritos ? "Mostrando Favoritos" : "Locutores Favoritos"}
-                      </span>
-                    </Button>
+                    <div className="flex-1">
+                      <Label htmlFor="filtro-estilo">Filtrar por estilo</Label>
+                      <Select value={filtroEstilo} onValueChange={setFiltroEstilo}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Todos os estilos" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          {estilosUnicos.map(estilo => (
+                            <SelectItem key={estilo} value={estilo}>{estilo}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                   </div>
-
-                  {loadingLocutores && (
-                    <div className="flex justify-center items-center py-10">
-                      <Loader2 className="h-8 w-8 animate-spin text-startt-blue" />
-                      <p className="ml-3">Carregando locutores...</p>
                     </div>
+                  {/* Lista vertical de locutores filtrados */}
+                  <div className="flex flex-col space-y-2">
+                    {locutoresFiltrados.length === 0 && (
+                      <div className="text-center text-muted-foreground py-8">Nenhum locutor encontrado com os filtros selecionados.</div>
                   )}
-                  {hasErrorLocutores && (
-                    <div className="text-center py-10 text-red-600">
-                      <Users className="mx-auto h-12 w-12 text-red-500" />
-                      <p className="mt-2 font-semibold">Erro ao carregar locutores</p>
-                      <p className="text-sm text-muted-foreground">{errorLocutores?.message || 'Ocorreu um erro desconhecido.'}</p>
-                      <Button onClick={() => window.location.reload()} variant="outline" className="mt-4">
-                        Tentar Novamente
-                      </Button>
-                    </div>
-                  )}
-                  {!loadingLocutores && !hasErrorLocutores && locutores.length === 0 && (
-                     <div className="text-center py-10">
-                        <Users className="mx-auto h-12 w-12 text-muted-foreground" />
-                        <p className="mt-2 font-semibold">Nenhum locutor disponível</p>
-                        <p className="text-sm text-muted-foreground">Não há locutores cadastrados ou ativos no momento.</p>
-                      </div>
-                  )}
-                  {!loadingLocutores && !hasErrorLocutores && locutores.length > 0 && (
-                    <>
-                      {/* Lógica de filtragem */}
-                      {(() => {
-                        const locutoresFiltrados = mostrarApenasFavoritos
-                          ? locutores.filter(locutor => idsLocutoresFavoritos.includes(locutor.id))
-                          : locutores;
-                        
-                        const locutoresPaginados = locutoresFiltrados.slice(indexOfFirstLocutor, indexOfLastLocutor);
-                        const totalPagesFiltradas = Math.ceil(locutoresFiltrados.length / LOCUTORES_PER_PAGE);
-
-                        if (locutoresFiltrados.length === 0 && mostrarApenasFavoritos) {
+                    {locutoresFiltrados.map(locutor => {
+                      const estilos = Array.from(new Set(locutor.demos?.map(d => d.estilo).filter((e): e is string => Boolean(e))));
+                      const estilosVisiveis = estilos.slice(0, 3);
+                      const estilosExtras = estilos.length > 3 ? estilos.slice(3) : [];
                           return (
-                            <div className="text-center py-10">
-                              <Heart className="mx-auto h-12 w-12 text-muted-foreground" />
-                              <p className="mt-2 font-semibold">Nenhum favorito encontrado</p>
-                              <p className="text-sm text-muted-foreground">Você ainda não favoritou nenhum locutor. Clique no coração para adicionar.</p>
-                            </div>
-                          );
-                        }
-                        
-                        if (locutoresPaginados.length === 0 && locutoresFiltrados.length > 0) {
-                           // Isso pode acontecer se o usuário estiver em uma página que não existe mais após filtrar
-                           // Melhor resetar para a primeira página em vez de mostrar nada.
-                           // A lógica de resetar currentPageLocutores no onCheckedChange já deve ajudar com isso.
-                           // Mas para segurança, podemos forçar aqui se locutoresPaginados está vazio mas filtrados não.
-                           // Contudo, a paginação deve ser baseada em totalPagesFiltradas.
-                        }
-
-
-                        return (
-                          <>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              {locutoresPaginados.map((locutor) => {
-                                const isFavorito = idsLocutoresFavoritos.includes(locutor.id);
-                                return (
-                                  <Card
-                                    key={locutor.id}
-                                    // Removido onClick daqui para não conflitar com o botão de favoritar. A seleção será pelo radio/hidden input.
-                                    className={cn(
-                                      "relative cursor-pointer transition-all duration-200 ease-in-out transform hover:shadow-xl hover:-translate-y-1 focus-within:ring-2 focus-within:ring-amber-500 focus-within:ring-offset-2",
-                                      watchedLocutorId === locutor.id && "ring-2 ring-amber-500 shadow-xl -translate-y-1",
-                                      "flex flex-col h-full"
-                                    )}
-                                    tabIndex={0}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter' || e.key === ' ') {
-                                        e.preventDefault();
-                                        setSelectedLocutor(locutor);
-                                        setValue("locutorId", locutor.id, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-                                      }
-                                    }}
-                                  >
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={(e) => {
-                                            e.stopPropagation(); // Evitar que o clique no coração selecione o card
-                                            toggleFavorito(locutor.id, isFavorito);
-                                        }}
-                                        className="absolute top-2 right-2 text-muted-foreground hover:text-destructive z-10" // Adicionado z-10
-                                        aria-label={isFavorito ? "Desfavoritar locutor" : "Favoritar locutor"}
-                                    >
-                                        <Heart
-                                            className={cn("h-5 w-5 transition-colors", isFavorito ? "fill-destructive text-destructive" : "text-gray-400 hover:text-destructive/80")}
-                                        />
-                                    </Button>
-                                    <CardContent 
-                                      className="p-0 flex flex-col flex-grow"
-                                      onClick={() => { // Adicionado onClick aqui para selecionar o locutor
-                                        setSelectedLocutor(locutor);
-                                        setValue("locutorId", locutor.id, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-                                      }}
-                                    >
-                                      <CardHeader className="p-3 flex-shrink-0">
-                                        <div className="flex items-center space-x-3">
-                                          <Avatar className="h-12 w-12 border-2 border-muted bg-background">
-                                            <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome_artistico || 'Locutor'} />
-                                            <AvatarFallback className="text-xs text-white bg-background">
-                                              {(locutor.nome_artistico || 'L').substring(0, 2).toUpperCase()}
+                        <Card key={locutor.id} className="flex flex-row items-center justify-between gap-2 px-3 py-2 min-h-[56px]">
+                          <div className="flex items-center min-w-0 flex-1 gap-2">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src={locutor.avatar_url || undefined} alt={locutor.nome_artistico || ''} />
+                              <AvatarFallback className="text-base bg-gradient-to-r from-startt-blue to-startt-purple text-primary-foreground">
+                                {(locutor.nome_artistico || 'L')?.charAt(0).toUpperCase()}
                                             </AvatarFallback>
                                           </Avatar>
-                                          <div className="flex-1 min-w-0">
-                                            <CardTitle className="text-base font-semibold truncate" title={locutor.nome_artistico || undefined}>
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-medium truncate flex items-center gap-1 text-sm">
                                               {locutor.nome_artistico || 'Locutor'}
-                                            </CardTitle>
-                                            <CardDescription className="text-xs line-clamp-2 h-8 leading-tight">
-                                              {locutor.bio || 'Voz profissional'}
-                                            </CardDescription>
+                                {locutor.ia_disponivel && (
+                                  <span title="IA Instantânea disponível" aria-label="IA disponível" className="ml-1 text-yellow-500 text-base">✨</span>
+                                )}
+                              </span>
+                              <span className="text-xs text-muted-foreground truncate max-w-[120px]">{locutor.bio || 'Voz profissional para seu projeto.'}</span>
                                           </div>
                                         </div>
-                                      </CardHeader>
-                                      <CardContent className="p-3 pt-0 text-center flex-grow flex flex-col justify-end">
-                                        {locutor.demos && locutor.demos.length > 0 ? (
-                                          <Popover>
-                                            <PopoverTrigger asChild>
-                                              <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="w-full text-xs mt-auto"
-                                                onClick={e => e.stopPropagation()}
-                                              >
-                                                <PlayCircle className="mr-1.5 h-3.5 w-3.5" />
-                                                Ouvir Demos
-                                              </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-64 p-3 flex flex-col gap-3">
-                                              {getLocutorDemos(locutor).map((demo, i) => (
-                                                <div key={i} className="flex flex-col items-start">
-                                                  <span className="text-xs font-semibold text-muted-foreground mb-1">{demo.estilo || 'Estilo'}</span>
-                                                  <audio controls className="h-8 w-full" aria-label={`Demo de áudio estilo ${demo.estilo}`}>
-                                                    <source src={demo.url} />
-                                                    Seu navegador não suporta o elemento de áudio.
-                                                  </audio>
-                                                </div>
-                                              ))}
-                                            </PopoverContent>
-                                          </Popover>
-                                        ) : (
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="w-full text-xs mt-auto"
-                                            disabled
-                                          >
-                                            <PlayCircle className="mr-1.5 h-3.5 w-3.5" />
-                                            Sem Demo
-                                          </Button>
-                                        )}
-                                      </CardContent>
-                                    </CardContent>
-                                  </Card>
-                                );
-                              })}
+                          <div className="flex flex-wrap gap-1 min-w-[120px] max-w-[160px] justify-center items-center">
+                            {estilosVisiveis.length > 0 ? estilosVisiveis.map(estilo => (
+                              <Badge key={estilo} variant="secondary" className="text-xs px-1.5 py-0.5">{estilo}</Badge>
+                            )) : null}
+                            {estilosExtras.length > 0 && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge variant="outline" className="text-xs px-1.5 py-0.5 cursor-pointer">+{estilosExtras.length}</Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <div className="flex flex-col gap-1">
+                                      {estilosExtras.map(estilo => (
+                                        <span key={estilo}>{estilo}</span>
+                                      ))}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
                             </div>
-                            {totalPagesFiltradas > 1 && (
-                              <div className="flex justify-center items-center space-x-2 mt-6 pt-0">
+                          <div className="flex gap-2 items-center">
                                 <Button
+                              type="button"
                                   variant="ghost"
-                                  size="icon"
-                                  onClick={() => setCurrentPageLocutores(prev => Math.max(prev - 1, 1))}
-                                  disabled={currentPageLocutores === 1}
-                                  aria-label="Página anterior de locutores"
+                              size="sm"
+                              onClick={() => setModalAmostrasLocutorId(locutor.id)}
+                              aria-label={`Ouvir demos de ${locutor.nome_artistico}`}
                                 >
-                                  <ChevronLeft className="h-5 w-5" />
+                              <Headphones className="w-5 h-5 mr-1" /> Ouvir Demos
                                 </Button>
-
-                                {/* Container para os pontos */}
-                                <div className="flex items-center space-x-1.5">
-                                  {Array.from({ length: totalPagesFiltradas }, (_, i) => (
-                                    <button
-                                      key={i}
-                                      onClick={() => setCurrentPageLocutores(i + 1)} // Navegação direta
-                                      className={cn(
-                                        "h-2 w-2 rounded-full transition-all duration-150 ease-in-out",
-                                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2", // Estilo de foco melhorado
-                                        currentPageLocutores === i + 1
-                                          ? "bg-gradient-to-r from-startt-blue to-startt-purple scale-125 transform" // Ponto ativo: cor primária e um pouco maior
-                                          : "bg-muted hover:bg-muted-foreground/70" // Ponto inativo
-                                      )}
-                                      aria-label={`Ir para página ${i + 1}`}
-                                      aria-current={currentPageLocutores === i + 1 ? "page" : undefined}
-                                    />
-                                  ))}
-                                </div>
-
                                 <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => setCurrentPageLocutores(prev => Math.min(prev + 1, totalPagesFiltradas))}
-                                  disabled={currentPageLocutores === totalPagesFiltradas}
-                                  aria-label="Próxima página de locutores"
+                              type="button"
+                              variant={selectedLocutor?.id === locutor.id ? "default" : "outline"}
+                              onClick={e => { e.stopPropagation(); handleSelectLocutor(locutor); }}
+                              aria-label={`Selecionar locutor ${locutor.nome_artistico}`}
                                 >
-                                  <ChevronRight className="h-5 w-5" />
+                              {selectedLocutor?.id === locutor.id ? "Selecionado" : "Selecionar"}
                                 </Button>
                               </div>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </>
-                  )}
-                  <FormField 
-                    control={control} 
-                    name="locutorId" 
-                    render={({ field }) => ( 
-                      <FormItem>
-                        <FormControl><Input type="hidden" {...field} /></FormControl>
-                        {/* <FormMessage className="text-center pt-2" /> Removido para locutorId, coberto pelo Popover */}
-                      </FormItem> 
-                    )} 
-                  />
+                          {/* Modal de demos */}
+                          <Dialog open={modalAmostrasLocutorId === locutor.id} onOpenChange={open => {
+                            if (!open) setModalAmostrasLocutorId(null);
+                          }}>
+                            <DialogContent className="max-w-lg w-full">
+                              <DialogHeader>
+                                <DialogTitle className="bg-clip-text text-transparent bg-gradient-to-r from-startt-blue to-startt-purple">
+                                  Demos de {locutor.nome_artistico}
+                                </DialogTitle>
+                                <DialogDescription>
+                                  {(locutor.demos || []).length > 0
+                                    ? 'Ouça e baixe as diferentes demos de voz deste locutor.'
+                                    : 'Nenhuma demo disponível para este locutor.'}
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                {(locutor.demos || []).length > 0 ? (
+                                  locutor.demos.map((demo, idx) => (
+                                    <div key={demo.url} className="flex items-center gap-3">
+                                      <span className="font-medium text-sm text-startt-blue min-w-[80px]">
+                                        {demo.estilo || `Amostra ${idx + 1}`}
+                                      </span>
+                                      <audio
+                                        controls
+                                        className="w-full h-8"
+                                        src={demo.url ?? ''}
+                                        aria-label={`Amostra ${demo.estilo || idx + 1} de ${locutor.nome_artistico}`}
+                                        onPlay={e => {
+                                          const currentAudio = e.currentTarget;
+                                          if (audioPlaying && audioPlaying !== currentAudio) {
+                                            audioPlaying.pause();
+                                          }
+                                          setAudioPlaying(currentAudio);
+                                        }}
+                                      />
+                                      <a
+                                        href={demo.url ?? ''}
+                                        download
+                                        className="ml-2 text-muted-foreground hover:text-startt-purple"
+                                        aria-label={`Baixar demo ${demo.estilo || idx + 1}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                      >
+                                        <Download className="h-5 w-5" />
+                                      </a>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="text-muted-foreground text-center py-4">Nenhuma demo disponível.</div>
+                                )}
+                              </div>
+                              <DialogClose asChild>
+                                <Button variant="secondary" className="mt-4 w-full">Fechar</Button>
+                              </DialogClose>
+                            </DialogContent>
+                          </Dialog>
+                        </Card>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -1256,13 +1184,35 @@ function GravarLocucaoPage() {
                       >
                         <Label htmlFor="tipo-humana" className={cn("flex flex-col items-center justify-center p-4 rounded-lg border-2 cursor-pointer transition-all", tipoGravacao === 'humana' ? 'border-primary bg-primary/10' : 'border-border')}>
                           <RadioGroupItem value="humana" id="tipo-humana" className="sr-only" />
-                          <User className="h-6 w-6 mb-2" />
-                          <span className="font-bold">Gravação Humana</span>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="flex flex-col items-center gap-1" tabIndex={0}>
+                                  <User className="h-6 w-6 mb-2" />
+                                  <span className="font-bold">Gravação Humana</span>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" sideOffset={8} className="bg-popover text-popover-foreground max-w-xs text-sm text-center shadow-lg border">
+                                A interpretação e emoção de um artista profissional para o seu áudio. Ideal para comerciais, vídeos institucionais e projetos que exigem uma conexão genuína com o público.
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </Label>
                         <Label htmlFor="tipo-ia" className={cn("flex flex-col items-center justify-center p-4 rounded-lg border-2 cursor-pointer transition-all", tipoGravacao === 'ia' ? 'border-primary bg-primary/10' : 'border-border')}>
                           <RadioGroupItem value="ia" id="tipo-ia" className="sr-only" />
-                          <Sparkles className="h-6 w-6 mb-2" />
-                          <span className="font-bold">✨ Gravar com IA</span>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="flex flex-col items-center gap-1" tabIndex={0}>
+                                  <Sparkles className="h-6 w-6 mb-2" />
+                                  <span className="font-bold">✨ Gravar com IA</span>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" sideOffset={8} className="bg-popover text-popover-foreground max-w-xs text-sm text-center shadow-lg border">
+                                Entrega do áudio na hora gerado por nossa IA exclusiva e otimizada. Perfeito para testes de roteiro, vídeos para redes sociais e protótipos.
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </Label>
                       </RadioGroup>
                     </div>
