@@ -31,7 +31,7 @@ RUN npm install
 COPY . .
 
 # 4. Construir o frontend e o backend. O Vite usará as variáveis do EasyPanel.
-RUN npm run build
+RUN npx vite build
 RUN npm run build:server
 
 # 5. Remover dependências de desenvolvimento.
