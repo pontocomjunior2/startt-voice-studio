@@ -14,7 +14,7 @@ import {
 import { supabase } from '@/lib/supabaseClient';
 
 interface TimelineEvent {
-  tipo: 'LOTE_ADICIONADO' | 'PEDIDO_CRIADO';
+  tipo: 'LOTE_ADICIONADO' | 'PEDIDO_CRIADO' | 'PEDIDO_CRIADO_IA';
   data: string;
   descricao: string;
   detalhes: string;
@@ -26,6 +26,9 @@ const getIcon = (evento: TimelineEvent) => {
   if (evento.tipo === 'LOTE_ADICIONADO') {
     if (evento.saldoIA) return <Sparkles className="h-5 w-5 text-amber-500" />;
     return <Wallet className="h-5 w-5 text-sky-500" />;
+  }
+  if (evento.tipo === 'PEDIDO_CRIADO_IA') {
+    return <Sparkles className="h-5 w-5 text-amber-500" />;
   }
   if (evento.tipo === 'PEDIDO_CRIADO') {
     return <MinusCircle className="h-5 w-5 text-red-500" />;
@@ -88,22 +91,38 @@ const HistoricoCreditosPage: React.FC = () => {
             return eventosDoLote;
           });
 
-        // 2. Buscar Pedidos (Débitos)
+        // 2. Buscar Pedidos (Débitos de gravação e IA)
         const { data: pedidosData, error: pedidosError } = await supabase
           .from('pedidos')
-          .select('created_at, titulo, creditos_debitados, id_pedido_serial')
+          .select('created_at, titulo, creditos_debitados, creditos_ia_debitados, id_pedido_serial')
           .eq('user_id', profile.id)
-          .gt('creditos_debitados', 0);
+          .or('creditos_debitados.gt.0,creditos_ia_debitados.gt.0');
 
         if (pedidosError) throw pedidosError;
         
-        const eventosPedidos: TimelineEvent[] = pedidosData.map(pedido => ({
-            tipo: 'PEDIDO_CRIADO',
-            data: pedido.created_at,
-            descricao: `Pedido #${pedido.id_pedido_serial || ''}`,
-            detalhes: `-${pedido.creditos_debitados.toLocaleString('pt-BR')} créditos de gravação para: "${pedido.titulo || 'Pedido sem título'}"`,
-            valor: pedido.creditos_debitados,
-        }));
+        const eventosPedidos: TimelineEvent[] = (pedidosData || []).flatMap(pedido => {
+          const eventos: TimelineEvent[] = [];
+          if (pedido.creditos_debitados > 0) {
+            eventos.push({
+              tipo: 'PEDIDO_CRIADO',
+              data: pedido.created_at,
+              descricao: `Pedido #${pedido.id_pedido_serial || ''}`,
+              detalhes: `-${pedido.creditos_debitados.toLocaleString('pt-BR')} créditos de gravação para: "${pedido.titulo || 'Pedido sem título'}"`,
+              valor: pedido.creditos_debitados,
+            });
+          }
+          if (pedido.creditos_ia_debitados > 0) {
+            eventos.push({
+              tipo: 'PEDIDO_CRIADO_IA',
+              data: pedido.created_at,
+              descricao: `Geração IA #${pedido.id_pedido_serial || ''}`,
+              detalhes: `-${pedido.creditos_ia_debitados.toLocaleString('pt-BR')} créditos de IA para: "${pedido.titulo || 'Pedido sem título'}"`,
+              valor: pedido.creditos_ia_debitados,
+              saldoIA: true,
+            });
+          }
+          return eventos;
+        });
         
         // 3. Mesclar e Ordenar
         const todosEventos = [...eventosLotes, ...eventosPedidos];
