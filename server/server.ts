@@ -509,6 +509,8 @@ app.post('/api/upload/:clientName', (req, res) => {
     console.log('Salvo em:', req.file.path);
     console.log('Caminho relativo retornado:', relativeFilePath);
 
+    console.log('[IA Audio] Arquivo salvo em:', req.file.path);
+
     res.status(200).send({
       message: 'Arquivo enviado com sucesso!',
       filePath: relativeFilePath
@@ -1098,4 +1100,7 @@ app.listen(PORT, HOST, () => {
   console.log(`API disponível em: http://localhost:${PORT}/api/*`);
   console.log(`Uploads serão salvos em: ${path.join(__dirname, '../public/uploads')}`);
   console.log(`Arquivos servidos de: /uploads/*`);
-}); 
+});
+
+// Servir arquivos de ia_audios
+app.use('/ia_audios', express.static(path.join(__dirname, '../public/ia_audios'))); 
