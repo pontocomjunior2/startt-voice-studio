@@ -21,20 +21,23 @@ ENV VITE_API_URL=$VITE_API_URL
 # Instalar dependências de build se necessário (mantido por segurança)
 RUN apk add --no-cache python3 make g++ git
 
-# 1. Copiar apenas os arquivos de definição de dependências primeiro.
+# 1. Copiar apenas os arquivos de definição de dependências primeiro (para cache eficiente)
 COPY package.json package-lock.json* ./
 
-# 2. Instalar TODAS as dependências. Esta camada será cacheada.
+# 2. Instalar TODAS as dependências. Esta camada será cacheada se package.json/.lock não mudar.
 RUN npm install
 
-# 3. Copiar o restante do código da aplicação.
+# 3. Criar diretórios necessários para garantir existência na imagem (como no localhost)
+RUN mkdir -p public/uploads public/ia_audios temp
+
+# 4. Copiar o restante do código da aplicação.
 COPY . .
 
-# 4. Construir o frontend e o backend. O Vite usará as variáveis do EasyPanel.
+# 5. Construir o frontend e o backend. O Vite usará as variáveis do EasyPanel.
 RUN npx vite build
 RUN npm run build:server
 
-# 5. Remover dependências de desenvolvimento.
+# 6. Remover dependências de desenvolvimento.
 RUN npm prune --production
 
 # Estágio 2: Produção
@@ -62,8 +65,8 @@ COPY --from=builder /app/package.json .
 COPY --from=builder /app/public ./public
 
 # Criar e dar permissão para os diretórios que serão montados como volumes
-RUN mkdir -p public/uploads temp && \
-    chown -R nodejs:nodejs public/uploads temp
+RUN mkdir -p public/uploads public/ia_audios temp && \
+    chown -R nodejs:nodejs public/uploads public/ia_audios temp
 
 # Mudar para usuário não-root
 USER nodejs

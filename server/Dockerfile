@@ -4,15 +4,16 @@ FROM node:18-slim as builder
 # Defina o diretório de trabalho no container
 WORKDIR /app
 
-# Copie os arquivos package.json e package-lock.json (ou yarn.lock, pnpm-lock.yaml) para instalar dependências
-# Copie do diretório raiz do seu projeto local
+# Copie apenas os arquivos de dependências primeiro para aproveitar o cache do Docker
 COPY package*.json ./
 
-# Instale as dependências
+# Instale as dependências (será cacheado se package.json não mudar)
 RUN npm install
 
-# Copie o resto do código da aplicação
-# Copie do diretório raiz do seu projeto local
+# Crie diretórios necessários para garantir existência na imagem
+RUN mkdir -p public/ia_audios public/uploads temp
+
+# Agora copie o restante do código da aplicação
 COPY . .
 
 # Se você usa TypeScript e o build está configurado no package.json na raiz
@@ -33,6 +34,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist-server ./dist-server
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/certs-inter ./certs-inter # Se precisar dos certificados no backend
+COPY --from=builder /app/temp ./temp
 
 # Expõe a porta que o Express escuta
 EXPOSE 3001
