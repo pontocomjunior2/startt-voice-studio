@@ -320,7 +320,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
 };
 
 export default function MeusAudiosPage() {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const navigate = useNavigate();
 
   const { 
@@ -546,6 +546,7 @@ export default function MeusAudiosPage() {
 
       if (resultado?.data?.success) {
         toast.success("Pedido Excluído");
+        await refreshProfile();
         fetchAllPedidos();
         setIsConfirmarExclusaoModalOpen(false);
       } else {

@@ -38,6 +38,7 @@ import {
   formatarSegundosParaMMSS,
 } from "@/utils/locutionTimeUtils";
 import { Badge } from '@/components/ui/badge';
+import { useQueryClient } from '@tanstack/react-query';
 
 const estilosLocucaoOpcoes = [
   { id: 'padrao', label: 'Padrão' },
@@ -165,6 +166,8 @@ function GravarLocucaoPage() {
 
   const [tipoGravacao, setTipoGravacao] = useState<'humana' | 'ia'>('humana');
   const [custoIa, setCustoIa] = useState(0);
+
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const currentScript = getValues("scriptText") || "";
@@ -470,13 +473,12 @@ function GravarLocucaoPage() {
         userId: user.id
       }, {
         onSuccess: () => {
-          // A invalidação de queries já acontece no hook, então o refresh do profile aqui pode ser redundante, mas não prejudicial.
           refreshProfile(); 
-          // Redireciona para a página de áudios após o sucesso
+          queryClient.invalidateQueries(['clientOrders', user.id]);
           navigate('/meus-audios');
         }
       });
-      return; // Importante para não continuar com a lógica de gravação humana
+      return;
     }
 
     // Lógica para gravação humana continua aqui...
@@ -576,6 +578,7 @@ function GravarLocucaoPage() {
         toast.error("Falha ao Atualizar", { description: resultadoUpdate.data.failure });
       } else if (resultadoUpdate.data && resultadoUpdate.data.success === true) { 
         toast.success("Pedido Atualizado", { description: "Seu pedido foi atualizado com sucesso!" });
+        queryClient.invalidateQueries(['clientOrders', user.id]);
         navigate('/meus-audios');
       } else {
         // console.error("Estrutura de resultado inesperada da action de atualização:", resultadoUpdate);
@@ -665,7 +668,7 @@ function GravarLocucaoPage() {
 
         if (rpcResultData && rpcResultData.status === 'success') {
           if (refreshProfile) refreshProfile(); // Atualiza o perfil (créditos) no AuthContext
-
+          queryClient.invalidateQueries(['clientOrders', user.id]);
           // A RPC retorna o UUID do novo pedido em 'pedido_id'.
           const idPedidoCriadoUUID = rpcResultData.pedido_id || 'ID não retornado';
           
