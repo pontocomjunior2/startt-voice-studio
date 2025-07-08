@@ -902,6 +902,13 @@ function GravarLocucaoPage() {
   const [modalAmostrasLocutorId, setModalAmostrasLocutorId] = useState<string | null>(null);
   const [audioPlaying, setAudioPlaying] = useState<HTMLAudioElement | null>(null);
 
+  // Adicione o seguinte useEffect logo após a declaração do estado tipoGravacao:
+  useEffect(() => {
+    if (watchedTipoAudio === 'produzido' && tipoGravacao !== 'humana') {
+      setTipoGravacao('humana');
+    }
+  }, [watchedTipoAudio, tipoGravacao]);
+
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
       <audio ref={audioPreviewRef} className="hidden" />
@@ -1174,11 +1181,11 @@ function GravarLocucaoPage() {
                   </div>
 
                   {/* >>> Bloco de código inserido <<< */}
-                  {selectedLocutor.ia_disponivel && (
+                  {selectedLocutor.ia_disponivel && watchedTipoAudio === 'off' && (
                     <div className="p-4 border bg-card rounded-lg shadow-inner">
                       <Label className="text-base font-semibold text-foreground">Tipo de Gravação</Label>
                       <RadioGroup
-                        value={tipoGravacao}
+                        value={tipoGravacao || 'humana'}
                         onValueChange={(value: 'humana' | 'ia') => setTipoGravacao(value)}
                         className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-4"
                       >
