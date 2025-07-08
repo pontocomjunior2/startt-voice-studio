@@ -1032,7 +1032,7 @@ function GravarLocucaoPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Todos</SelectItem>
-                          {estilosUnicos.map(estilo => (
+                          {estilosUnicos.filter((e): e is string => typeof e === 'string' && !!e).map(estilo => (
                             <SelectItem key={estilo} value={estilo}>{estilo}</SelectItem>
                           ))}
                         </SelectContent>
@@ -1702,21 +1702,21 @@ function GravarLocucaoPage() {
                   {currentStep === 3 && (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span tabIndex={0}> 
+                        <span tabIndex={0}>
                           <Button
                             type="submit"
                             size="lg"
                             disabled={
                               isSubmitting || isGeneratingAi ||
-                              // Validações explícitas que substituem isFormValid
                               !getValues("tituloPedido") ||
                               (getValues("tituloPedido") || '').trim().length < 3 ||
-                              !getValues("estiloLocucao") ||
-                              (getValues("estiloLocucao") === 'outro' && !(getValues("outroEstiloEspecificacao") || '').trim()) ||
+                              (tipoGravacao === 'humana' && (
+                                !getValues("estiloLocucao") ||
+                                ((getValues("estiloLocucao") || '') === 'outro' && !(getValues("outroEstiloEspecificacao") || '').trim())
+                              )) ||
                               !getValues("scriptText") ||
                               (getValues("scriptText") || '').trim().length < 10 ||
-                              // Validações de Saldo
-                                (tipoGravacao === 'humana' && (profile?.saldo_gravacao ?? 0) < estimatedCredits) ||
+                              (tipoGravacao === 'humana' && (profile?.saldo_gravacao ?? 0) < estimatedCredits) ||
                               (tipoGravacao === 'ia' && (profile?.saldo_ia ?? 0) < custoIa)
                             }
                             className="bg-gradient-to-r from-startt-blue to-startt-purple text-white hover:opacity-90"
@@ -1731,22 +1731,22 @@ function GravarLocucaoPage() {
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>
-                        {!getValues("scriptText") || (getValues("scriptText") || '').trim().length < 10 ? (
+                        {(!getValues("scriptText") || (getValues("scriptText") || '').trim().length < 10) ? (
                           <p>O roteiro deve ter pelo menos 10 caracteres.</p>
-                        ) : !getValues("tituloPedido") || (getValues("tituloPedido") || '').trim().length < 3 ? (
+                        ) : (!getValues("tituloPedido") || (getValues("tituloPedido") || '').trim().length < 3) ? (
                           <p>O título do pedido deve ter pelo menos 3 caracteres.</p>
-                        ) : !getValues("estiloLocucao") ? (
+                        ) : (tipoGravacao === 'humana' && !getValues("estiloLocucao")) ? (
                           <p>Por favor, selecione um estilo de locução.</p>
-                        ) : getValues("estiloLocucao") === 'outro' && !(getValues("outroEstiloEspecificacao") || '').trim() ? (
+                        ) : (tipoGravacao === 'humana' && (getValues("estiloLocucao") || '') === 'outro' && !(getValues("outroEstiloEspecificacao") || '').trim()) ? (
                           <p>Por favor, especifique o estilo "Outro".</p>
-                        ) : tipoGravacao === 'humana' && (profile?.saldo_gravacao ?? 0) < estimatedCredits ? (
+                        ) : (tipoGravacao === 'humana' && (profile?.saldo_gravacao ?? 0) < estimatedCredits) ? (
                           <p>Créditos de gravação insuficientes.</p>
-                        ) : tipoGravacao === 'ia' && (profile?.saldo_ia ?? 0) < custoIa ? (
+                        ) : (tipoGravacao === 'ia' && (profile?.saldo_ia ?? 0) < custoIa) ? (
                           <p>Créditos de IA insuficientes.</p>
                         ) : (
                           <p>Preencha todos os campos obrigatórios.</p>
                         )}
-                        </TooltipContent>
+                      </TooltipContent>
                     </Tooltip>
                   )}
                 </div>
