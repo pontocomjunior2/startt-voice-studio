@@ -205,8 +205,8 @@ export default function LoginPage() {
           height={96}
           loading="lazy"
         />
-        <h1 className="text-3xl lg:text-4xl font-bold mb-3 text-center drop-shadow-lg bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">
-          Sua Voz, Amplificada.
+        <h1 className="text-2xl lg:text-3xl font-bold mb-3 text-center drop-shadow-lg bg-gradient-to-r from-startt-blue to-startt-purple bg-clip-text text-transparent">
+          Seu projeto, com a voz que ele merece.
         </h1>
         <p className="text-center text-lg lg:text-xl opacity-90 max-w-md drop-shadow text-text-muted">
           A plataforma completa para suas gravações profissionais.
