@@ -1231,26 +1231,28 @@ function GravarLocucaoPage() {
                     )}
                   />
 
-                  <FormField
-                    control={control}
-                    name="estiloLocucao"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Estilo de Locução</FormLabel>
-                        <Select onValueChange={(value) => { field.onChange(value); trigger("estiloLocucao"); if (value !== 'outro') { trigger("outroEstiloEspecificacao"); } }} defaultValue={field.value}>
-                          <FormControl><SelectTrigger><SelectValue placeholder="Selecione o estilo desejado" /></SelectTrigger></FormControl>
-                          <SelectContent>
-                            {estilosLocucaoOpcoes.map(opcao => (
-                              <SelectItem key={opcao.id} value={opcao.id}>{opcao.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage /> {/* Restaurado para Etapa 3 */}
-                      </FormItem>
-                    )}
-                  />
+                  {tipoGravacao === 'humana' && (
+                    <FormField
+                      control={control}
+                      name="estiloLocucao"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Estilo de Locução</FormLabel>
+                          <Select onValueChange={(value) => { field.onChange(value); trigger("estiloLocucao"); if (value !== 'outro') { trigger("outroEstiloEspecificacao"); } }} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Selecione o estilo desejado" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              {estilosLocucaoOpcoes.map(opcao => (
+                                <SelectItem key={opcao.id} value={opcao.id}>{opcao.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
 
-                  {watchedEstiloLocucao === 'outro' && (
+                  {tipoGravacao === 'humana' && watchedEstiloLocucao === 'outro' && (
                     <FormField
                       control={control}
                       name="outroEstiloEspecificacao"
@@ -1258,7 +1260,7 @@ function GravarLocucaoPage() {
                         <FormItem className="animate-fadeIn">
                           <FormLabel>Especifique o Estilo "Outro"</FormLabel>
                           <FormControl><Input placeholder="Descreva o estilo aqui" {...field} onBlur={() => trigger("outroEstiloEspecificacao")} /></FormControl>
-                          <FormMessage /> {/* Restaurado para Etapa 3 */}
+                          <FormMessage />
                         </FormItem>
                       )}
                     />
@@ -1320,84 +1322,89 @@ function GravarLocucaoPage() {
                     </div>
                   )}
                   
-                  <div>
-                    <FormLabel className="text-base font-medium mb-2 block">Velocidade da Locução:</FormLabel>
-                    <RadioGroup
-                      defaultValue={velocidadeSelecionada}
-                      onValueChange={(value) => setVelocidadeSelecionada(value as VelocidadeLocucaoTipo)}
-                      className="flex flex-wrap gap-x-4 gap-y-2"
-                    >
-                      {Object.values(VELOCIDADE_LOCUCAO).map((velocidade) => (
-                        <FormItem key={velocidade} className="flex items-center space-x-2">
-                          <FormControl><RadioGroupItem value={velocidade} id={`vel-${velocidade}`} /></FormControl>
-                          <Label htmlFor={`vel-${velocidade}`} className="font-normal cursor-pointer">{velocidade.replace('_', ' ')}</Label>
-                        </FormItem>
-                      ))}
-                    </RadioGroup>
-                  </div>
-
-                  <FormField
-                    control={control}
-                    name="orientacoes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Orientações Adicionais <span className="text-xs text-muted-foreground">(opcional)</span></FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Ex: Ênfase na palavra 'PROMOÇÃO', tom mais animado no final, etc."
-                            className="min-h-[80px] resize-y"
-                            {...field}
-                            onBlur={() => trigger("orientacoes")}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Áudio Guia */}
-                  <div className="my-6">
-                    <Label htmlFor="audio-guia-dropzone" className="text-base font-semibold mb-2 block">
-                      Áudio Guia (Opcional)
-                    </Label>
-                    <div
-                      {...getRootProps()}
-                      className={cn(
-                        "flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary/70 transition-colors",
-                        isDragActive ? "border-primary bg-primary/10" : "border-muted-foreground/30",
-                        audioGuiaFile ? "border-green-500 bg-green-500/5" : ""
-                      )}
-                    >
-                      <input {...getInputProps()} id="audio-guia-dropzone" />
-                      {audioGuiaFile ? (
-                        <div className="text-center">
-                          <FileAudio className="mx-auto h-10 w-10 text-green-600 mb-2" />
-                          <p className="font-medium text-sm">{audioGuiaFile.name}</p>
-                          <p className="text-xs text-muted-foreground">{(audioGuiaFile.size / 1024).toFixed(1)} KB</p>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="mt-2 text-destructive hover:bg-destructive/10"
-                            onClick={e => { e.stopPropagation(); setAudioGuiaFile(null); }}
-                          >
-                            <XCircle className="mr-1 h-4 w-4" /> Remover
-                          </Button>
-                        </div>
-                      ) : isDragActive ? (
-                        <div className="text-center text-startt-blue">
-                          <FileAudio className="mx-auto h-10 w-10 mb-2 animate-bounce" />
-                          <p className="font-medium">Solte o arquivo aqui...</p>
-                        </div>
-                      ) : (
-                        <div className="text-center text-muted-foreground">
-                          <FileAudio className="mx-auto h-10 w-10 mb-2" />
-                          <p className="font-medium">Arraste e solte um arquivo de áudio ou clique para selecionar</p>
-                          <p className="text-xs">Formatos aceitos: mp3, wav, ogg, etc.</p>
-                        </div>
-                      )}
+                  {tipoGravacao === 'humana' && (
+                    <div>
+                      <FormLabel className="text-base font-medium mb-2 block">Velocidade da Locução:</FormLabel>
+                      <RadioGroup
+                        defaultValue={velocidadeSelecionada}
+                        onValueChange={(value) => setVelocidadeSelecionada(value as VelocidadeLocucaoTipo)}
+                        className="flex flex-wrap gap-x-4 gap-y-2"
+                      >
+                        {Object.values(VELOCIDADE_LOCUCAO).map((velocidade) => (
+                          <FormItem key={velocidade} className="flex items-center space-x-2">
+                            <FormControl><RadioGroupItem value={velocidade} id={`vel-${velocidade}`} /></FormControl>
+                            <Label htmlFor={`vel-${velocidade}`} className="font-normal cursor-pointer">{velocidade.replace('_', ' ')}</Label>
+                          </FormItem>
+                        ))}
+                      </RadioGroup>
                     </div>
-                    {isUploadingGuia && <p className="text-sm text-startt-blue mt-2 animate-pulse">Enviando áudio guia...</p>}
-                  </div>
+                  )}
+
+                  {tipoGravacao === 'humana' && (
+                    <FormField
+                      control={control}
+                      name="orientacoes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Orientações Adicionais <span className="text-xs text-muted-foreground">(opcional)</span></FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Ex: Ênfase na palavra 'PROMOÇÃO', tom mais animado no final, etc."
+                              className="min-h-[80px] resize-y"
+                              {...field}
+                              onBlur={() => trigger("orientacoes")}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {tipoGravacao === 'humana' && (
+                    <div className="my-6">
+                      <Label htmlFor="audio-guia-dropzone" className="text-base font-semibold mb-2 block">
+                        Áudio Guia (Opcional)
+                      </Label>
+                      <div
+                        {...getRootProps()}
+                        className={cn(
+                          "flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary/70 transition-colors",
+                          isDragActive ? "border-primary bg-primary/10" : "border-muted-foreground/30",
+                          audioGuiaFile ? "border-green-500 bg-green-500/5" : ""
+                        )}
+                      >
+                        <input {...getInputProps()} id="audio-guia-dropzone" />
+                        {audioGuiaFile ? (
+                          <div className="text-center">
+                            <FileAudio className="mx-auto h-10 w-10 text-green-600 mb-2" />
+                            <p className="font-medium text-sm">{audioGuiaFile.name}</p>
+                            <p className="text-xs text-muted-foreground">{(audioGuiaFile.size / 1024).toFixed(1)} KB</p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="mt-2 text-destructive hover:bg-destructive/10"
+                              onClick={e => { e.stopPropagation(); setAudioGuiaFile(null); }}
+                            >
+                              <XCircle className="mr-1 h-4 w-4" /> Remover
+                            </Button>
+                          </div>
+                        ) : isDragActive ? (
+                          <div className="text-center text-startt-blue">
+                            <FileAudio className="mx-auto h-10 w-10 mb-2 animate-bounce" />
+                            <p className="font-medium">Solte o arquivo aqui...</p>
+                          </div>
+                        ) : (
+                          <div className="text-center text-muted-foreground">
+                            <FileAudio className="mx-auto h-10 w-10 mb-2" />
+                            <p className="font-medium">Arraste e solte um arquivo de áudio ou clique para selecionar</p>
+                            <p className="text-xs">Formatos aceitos: mp3, wav, ogg, etc.</p>
+                          </div>
+                        )}
+                      </div>
+                      {isUploadingGuia && <p className="text-sm text-startt-blue mt-2 animate-pulse">Enviando áudio guia...</p>}
+                    </div>
+                  )}
 
                   <Separator className="my-6" />
                   <div className="p-4 rounded-lg bg-muted/40 shadow-sm">
