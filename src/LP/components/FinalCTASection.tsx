@@ -36,7 +36,7 @@ export const FinalCTASection = () => {
 
         {/* Subheadline */}
         <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed">
-          Junte-se a centenas de clientes que já transformaram sua produção de áudio com a Startt.
+          Junte-se a centenas de clientes que já transformaram sua produção de áudio com o Startt e a Pontocom Audio.
         </p>
 
         {/* CTA Button */}
@@ -50,19 +50,7 @@ export const FinalCTASection = () => {
             <ArrowRight className="ml-3 h-6 w-6" />
           </Button>
           
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm text-muted-foreground">
-            <span className="flex items-center gap-2">
-              ✓ Sem compromisso de longo prazo
-            </span>
-            <span className="hidden sm:block">•</span>
-            <span className="flex items-center gap-2">
-              ✓ Créditos não expiram
-            </span>
-            <span className="hidden sm:block">•</span>
-            <span className="flex items-center gap-2">
-              ✓ Suporte dedicado
-            </span>
-          </div>
+
         </div>
 
         {/* Bottom decoration */}

@@ -7,10 +7,7 @@ export const HeroSection = () => {
     document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleGetStarted = () => {
-    // Navigate to registration/login page
-    window.location.href = '/';
-  };
+
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 sm:px-6 lg:px-8">
@@ -47,14 +44,15 @@ export const HeroSection = () => {
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-          <Button 
-            size="lg" 
-            onClick={handleGetStarted}
-            className="bg-startt-gradient hover:opacity-90 text-white font-semibold px-8 py-4 rounded-xl shadow-startt hover:shadow-glow transition-all duration-300 text-lg"
+          <a 
+            href="https://startt.pontocomaudio.net/signup"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-primary/90 h-11 bg-startt-gradient hover:opacity-90 text-white font-semibold px-8 py-4 rounded-xl shadow-startt hover:shadow-glow transition-all duration-300 text-lg"
           >
             Comece a Gravar Agora
             <ArrowRight className="ml-2 h-5 w-5" />
-          </Button>
+          </a>
           
           <Button 
             variant="outline" 

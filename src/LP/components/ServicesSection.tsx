@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Mic, Sparkles, Clock, Heart, Zap, Trophy } from "lucide-react";
+import { Mic, Sparkles, Clock, Heart, Zap, Trophy, PenTool } from "lucide-react";
 
 export const ServicesSection = () => {
   const services = [
@@ -31,6 +31,20 @@ export const ServicesSection = () => {
         { icon: <Trophy className="h-4 w-4" />, text: "Consistência garantida" }
       ],
       gradient: "from-startt-purple/10 to-startt-blue/10"
+    },
+    {
+      icon: <PenTool className="h-8 w-8 text-startt-amber" />,
+      title: "Criar texto com IA",
+      badge: "Novo",
+      badgeColor: "bg-startt-amber text-black",
+      description: "Crie o roteiro do seu comercial com ajuda do nosso agente exclusivo de Inteligência Artificial.",
+      subtitle: "Roteiros otimizados para máxima conversão e impacto.",
+      features: [
+        { icon: <Sparkles className="h-4 w-4" />, text: "Agente IA especializado" },
+        { icon: <Heart className="h-4 w-4" />, text: "Roteiros persuasivos" },
+        { icon: <Zap className="h-4 w-4" />, text: "Criação em minutos" }
+      ],
+      gradient: "from-startt-amber/10 to-startt-blue/10"
     }
   ];
 
@@ -52,7 +66,7 @@ export const ServicesSection = () => {
         </div>
 
         {/* Services Grid */}
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {services.map((service, index) => (
             <Card 
               key={index} 

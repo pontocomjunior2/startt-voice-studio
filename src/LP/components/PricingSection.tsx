@@ -173,10 +173,10 @@ export const PricingSection = () => {
             <span>Sem assinatura</span>
             <span>•</span>
             <Check className="h-4 w-4 text-startt-blue" />
-            <span>Créditos não expiram</span>
+            <span>30 dias para usar</span>
             <span>•</span>
             <Check className="h-4 w-4 text-startt-blue" />
-            <span>Pagamento único</span>
+            <span>Renove quando quiser</span>
           </div>
         </div>
       </div>

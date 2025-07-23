@@ -8,7 +8,7 @@ export const TestimonialsSection = () => {
       name: "Carlos Silva",
       role: "Diretor de Marketing",
       company: "Farmácia Popular",
-      content: "A Startt revolucionou nossa produção de conteúdo. Em 2 horas tivemos 15 spots para rádio prontos. A qualidade das vozes é impressionante!",
+      content: "A Startt revolucionou nossa produção de conteúdo. Em poucas horas tivemos 15 spots para rádio prontos. A qualidade das vozes é impressionante!",
       rating: 5,
       avatar: "CS",
       gradient: "from-startt-blue/20 to-startt-purple/20"
