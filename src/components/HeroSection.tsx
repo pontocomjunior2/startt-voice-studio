@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { WavyBackground } from "./WavyBackground";
 import { ArrowRight, Play } from "lucide-react";
 
 export const HeroSection = () => {
@@ -13,15 +12,11 @@ export const HeroSection = () => {
   };
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 sm:px-6 lg:px-8">
-      <WavyBackground
-        className="w-full max-w-6xl mx-auto"
-        containerClassName="absolute inset-0"
-        waveOpacity={0.3}
-        speed="slow"
-      />
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-b from-background to-background/80">
+      {/* Background gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-startt-blue/10 via-transparent to-startt-purple/10" />
       
-      <div className="relative z-20 text-center w-full max-w-4xl mx-auto flex flex-col items-center justify-center">
+      <div className="relative z-10 text-center w-full max-w-4xl mx-auto px-6">
         {/* Logo/Brand */}
         <div className="mb-8">
           <h1 className="text-6xl md:text-8xl font-bold bg-startt-gradient bg-clip-text text-transparent mb-4">
@@ -47,7 +42,7 @@ export const HeroSection = () => {
         </p>
 
         {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
           <Button 
             size="lg" 
             onClick={handleGetStarted}
@@ -69,7 +64,7 @@ export const HeroSection = () => {
         </div>
 
         {/* Trust indicators */}
-        <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8 text-center opacity-70">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center opacity-70">
           <div>
             <p className="text-2xl font-bold text-startt-blue">500+</p>
             <p className="text-sm text-muted-foreground">Locutores</p>
