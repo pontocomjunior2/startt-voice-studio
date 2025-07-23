@@ -17,29 +17,43 @@ export const HeroSection = () => {
       <div className="absolute inset-0 bg-gradient-to-br from-startt-blue/10 via-transparent to-startt-purple/10" />
       
       <div className="relative z-10 text-center w-full max-w-4xl mx-auto px-6">
-        {/* Logo/Brand */}
+        {/* Logo */}
         <div className="mb-8">
-          <h1 className="text-6xl md:text-8xl font-bold bg-startt-gradient bg-clip-text text-transparent mb-4">
-            STARTT
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground">
-            by Pontocom Audio
-          </p>
+          <img 
+            src="/startt-logo-transp.png" 
+            alt="STARTT Logo" 
+            className="mx-auto h-24 md:h-32 lg:h-40 w-auto"
+          />
         </div>
 
         {/* Main Headline */}
-        <h2 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 leading-tight">
-          A voz certa para{" "}
+        <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-6 leading-tight">
           <span className="bg-startt-gradient bg-clip-text text-transparent">
-            cada projeto
+            Plataforma de Banco de vozes
           </span>
         </h2>
 
-        {/* Subtitle */}
-        <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed">
-          A plataforma completa que une locutores profissionais e inteligência artificial 
-          para entregar gravações de alta qualidade com a velocidade que você precisa.
+
+        
+        <p className="text-lg text-muted-foreground mb-8 max-w-3xl mx-auto leading-relaxed">
+          Locutores profissionais e inteligência artificial para entregar gravações de alta qualidade com a velocidade que você precisa.
         </p>
+        
+        {/* Services Highlights */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 max-w-4xl mx-auto">
+          <div className="bg-card/50 backdrop-blur-sm rounded-lg p-6 border border-border/50">
+            <h4 className="text-lg font-semibold text-startt-blue mb-2">📻 Spots para Rádio</h4>
+            <p className="text-sm text-muted-foreground">Comerciais impactantes com locutores especializados em comunicação radiofônica</p>
+          </div>
+          <div className="bg-card/50 backdrop-blur-sm rounded-lg p-6 border border-border/50">
+            <h4 className="text-lg font-semibold text-startt-purple mb-2">🎥 Locução para Vídeo</h4>
+            <p className="text-sm text-muted-foreground">Narrações profissionais para documentários, institucionais e conteúdo digital</p>
+          </div>
+          <div className="bg-card/50 backdrop-blur-sm rounded-lg p-6 border border-border/50">
+            <h4 className="text-lg font-semibold text-startt-amber mb-2">🎙️ Produção Completa</h4>
+            <p className="text-sm text-muted-foreground">Edição, mixagem e masterização incluídas para resultado profissional</p>
+          </div>
+        </div>
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
@@ -66,16 +80,16 @@ export const HeroSection = () => {
         {/* Trust indicators */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center opacity-70">
           <div>
-            <p className="text-2xl font-bold text-startt-blue">500+</p>
-            <p className="text-sm text-muted-foreground">Locutores</p>
+            <p className="text-2xl font-bold text-startt-blue">Dezenas de</p>
+            <p className="text-sm text-muted-foreground">Vozes</p>
           </div>
           <div>
             <p className="text-2xl font-bold text-startt-purple">1000+</p>
             <p className="text-sm text-muted-foreground">Projetos</p>
           </div>
           <div>
-            <p className="text-2xl font-bold text-startt-amber">24h</p>
-            <p className="text-sm text-muted-foreground">Entrega Rápida</p>
+            <p className="text-2xl font-bold text-startt-amber">Entrega</p>
+            <p className="text-sm text-muted-foreground">Rápida</p>
           </div>
           <div>
             <p className="text-2xl font-bold text-startt-blue">IA+</p>

@@ -1,6 +1,7 @@
 import { HeroSection } from "@/components/HeroSection";
 import { HowItWorksSection } from "./components/HowItWorksSection";
 import { ServicesSection } from "./components/ServicesSection";
+import { SynchroVoiceSection } from "./components/SynchroVoiceSection";
 import { PricingSection } from "./components/PricingSection";
 import { TestimonialsSection } from "./components/TestimonialsSection";
 import { FinalCTASection } from "./components/FinalCTASection";
@@ -16,6 +17,9 @@ const LandingPage = () => {
       
       {/* Services Section */}
       <ServicesSection />
+      
+      {/* Synchro Voice Section */}
+      <SynchroVoiceSection />
       
       {/* Pricing Section */}
       <PricingSection />

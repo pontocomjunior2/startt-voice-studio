@@ -40,11 +40,11 @@ export const ServicesSection = () => {
         {/* Header */}
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-6">
-            A Solução{" "}
-            <span className="bg-startt-gradient bg-clip-text text-transparent">
-              Completa
+            A plataforma{" "}
+            <span className="text-startt-blue">
+              definitiva
             </span>{" "}
-            para sua Voz
+            de gravações
           </h2>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
             Combinamos o melhor dos dois mundos: a autenticidade humana e a eficiência da inteligência artificial

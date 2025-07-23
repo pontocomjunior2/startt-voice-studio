@@ -42,8 +42,7 @@ export const HeroSection = () => {
 
         {/* Subtitle */}
         <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed">
-          A plataforma completa que une locutores profissionais e inteligência artificial 
-          para entregar gravações de alta qualidade com a velocidade que você precisa.
+          Locutores profissionais e inteligência artificial para entregar gravações de alta qualidade com a velocidade que você precisa.
         </p>
 
         {/* CTA Buttons */}
@@ -71,16 +70,16 @@ export const HeroSection = () => {
         {/* Trust indicators */}
         <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8 text-center opacity-70">
           <div>
-            <p className="text-2xl font-bold text-startt-blue">500+</p>
-            <p className="text-sm text-muted-foreground">Locutores</p>
+            <p className="text-2xl font-bold text-startt-blue">Dezenas de</p>
+            <p className="text-sm text-muted-foreground">Vozes</p>
           </div>
           <div>
             <p className="text-2xl font-bold text-startt-purple">1000+</p>
             <p className="text-sm text-muted-foreground">Projetos</p>
           </div>
           <div>
-            <p className="text-2xl font-bold text-startt-amber">24h</p>
-            <p className="text-sm text-muted-foreground">Entrega Rápida</p>
+            <p className="text-2xl font-bold text-startt-amber">Entrega</p>
+            <p className="text-sm text-muted-foreground">Rápida</p>
           </div>
           <div>
             <p className="text-2xl font-bold text-startt-blue">IA+</p>
