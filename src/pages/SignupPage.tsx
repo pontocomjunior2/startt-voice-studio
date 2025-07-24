@@ -1,11 +1,11 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from "sonner";
 import { IMaskInput } from 'react-imask';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LoginForm } from './LoginPage';
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -53,7 +53,23 @@ type SignupFormData = z.infer<typeof signupSchema>;
 function SignupPage() {
   const { signUp, isProcessing } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showConfirmEmailAlert, setShowConfirmEmailAlert] = useState(false);
+  
+  // Capturar parâmetros da URL
+  const urlParams = new URLSearchParams(location.search);
+  const source = urlParams.get('source');
+  const plan = urlParams.get('plan');
+  
+  // Armazenar informações do plano para redirecionamento posterior
+  useEffect(() => {
+    if (plan) {
+      localStorage.setItem('selectedPlanFromLanding', plan);
+    }
+    if (source === 'landing') {
+      localStorage.setItem('cameFromLanding', 'true');
+    }
+  }, [plan, source]);
   const [fullNamePlaceholder, setFullNamePlaceholder] = useState("Seu Nome Completo");
   const [companyNamePlaceholder, setCompanyNamePlaceholder] = useState("Nome da Empresa");
   const [emailPlaceholder, setEmailPlaceholder] = useState("seu@email.com");
@@ -111,6 +127,14 @@ function SignupPage() {
         description: "Verifique seu e-mail para confirmar a conta.",
       });
       form.reset();
+      
+      // Se veio da landing page com um plano selecionado, redirecionar para compra de créditos
+      if (source === 'landing' && plan) {
+        // Aguardar um pouco para o usuário ver a mensagem de sucesso
+        setTimeout(() => {
+          navigate('/comprar-creditos');
+        }, 3000);
+      }
     }
   }
 
@@ -196,7 +220,14 @@ function SignupPage() {
                     <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
                       <CardHeader className="pt-4 pb-2 flex-shrink-0">
                         <CardTitle className="text-xl font-bold tracking-tight mb-1">Crie sua Conta</CardTitle>
-                        <CardDescription className="text-sm text-muted-foreground mb-1">Bem-vindo! Preencha os campos abaixo para começar a usar a plataforma.</CardDescription>
+                        <CardDescription className="text-sm text-muted-foreground mb-1">
+                          Bem-vindo! Preencha os campos abaixo para começar a usar a plataforma.
+                          {plan && (
+                            <span className="block mt-2 text-startt-blue font-semibold">
+                              ✨ Plano selecionado: {plan.replace('-', ' ').toUpperCase()}
+                            </span>
+                          )}
+                        </CardDescription>
                         <span className="text-xs text-muted-foreground">Todos os campos são obrigatórios.</span>
                       </CardHeader>
                       <CardContent className="grid gap-4 pt-4 pb-2 overflow-y-auto flex-grow">

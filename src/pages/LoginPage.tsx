@@ -69,7 +69,16 @@ export function LoginForm({ onSuccess, showConfirmEmailAlert, confirmEmailMessag
           onSuccess();
         } else {
           const from = location.state?.from || "/dashboard";
-          navigate(from, { replace: true });
+          const plan = location.state?.plan;
+          
+          // Se veio da landing page com um plano selecionado, redirecionar para compra de créditos
+          if (plan) {
+            localStorage.setItem('selectedPlanFromLanding', plan);
+            localStorage.setItem('cameFromLanding', 'true');
+            navigate('/comprar-creditos', { replace: true });
+          } else {
+            navigate(from, { replace: true });
+          }
         }
       } else {
         // Detecta erro de e-mail não confirmado do Supabase

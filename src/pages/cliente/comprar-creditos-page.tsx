@@ -34,6 +34,54 @@ export default function ComprarCreditosPage() {
 
   const { data: pacotes = [], isLoading, isError } = useFetchListablePacotes();
 
+  // Verificar se veio da landing page com plano selecionado
+  useEffect(() => {
+    // Primeiro, verificar se há parâmetros na URL
+    const urlParams = new URLSearchParams(location.search);
+    const planFromUrl = urlParams.get('plan');
+    const sourceFromUrl = urlParams.get('source');
+    
+    // Se veio da URL com plano, usar isso
+    if (sourceFromUrl === 'landing' && planFromUrl && pacotes.length > 0) {
+      const planToSelect = pacotes.find(pacote => 
+        pacote.nome.toLowerCase().replace(' ', '-') === planFromUrl
+      );
+      
+      if (planToSelect) {
+        setPacoteSelecionado(planToSelect);
+        toast.success("Plano pré-selecionado!", {
+          description: `O plano ${planToSelect.nome} foi selecionado automaticamente.`,
+        });
+      }
+      
+      // Limpar a URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      // Verificar localStorage (para casos de redirecionamento após login)
+      const cameFromLanding = localStorage.getItem('cameFromLanding');
+      const selectedPlanFromLanding = localStorage.getItem('selectedPlanFromLanding');
+      
+      if (cameFromLanding === 'true' && selectedPlanFromLanding && pacotes.length > 0) {
+        const planToSelect = pacotes.find(pacote => 
+          pacote.nome.toLowerCase().replace(' ', '-') === selectedPlanFromLanding
+        );
+        
+        if (planToSelect) {
+          setPacoteSelecionado(planToSelect);
+          toast.success("Plano pré-selecionado!", {
+            description: `O plano ${planToSelect.nome} foi selecionado automaticamente.`,
+          });
+        }
+        
+        // Limpar os dados do localStorage
+        localStorage.removeItem('cameFromLanding');
+        localStorage.removeItem('selectedPlanFromLanding');
+      }
+    }
+  }, [pacotes, location.search]);
+
+
+
   // ⛔️ REMOVIDO: Todos os `useEffect` que lidavam com `localStorage` para `pacoteSelecionado`
   // e `selectedPaymentMethod` foram removidos para garantir um estado limpo a cada visita.
 

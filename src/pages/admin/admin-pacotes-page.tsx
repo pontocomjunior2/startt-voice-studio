@@ -183,7 +183,7 @@ export default function AdminPacotesPage() {
               {pacotes?.map((pacote) => (
                 <TableRow key={pacote.id}>
                   <TableCell className="font-medium">{pacote.nome}</TableCell>
-                  <TableCell>R$ {pacote.valor.toFixed(2)}</TableCell>
+                  <TableCell>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pacote.valor)}</TableCell>
                   <TableCell>{pacote.creditos_oferecidos}</TableCell>
                   <TableCell>{pacote.creditos_ia_oferecidos || 0}</TableCell>
                   <TableCell>{pacote.validade_dias || "N/A"}</TableCell>
@@ -447,4 +447,4 @@ export default function AdminPacotesPage() {
       </AlertDialog>
     </div>
   );
-} 
+}
