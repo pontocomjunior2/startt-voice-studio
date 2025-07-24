@@ -213,11 +213,7 @@ const CreditCardForm = memo(({ pacote, onPaymentSuccess }: CreditCardFormProps) 
       <div className="border rounded-lg p-4 bg-muted/20">
         <h3 className="text-lg font-semibold mb-4">Dados do Cartão</h3>
         
-        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-md border border-blue-200 dark:border-blue-800">
-          <p className="text-sm text-blue-700 dark:text-blue-300">
-            ℹ️ Use dados de teste: 4074 7000 0000 0002 (OTHE - recusado) ou 4074 7000 0000 0001 (APRO - aprovado)
-          </p>
-        </div>
+
 
         <form 
           onSubmit={handleSubmit} 
@@ -275,7 +271,7 @@ const CreditCardForm = memo(({ pacote, onPaymentSuccess }: CreditCardFormProps) 
               type="text"
               value={cardData.cardholderName}
               onChange={(e) => updateCardDataFormatted('cardholderName', e.target.value)}
-              placeholder="APRO ou OTHE"
+              placeholder="Nome como no cartão"
               className="w-full p-3 border rounded-md bg-background focus:ring-2 focus:ring-primary focus:border-transparent"
               required
               disabled={isProcessing}
@@ -369,4 +365,4 @@ const CreditCardForm = memo(({ pacote, onPaymentSuccess }: CreditCardFormProps) 
 
 CreditCardForm.displayName = 'CreditCardForm';
 
-export default CreditCardForm; 
+export default CreditCardForm;

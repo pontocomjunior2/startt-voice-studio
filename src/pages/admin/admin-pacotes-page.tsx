@@ -134,7 +134,7 @@ export default function AdminPacotesPage() {
     toast.success("Link de compra copiado para a área de transferência!");
   };
 
-  const onSubmit = (data: PacoteFormValues) => {
+  const onSubmit = (data: PacoteFormValues): void => {
     upsertPacote(data, {
       onSuccess: () => {
         setIsDialogOpen(false);
@@ -245,7 +245,7 @@ export default function AdminPacotesPage() {
                 : "Preencha os dados para criar um novo pacote."}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
+          <form onSubmit={handleSubmit(onSubmit as any)} className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="nome" className="text-right">
                 Nome*

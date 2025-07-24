@@ -21,6 +21,7 @@ import HistoricoCreditosPage from './pages/cliente/historico-creditos-page';
 import LocutoresPage from './pages/cliente/LocutoresPage';
 import ComprarCreditosPage from './pages/cliente/comprar-creditos-page';
 import TesteCreditosPage from './pages/TesteCreditosPage';
+import TermosPrivacidadePage from './components/TermosPrivacidadePage';
 
 function App() {
   // Remover useAuth daqui, pois AuthRedirector cuidará da lógica inicial
@@ -160,6 +161,12 @@ function App() {
               <TesteCreditosPage />
             </ProtectedRoute>
           }
+        />
+
+        {/* Rota para Termos e Privacidade */}
+        <Route 
+          path="/termos-privacidade"
+          element={<TermosPrivacidadePage />}
         />
       </Route>
 

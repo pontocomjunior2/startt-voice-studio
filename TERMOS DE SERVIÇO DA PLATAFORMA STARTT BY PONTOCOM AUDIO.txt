@@ -1,0 +1,65 @@
+TERMOS DE SERVIÇO DA PLATAFORMA STARTT BY PONTOCOM AUDIO
+Última atualização: 24 de Julho de 2025
+Preâmbulo
+Bem-vindo à Startt! Antes de utilizar nossa plataforma online ("PLATAFORMA" ou "SITE"), acessível através do endereço eletrônico startt.pontocomaudio.net, leia atentamente estes Termos de Serviço ("Termos").
+Ao utilizar a PLATAFORMA, abrir uma conta ou clicar para aceitar estes Termos, você ("CLIENTE" ou "USUÁRIO") aceita e concorda em cumprir e respeitar estes Termos de Serviço e nossa Política de Privacidade (disponível em [INSIRA O LINK PARA SUA POLÍTICA DE PRIVACIDADE AQUI]), que é parte integrante deste documento. Se você não concordar com qualquer uma de nossas políticas, não deverá acessar ou utilizar a PLATAFORMA.
+A empresa Adelson Ferraz Junior ME (nome fantasia Pontocom Audio), inscrita no CNPJ/MF sob nº 07.731.566/0001-32, com sede na Rua Montevideo, 421 – Andar 2 – Bairro Araçás – Vila Velha/ES – CEP 29103-025 ("PONTOCOM AUDIO"), é a proprietária e operadora da PLATAFORMA STARTT e estabelece através deste instrumento as regras para a contratação de serviços de produção de áudio e locução.
+1. Objeto
+O presente instrumento tem por objeto estabelecer a política e o regulamento para: acesso e cadastro na PLATAFORMA, uso de dados pessoais conforme a LGPD, direitos de propriedade intelectual, contratação dos serviços, sistema de créditos, formas de pagamento, preços, política de revisão, garantias, responsabilidades e demais regras de uso da PLATAFORMA STARTT.
+2. Nossos Serviços
+A PLATAFORMA STARTT oferece um ecossistema completo para produção de áudio, comercializado através de um sistema de créditos.
+a) Sistema de Créditos: Os serviços são contratados mediante o uso de dois tipos de créditos distintos:
+•	Créditos de Gravação: Utilizados para contratar os serviços de "Gravação Humana", que envolvem a performance e o trabalho de artistas profissionais.
+•	Créditos IA: Utilizados para contratar os serviços de "Gravação IA Instantânea", baseados no consumo de caracteres em nossa ferramenta de inteligência artificial.
+b) Validade dos Créditos: Todos os créditos adquiridos, sejam de Gravação ou de IA, possuem uma validade de 30 (trinta) dias corridos a partir da data de sua aquisição salvo em casos específicos em que o prazo de validade pode ser determinado pela plataforma, como promoções, negociações diferenciadas, etc. Créditos não utilizados dentro deste período expirarão automaticamente e não serão acumulados, reembolsados ou transferidos.
+c) Gravação Humana: O CLIENTE pode escolher entre diversas vozes profissionais disponíveis para receber um áudio de alta qualidade. Este serviço é pago com Créditos de Gravação. A produção pode ser realizada por um dos seguintes métodos, a critério da PONTOCOM AUDIO para garantir a melhor qualidade e agilidade:
+•	Performance Autêntica: O locutor humano escolhido grava pessoalmente o roteiro.
+•	Startt Synchro Voice™: Uma performance humana é gravada por um diretor de voz para garantir a emoção e o ritmo, e nossa tecnologia de IA aplica a voz do locutor escolhido sobre essa performance.
+d) Gravação IA Instantânea: Para locutores sinalizados com o ícone (✨), o CLIENTE pode optar por gerar o áudio instantaneamente utilizando nossa tecnologia de Text-to-Speech (TTS). Este serviço é pago com Créditos IA.
+§1° (Cálculo de Créditos de Gravação): O custo em Créditos de Gravação é calculado automaticamente com base no tempo estimado do roteiro, sendo a unidade padrão de 1 (um) crédito para cada bloco de 40 (quarenta) segundos de áudio. Se um áudio ultrapassar um bloco, um novo crédito será consumido.
+§2° (Cálculo de Créditos IA): O custo em Créditos IA é calculado automaticamente com base no número de caracteres do roteiro, sendo a unidade padrão de 1 (um) Crédito IA para cada caractere.
+3. Conteúdo e Responsabilidade do Cliente
+a) Conteúdo Proibido: A PONTOCOM AUDIO NÃO TOLERA MATERIAIS QUE INSULTEM OU DIFAMEM, QUE CONTENHAM PALAVRÕES, DISCURSOS DE ÓDIO, CONTEÚDO VIOLENTO OU ILEGAL, PROPAGANDA ENGANOSA, OU QUE VIOLEM DIREITOS AUTORAIS DE TERCEIROS. O desrespeito a esta cláusula resultará no bloqueio imediato da conta e na recusa do serviço.
+b) Responsabilidade Legal pelo Conteúdo: O CLIENTE é o único e exclusivo responsável legal pelo conteúdo que envia para gravação, respondendo judicial e extrajudicialmente por seus atos e garantindo que possui todos os direitos necessários sobre o roteiro.
+c) Qualidade do Material Enviado: O CLIENTE é responsável pela revisão ortográfica, gramatical e de conteúdo dos roteiros. Erros no áudio final originados de erros no roteiro enviado pelo CLIENTE não caracterizam falha no serviço e exigirão um novo pedido para correção.
+4. Acesso e Cadastro na Plataforma
+§1°: O acesso a áreas públicas da PLATAFORMA é livre. Para a contratação de serviços, é necessário o cadastro gratuito.
+§2°: O CLIENTE pessoa física deve ter 18 anos ou mais, ou ser devidamente representado por seus responsáveis legais.
+§3°: O CLIENTE concorda em fornecer dados verdadeiros e completos (Nome, CPF/CNPJ, Email, etc.), mantendo-os sempre atualizados, sob pena de suspensão ou cancelamento da conta.
+§4°: O CLIENTE é o único responsável por todas as atividades que ocorram em sua conta e pela segurança de sua senha.
+5. Dados e Privacidade (Conformidade com a LGPD)
+A PONTOCOM AUDIO está comprometida com a Lei Geral de Proteção de Dados (LGPD).
+§1°: Os dados pessoais solicitados no cadastro são necessários para a execução do contrato (identificação, processamento de pedidos, faturamento e comunicação).
+§2°: Empregamos medidas de segurança técnicas e administrativas para proteger seus dados.
+§3°: Seus dados não serão compartilhados com terceiros sem consentimento, exceto quando essencial para a prestação do serviço (ex: processadores de pagamento, APIs de IA) ou mediante ordem judicial.
+§4°: Para mais detalhes sobre como seus dados são tratados e quais são seus direitos como titular, consulte nossa Política de Privacidade.
+6. Propriedade Intelectual e Licença de Uso do Áudio
+Esta cláusula unifica todas as regras sobre direitos autorais e de uso.
+§1° (Licença Concedida): Ao contratar um serviço e ter o pagamento aprovado, o CLIENTE adquire uma licença de uso perpétua e não exclusiva do áudio finalizado, estritamente para o propósito e contexto informados no pedido original.
+§2° (Restrições de Uso): O CLIENTE não está autorizado a:
+a) Revender, sublicenciar ou redistribuir o áudio como um produto isolado ("stock audio").
+b) Utilizar o áudio, ou a voz do locutor nele contida, para treinar, alimentar ou desenvolver modelos de inteligência artificial, criar "deepfakes", ou qualquer forma de clonagem de voz.
+c) Utilizar o áudio em contextos difamatórios, ilegais ou ofensivos.
+§3° (Novos Usos): A utilização do mesmo áudio em uma nova campanha ou contexto diferente do original requer uma nova negociação e o pagamento de taxas adicionais.
+§4° (Propriedade da Plataforma): A marca "STARTT", seus logotipos, e todo o conteúdo da PLATAFORMA são de propriedade da PONTOCOM AUDIO.
+7. Pagamento e Preços
+§1°: Os preços dos pacotes de créditos são os exibidos na PLATAFORMA no momento da contratação. As formas de pagamento aceitas são Cartão de Crédito e PIX, processadas de forma segura.
+§2°: A liberação dos créditos e o início da produção de qualquer serviço só ocorrerão após a confirmação da aprovação do pagamento.
+8. Produção, Prazos e Revisões
+a) Prazos de Entrega:
+•	Gravação Humana: O prazo de entrega padrão é de até 24 (vinte e quatro) horas úteis no máximo.
+•	Gravação IA Instantânea: O áudio é gerado e entregue de forma instantânea.
+b) Política de Revisão e Garantia: Nossa garantia cobre falhas no processo de produção.
+•	Itens Cobertos (Revisão Gratuita): Erros de locução, não conformidade com o roteiro ou com orientações objetivas do pedido, e problemas técnicos no arquivo.
+•	Itens NÃO Cobertos (Exigem Novo Pedido): Alterações no roteiro após o envio, mudanças subjetivas de interpretação não especificadas, e erros presentes no roteiro original enviado pelo CLIENTE.
+•	Serviços de IA: O serviço de "Gravação IA Instantânea" é fornecido "no estado em que se encontra" e não está sujeito a revisões de interpretação ou entonação.
+c) Prazo para Solicitação: O CLIENTE deve solicitar a revisão através da PLATAFORMA no prazo máximo de 1 (um) dia corrido após a entrega do áudio. Após este prazo, o serviço será considerado aceito.
+9. Termos Gerais
+§1° (Responsabilidade): A responsabilidade da PONTOCOM AUDIO, por qualquer falha, limita-se ao estorno dos créditos consumidos para o pedido em questão. Não nos responsabilizamos por perdas, danos indiretos ou lucros cessantes.
+§2° (Modificação dos Termos): A PONTOCOM AUDIO reserva-se o direito de alterar estes Termos periodicamente. Alterações significativas serão comunicadas aos CLIENTES.
+§3° (Rescisão): O CLIENTE pode solicitar o encerramento de sua conta a qualquer momento via atendimento@pontocomaudio.net ou via WhatsApp do suporte. O encerramento não dá direito ao reembolso de créditos não utilizados. A PONTOCOM AUDIO poderá cancelar contas em caso de violação grave destes Termos.
+§4° (Armazenamento de Pedidos): Para otimizar o desempenho da PLATAFORMA, os pedidos e seus respectivos áudios poderão ser arquivados ou excluídos automaticamente após 2 (dois) meses de sua conclusão. Recomenda-se que o CLIENTE faça o download e o backup de seus áudios.
+§5° (Indenização): O CLIENTE concorda em indenizar a PONTOCOM AUDIO de quaisquer perdas ou danos decorrentes do uso indevido dos serviços ou da violação destes Termos, especialmente no que tange ao conteúdo dos roteiros enviados.
+10. Foro
+Fica eleito o Foro da Comarca de Vila Velha, Espírito Santo, para dirimir quaisquer litígios oriundos do presente contrato, com expressa renúncia a qualquer outro.
+

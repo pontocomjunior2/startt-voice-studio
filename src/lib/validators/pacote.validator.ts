@@ -11,7 +11,7 @@ export const pacoteSchema = z.object({
   ativo: z.boolean(),
   listavel: z.boolean(),
   locutores: z.array(z.string()).optional(),
-  validade_dias: z.coerce.number().min(1).optional().or(z.literal('')).transform(val => val === '' ? undefined : val),
+  validade_dias: z.coerce.number().min(1).optional(),
   categoria: z.string().optional()
 });
 

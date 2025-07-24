@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { Card, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Heart, Mic2, UsersRound, PlayCircle, Download, Headphones } from 'lucide-react';
+import { Heart, UsersRound, Download, Headphones } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -103,13 +103,7 @@ const LocutoresPage: React.FC = () => {
     return 0;
   });
 
-  const handlePlayAudio = (event: React.SyntheticEvent<HTMLAudioElement, Event>) => {
-    const currentAudio = event.currentTarget;
-    if (audioPlaying && audioPlaying !== currentAudio) {
-      audioPlaying.pause();
-    }
-    setAudioPlaying(currentAudio);
-  };
+
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -132,7 +126,7 @@ const LocutoresPage: React.FC = () => {
             <SelectContent>
               <SelectItem value="all">Todos os estilos</SelectItem>
               {estilosUnicos.map(estilo => (
-                <SelectItem key={estilo} value={estilo}>{estilo}</SelectItem>
+                <SelectItem key={estilo} value={estilo || ''}>{estilo}</SelectItem>
               ))}
             </SelectContent>
           </Select>

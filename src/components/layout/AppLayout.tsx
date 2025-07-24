@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet, useNavigate, useLocation, NavLink } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation, NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
@@ -16,7 +16,7 @@ import {
   User as UserIcon,
   Youtube,
   Instagram,
-  ArrowRight,
+  FileText,
   Clock,
   CreditCard,
   Package,
@@ -27,6 +27,7 @@ import { TextShimmer } from '@/components/ui/text-shimmer';
 import WhatsappFloatingButton from './WhatsappFloatingButton';
 import { cn } from '@/lib/utils';
 import { Skeleton } from "@/components/ui/skeleton"; // Importar o Skeleton
+
 
 // Tipo para os itens de navegação
 interface NavItem {
@@ -145,18 +146,17 @@ const AppLayout: React.FC = () => {
             ))}
           </nav>
         </div>
-        {/* Botão Informações/Read Resume estilizado */}
+        {/* Botão Termos e Privacidade estilizado */}
         <div className="mt-auto pt-10"> {/* mt-auto para empurrar para baixo, pt-10 para espaço acima */}
-          <NavLink
-            to="/informacoes"
-            className={cn(
-              "flex items-center justify-center gap-2 w-full rounded-lg bg-gray-800 dark:bg-neutral-800 px-4 py-3 text-sm font-medium text-gray-100 dark:text-gray-100 hover:bg-gray-700 dark:hover:bg-neutral-700 transition-colors",
-              location.pathname === '/informacoes' && "bg-gray-900 dark:bg-neutral-900"
-            )}
-          >
-            <span>Informações</span>
-            <ArrowRight className="h-4 w-4 ml-1" />
-          </NavLink>
+          <Link to="/termos-privacidade">
+            <Button
+              variant="ghost"
+              className="flex items-center justify-center gap-2 w-full rounded-lg bg-gray-800 dark:bg-neutral-800 px-4 py-3 text-sm font-medium text-gray-100 dark:text-gray-100 hover:bg-gray-700 dark:hover:bg-neutral-700 transition-colors"
+            >
+              <FileText className="h-4 w-4" />
+              <span>Termos e Privacidade</span>
+            </Button>
+          </Link>
         </div>
       </aside>
 
@@ -208,16 +208,15 @@ const AppLayout: React.FC = () => {
                     <Separator className="my-4 bg-slate-700" />
                     <div className="p-4 border-t border-slate-700 mt-auto">
                       <SheetClose asChild>
-                        <NavLink
-                          to="/informacoes"
-                          className={cn(
-                            "flex items-center justify-center gap-2 w-full rounded-lg bg-gray-800 dark:bg-neutral-800 px-4 py-3 text-sm font-medium text-gray-100 dark:text-gray-100 hover:bg-gray-700 dark:hover:bg-neutral-700 transition-colors",
-                            location.pathname === '/informacoes' && "bg-gray-900 dark:bg-neutral-900"
-                          )}
-                        >
-                          <span>Informações</span>
-                          <ArrowRight className="h-4 w-4 ml-1" />
-                        </NavLink>
+                        <Link to="/termos-privacidade">
+                          <Button
+                            variant="ghost"
+                            className="flex items-center justify-center gap-2 w-full rounded-lg bg-gray-800 dark:bg-neutral-800 px-4 py-3 text-sm font-medium text-gray-100 dark:text-gray-100 hover:bg-gray-700 dark:hover:bg-neutral-700 transition-colors"
+                          >
+                            <FileText className="h-4 w-4" />
+                            <span>Termos e Privacidade</span>
+                          </Button>
+                        </Link>
                       </SheetClose>
                     </div>
                   </SheetContent>
@@ -298,4 +297,4 @@ const AppLayout: React.FC = () => {
   );
 };
 
-export default AppLayout; 
+export default AppLayout;

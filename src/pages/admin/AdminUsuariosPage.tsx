@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient'; // Ajuste o caminho se necessário
 import { toast } from "sonner";
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"; // Adicionado para o Select de Role
+import { Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface UserProfile {
@@ -58,6 +59,10 @@ function AdminUsuariosPage() {
 
   const [newUserRole, setNewUserRole] = useState<'cliente' | 'admin'>('cliente');
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedUserForDelete, setSelectedUserForDelete] = useState<UserProfile | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchAllUsers = async () => {
     setLoadingUsers(true);
@@ -214,6 +219,55 @@ function AdminUsuariosPage() {
     }
   };
 
+  const openDeleteModal = (user: UserProfile) => {
+    setSelectedUserForDelete(user);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUserForDelete) return;
+
+    setIsDeleting(true);
+    try {
+      // Primeiro, deletar todos os lotes de créditos do usuário
+      const { error: lotesError } = await supabase
+        .from('lotes_creditos')
+        .delete()
+        .eq('user_id', selectedUserForDelete.id);
+
+      if (lotesError) throw lotesError;
+
+      // Depois, deletar o perfil do usuário
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', selectedUserForDelete.id);
+
+      if (profileError) throw profileError;
+
+      // Por último, deletar o usuário da autenticação
+      const { error: authError } = await supabase.auth.admin.deleteUser(
+        selectedUserForDelete.id
+      );
+
+      if (authError) throw authError;
+
+      toast.success("Usuário Deletado", { 
+        description: `Usuário ${selectedUserForDelete.full_name || selectedUserForDelete.username} foi deletado com sucesso.` 
+      });
+      setIsDeleteModalOpen(false);
+      setSelectedUserForDelete(null);
+      fetchAllUsers();
+    } catch (err: any) {
+      console.error("Erro ao deletar usuário:", err);
+      toast.error("Erro ao Deletar Usuário", { 
+        description: err.message || "Não foi possível deletar o usuário." 
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center">
@@ -253,6 +307,14 @@ function AdminUsuariosPage() {
                   )}
                   <Button variant="secondary" size="sm" onClick={() => openRoleModal(user)}>
                     Alterar Role
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    onClick={() => openDeleteModal(user)}
+                    title="Deletar Usuário"
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </TableCell>
               </TableRow>
@@ -358,6 +420,48 @@ function AdminUsuariosPage() {
             </DialogClose>
             <Button type="button" onClick={handleUpdateUserRole} disabled={isUpdatingRole}>
               {isUpdatingRole ? 'Salvando...' : 'Salvar Nova Role'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Deletar Usuário */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={(isOpen) => {
+        setIsDeleteModalOpen(isOpen);
+        if (!isOpen) {
+          setSelectedUserForDelete(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Deletar Usuário</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja deletar o usuário <strong>{selectedUserForDelete?.full_name || selectedUserForDelete?.username}</strong>?
+              <br /><br />
+              <span className="text-red-600 font-medium">
+                Esta ação é irreversível e irá deletar:
+              </span>
+              <ul className="list-disc list-inside mt-2 text-sm">
+                <li>O perfil do usuário</li>
+                <li>Todos os créditos associados</li>
+                <li>A conta de autenticação</li>
+                <li>Todos os dados relacionados</li>
+              </ul>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isDeleting}>
+                Cancelar
+              </Button>
+            </DialogClose>
+            <Button 
+              type="button" 
+              variant="destructive" 
+              onClick={handleDeleteUser} 
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deletando...' : 'Confirmar Exclusão'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,11 +1,11 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabaseClient';
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { 
   Loader2, ListMusic, PlusCircle, DownloadCloud, AlertTriangle, RefreshCw, 
@@ -320,7 +320,7 @@ const HistoricoRevisoesDialog: React.FC<HistoricoRevisoesDialogProps> = ({ isOpe
 };
 
 export default function MeusAudiosPage() {
-  const { user, refreshProfile } = useAuth();
+  const { refreshProfile } = useAuth();
   const navigate = useNavigate();
 
   const { 
@@ -559,8 +559,8 @@ export default function MeusAudiosPage() {
     }
   };
 
-  const filteredPedidos = React.useMemo(() => {
-    return pedidos.filter(pedido => {
+  React.useMemo(() => {
+    return pedidos.filter(() => {
       // ... (lógica de filtro)
       return true;
     });
@@ -708,7 +708,6 @@ export default function MeusAudiosPage() {
               {pedidos.map((pedido, idx) => {
                 const isPendente = pedido.status === PEDIDO_STATUS.PENDENTE;
                 const isConcluido = pedido.status === PEDIDO_STATUS.CONCLUIDO;
-                const isEmRevisaoComAudio = pedido.status === PEDIDO_STATUS.EM_REVISAO && pedido.audio_final_url;
 
                 const precisaDeResposta = 
                   (pedido.status === PEDIDO_STATUS.AGUARDANDO_CLIENTE && pedido.admin_message) ||
@@ -1029,4 +1028,4 @@ export default function MeusAudiosPage() {
 
     </div>
   );
-} 
+}

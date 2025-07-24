@@ -16,8 +16,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import {
-  UserCircle, Users, Heart, PlayCircle, ChevronLeft, ChevronRight, FileAudio, XCircle,
-  Loader2, RefreshCw, Send, AlertTriangle, Star, Filter, User, Sparkles, Headphones, Download
+  UserCircle, ChevronLeft, ChevronRight, FileAudio, XCircle,
+  Loader2, RefreshCw, Send, AlertTriangle, User, Sparkles, Headphones, Download
 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useSpring, animated } from 'react-spring';
@@ -108,7 +108,7 @@ function GravarLocucaoPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const { data: locutores = [], isLoading: loadingLocutores, isError: hasErrorLocutores, error: errorLocutores } = useFetchAllowedLocutores();
+  const { data: locutores = [] } = useFetchAllowedLocutores();
 
   // Lógica de pré-seleção e edição
   const editingPedidoIdParam = searchParams.get('pedidoId');
@@ -129,8 +129,8 @@ function GravarLocucaoPage() {
   // console.log('[GravarLocucaoPage] Estado preSelectedLocutorId inicial:', preSelectedLocutorId);
 
   // Estados para Favoritos
-  const [idsLocutoresFavoritos, setIdsLocutoresFavoritos] = useState<string[]>([]);
-  const [mostrarApenasFavoritos, setMostrarApenasFavoritos] = useState(false);
+  const [idsLocutoresFavoritos] = useState<string[]>([]);
+  const [mostrarApenasFavoritos] = useState(false);
 
   // Estados para o Popover de aviso do botão Avançar
   const [isAdvanceBlockedPopoverOpen, setIsAdvanceBlockedPopoverOpen] = useState(false);
@@ -285,7 +285,7 @@ function GravarLocucaoPage() {
     }
   }, [errors]);
 
-  const watchedLocutorId = watch("locutorId");
+
   const watchedEstiloLocucao = watch("estiloLocucao");
 
   // Efeito para carregar dados para edição OU aplicar pré-seleção
@@ -364,10 +364,7 @@ function GravarLocucaoPage() {
   }, [editingPedidoIdParam, preSelectedLocutorId, locutores, currentStep, searchParams, loadingPedidoParaEdicao, fetchPedidoParaEdicao, getValues, setValue, reset, setSelectedLocutor]);
 
   // Calcular locutores para a página atual - RESTAURADO AQUI
-  const [currentPageLocutores, setCurrentPageLocutores] = useState(1);
-  const LOCUTORES_PER_PAGE = 4;
-  const indexOfLastLocutor = currentPageLocutores * LOCUTORES_PER_PAGE;
-  const indexOfFirstLocutor = indexOfLastLocutor - LOCUTORES_PER_PAGE;
+
   // currentLocutoresToDisplay é calculado depois, com base nos locutores filtrados.
   
   useEffect(() => {
@@ -396,44 +393,7 @@ function GravarLocucaoPage() {
   // Remover: const handlePreviousLocutoresPage = () => { ... }
   // Remover: const handlePlayPreview = (locutor: Locutor) => { ... }
 
-  const toggleFavorito = async (locutorId: string, isFavoritoAtual: boolean) => {
-    if (!user?.id) {
-      toast.error("Erro de Autenticação", { description: "Você precisa estar logado para favoritar." });
-      return;
-    }
 
-    if (isFavoritoAtual) {
-      const { error } = await supabase
-        .from('locutores_favoritos')
-        .delete()
-        .match({ user_id: user.id, locutor_id: locutorId });
-
-      if (error) {
-        toast.error("Erro ao Desfavoritar", { description: "Não foi possível remover o locutor dos favoritos." });
-      } else {
-        setIdsLocutoresFavoritos(prev => prev.filter(id => id !== locutorId));
-        toast.success("Locutor Desfavoritado", { description: "Locutor removido dos seus favoritos." });
-      }
-    } else {
-      const { error } = await supabase
-        .from('locutores_favoritos')
-        .insert({ user_id: user.id, locutor_id: locutorId });
-
-      if (error) {
-        if (error.code === '23505') { // Código de violação de chave única (já favorito)
-          toast.info("Já Favoritado", { description: "Este locutor já estava nos seus favoritos." });
-          if (!idsLocutoresFavoritos.includes(locutorId)) { // Garantir consistência do estado
-             setIdsLocutoresFavoritos(prev => [...prev, locutorId]);
-          }
-        } else {
-          toast.error("Erro ao Favoritar", { description: "Não foi possível adicionar o locutor aos favoritos." });
-        }
-      } else {
-        setIdsLocutoresFavoritos(prev => [...prev, locutorId]);
-        toast.success("Locutor Favoritado!", { description: "Locutor adicionado aos seus favoritos." });
-      }
-    }
-  };
 
   const [audioGuiaFile, setAudioGuiaFile] = useState<File | null>(null);
   const [isUploadingGuia, setIsUploadingGuia] = useState(false);
@@ -474,7 +434,7 @@ function GravarLocucaoPage() {
       }, {
         onSuccess: () => {
           refreshProfile(); 
-          queryClient.invalidateQueries(['clientOrders', user.id]);
+          queryClient.invalidateQueries({ queryKey: ['clientOrders', user.id] });
           navigate('/meus-audios');
         }
       });
@@ -578,7 +538,7 @@ function GravarLocucaoPage() {
         toast.error("Falha ao Atualizar", { description: resultadoUpdate.data.failure });
       } else if (resultadoUpdate.data && resultadoUpdate.data.success === true) { 
         toast.success("Pedido Atualizado", { description: "Seu pedido foi atualizado com sucesso!" });
-        queryClient.invalidateQueries(['clientOrders', user.id]);
+        queryClient.invalidateQueries({ queryKey: ['clientOrders', user.id] });
         navigate('/meus-audios');
       } else {
         // console.error("Estrutura de resultado inesperada da action de atualização:", resultadoUpdate);
@@ -668,7 +628,7 @@ function GravarLocucaoPage() {
 
         if (rpcResultData && rpcResultData.status === 'success') {
           if (refreshProfile) refreshProfile(); // Atualiza o perfil (créditos) no AuthContext
-          queryClient.invalidateQueries(['clientOrders', user.id]);
+          queryClient.invalidateQueries({ queryKey: ['clientOrders', user.id] });
           // A RPC retorna o UUID do novo pedido em 'pedido_id'.
           const idPedidoCriadoUUID = rpcResultData.pedido_id || 'ID não retornado';
           
@@ -763,10 +723,7 @@ function GravarLocucaoPage() {
     setCurrentStep(prev => prev - 1);
   };
 
-  // Helper para demos do locutor (para evitar linter e problemas de tipagem)
-  const getLocutorDemos = (locutor: LocutorCatalogo): { url: string; estilo?: string }[] => {
-    return Array.isArray(locutor.demos) ? locutor.demos : [];
-  };
+
 
   useEffect(() => {
     refreshProfile();
@@ -1782,4 +1739,4 @@ function CheckIcon(props: React.SVGProps<SVGSVGElement>) {
   )
 }
 
-export default GravarLocucaoPage; 
+export default GravarLocucaoPage;

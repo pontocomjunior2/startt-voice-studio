@@ -1,10 +1,8 @@
-import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-import { supabase } from '../lib/supabaseClient';
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,20 +17,6 @@ import { useFetchClientOrders } from '@/hooks/queries/use-fetch-client-orders.ho
 import { useFetchDashboardSections } from '@/hooks/queries/use-fetch-dashboard-sections.hook';
 
 // Tipos para o dashboard
-interface UltimoPedidoItem {
-  id: string;
-  titulo?: string | null;
-  status: 'pendente' | 'gravando' | 'concluido' | 'cancelado' | 'em_revisao' | 'aguardando_cliente' | 'rejeitado';
-  created_at: string;
-  locutores: { nome_artistico: string } | null;
-}
-
-interface LocutorExibicao {
-  id: string;
-  nome_artistico: string;
-  avatar_url?: string | null;
-  bio?: string | null;
-}
 
 function DashboardPage() {
   const { user, profile, isLoading, isFetchingProfile, refreshProfile } = useAuth();
@@ -271,4 +255,4 @@ function DashboardPage() {
   );
 }
 
-export default DashboardPage; 
+export default DashboardPage;
