@@ -10,6 +10,31 @@ const TermosPrivacidadePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'termos' | 'privacidade'>('termos');
   const navigate = useNavigate();
 
+  // Função para processar texto e converter tags HTML e markdown para JSX
+  const processText = (text: string): React.ReactNode[] => {
+    const lines = text.split('\n');
+    return lines.map((line, index) => {
+      // Processa markdown ** primeiro, depois tags <strong>
+      let processedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+      // Converte para JSX
+      const parts = processedLine.split(/(<strong>.*?<\/strong>)/g);
+      const jsx = parts.map((part, partIndex) => {
+        if (part.match(/<strong>(.*?)<\/strong>/)) {
+          const content = part.replace(/<strong>(.*?)<\/strong>/, '$1');
+          return <strong key={partIndex} className="font-semibold text-gray-900 dark:text-gray-100">{content}</strong>;
+        }
+        return part;
+      });
+
+      return (
+        <div key={index} className={line.trim() === '' ? 'h-4' : 'mb-2'}>
+          {jsx}
+        </div>
+      );
+    });
+  };
+
   const termosDeUso = `<strong>TERMOS DE SERVIÇO DA PLATAFORMA STARTT BY PONTOCOM AUDIO</strong>
 <strong>Última atualização: 24 de Julho de 2025</strong>
 
@@ -122,182 +147,66 @@ A sua privacidade é de extrema importância para a <strong>STARTT by PONTOCOM A
 
 Ao se cadastrar ou utilizar a Plataforma, você declara que leu e concorda com os termos desta Política.
 
-<strong>1. Responsável pelo Tratamento dos Dados</strong>
-A <strong>Adelson Ferraz Junior ME</strong> (nome fantasia <strong>Pontocom Audio</strong>), inscrita no CNPJ/MF sob nº <strong>07.731.566/0001-32</strong>, é a responsável pelo tratamento dos seus dados pessoais.
+<strong>1. A Empresa Controladora dos Dados</strong>
+A empresa responsável pelo tratamento dos seus dados pessoais é a <strong>Adelson Ferraz Junior ME</strong> (nome fantasia <strong>Pontocom Audio</strong>), inscrita no CNPJ/MF sob nº <strong>07.731.566/0001-32</strong>, com sede na <strong>Rua Montevideu, 421 - Andar 2 - Araçás - Vila Velha/ES</strong>, doravante denominada "<strong>PONTOCOM AUDIO</strong>".
 
-<strong>Dados de Contato do Controlador:</strong>
-• <strong>E-mail:</strong> atendimento@pontocomaudio.net
-• <strong>WhatsApp:</strong> (27) 99710-1531
-• <strong>Responsável:</strong> Adelson Ferraz Junior
+<strong>2. Quais Dados Coletamos e Para Qual Finalidade?</strong>
+Coletamos seus dados pessoais estritamente para viabilizar o funcionamento da Plataforma e a prestação dos nossos serviços. A coleta ocorre nos seguintes contextos:
 
-<strong>2. Dados Pessoais que Coletamos</strong>
-Coletamos apenas os dados estritamente necessários para o funcionamento da Plataforma e prestação dos nossos serviços:
+<strong>a) Dados de Cadastro e Conta:</strong>
+• <strong>Quais dados:</strong> Nome completo ou Razão Social, CPF ou CNPJ, e-mail, nome de usuário, senha (criptografada), nome da empresa e número de WhatsApp.
+• <strong>Finalidade:</strong> Criar e gerenciar sua conta, processar faturamento e pagamentos, verificar sua identidade, fornecer suporte ao cliente e enviar comunicações essenciais sobre seus pedidos e sua conta.
 
-<strong>a) Dados de Cadastro:</strong>
-• Nome completo
-• E-mail
-• Telefone
-• CPF ou CNPJ (para emissão de notas fiscais)
-• Endereço completo (quando necessário para faturamento)
+<strong>b) Dados para a Prestação dos Serviços (Pedidos):</strong>
+• <strong>Quais dados:</strong> Textos (roteiros), orientações artísticas, títulos de projetos e, opcionalmente, arquivos de áudio guia que você nos envia.
+• <strong>Finalidade:</strong> Executar o serviço principal da Plataforma, ou seja, produzir o áudio de locução conforme suas especificações. Estes dados são a matéria-prima do serviço contratado.
 
-<strong>b) Dados de Pagamento:</strong>
-• Informações de cartão de crédito/débito (processadas pelo <strong>Mercado Pago</strong>)
-• Histórico de transações
-• Dados de faturamento
+<strong>c) Dados de Pagamento:</strong>
+• <strong>Quais dados:</strong> Informações sobre os pacotes de créditos adquiridos, histórico de transações e status de pagamento. <strong>Importante:</strong> Nós não armazenamos os dados completos do seu cartão de crédito. O processamento é feito por nosso parceiro de pagamentos (<strong>Mercado Pago</strong>), que segue os mais altos padrões de segurança.
+• <strong>Finalidade:</strong> Processar a compra de pacotes de créditos e gerenciar o histórico financeiro da sua conta.
 
-<strong>c) Dados de Uso da Plataforma:</strong>
-• Roteiros e textos enviados para produção
-• Preferências de locutores e estilos
-• Histórico de pedidos
-• Logs de acesso e navegação
+<strong>d) Dados de Navegação e Uso:</strong>
+• <strong>Quais dados:</strong> Endereço IP, tipo de navegador, logs de acesso e outras informações técnicas coletadas automaticamente.
+• <strong>Finalidade:</strong> Garantir a segurança da Plataforma, prevenir fraudes, analisar o desempenho e melhorar a experiência do usuário.
 
-<strong>d) Dados Técnicos:</strong>
-• Endereço IP
-• Tipo de navegador
-• Sistema operacional
-• Cookies e tecnologias similares
+<strong>3. Com Quem Compartilhamos Seus Dados Pessoais?</strong>
+A partilha de dados é feita de forma restrita e apenas quando essencial para a prestação do serviço. Seus dados podem ser compartilhados com:
 
-<strong>3. Finalidades do Tratamento</strong>
-Utilizamos seus dados pessoais para as seguintes finalidades:
+• <strong>Locutores e Diretores de Voz:</strong> O roteiro e as orientações de um pedido são compartilhados com os profissionais envolvidos na produção do seu áudio. Eles estão contratualmente obrigados a manter a confidencialidade do seu material.
+• <strong>Provedores de Serviços de IA (ElevenLabs):</strong> Ao utilizar a funcionalidade de "Gravação com IA", o texto do seu roteiro é enviado para a API do nosso parceiro tecnológico (ElevenLabs) para a geração do áudio.
+• <strong>Processadores de Pagamento (Mercado Pago):</strong> Informações necessárias para a transação financeira são compartilhadas de forma segura com nosso gateway de pagamento para processar sua compra.
+• <strong>Provedores de Infraestrutura (Supabase):</strong> Seus dados são armazenados de forma segura em nossa infraestrutura de banco de dados e nuvem, provida pela Supabase.
+• <strong>Autoridades Legais:</strong> Em caso de requisição judicial ou obrigação legal, poderemos ser obrigados a compartilhar dados com as autoridades competentes.
 
-<strong>a) Prestação dos Serviços:</strong>
-• Criar e gerenciar sua conta na Plataforma
-• Processar pedidos de produção de áudio
-• Entregar os arquivos finalizados
-• Fornecer suporte técnico
+<strong>4. Armazenamento e Segurança dos Dados</strong>
+Seus dados são o nosso ativo mais importante. Nós os armazenamos em servidores seguros e adotamos as melhores práticas de mercado para protegê-los, incluindo criptografia, controle de acesso restrito e monitoramento constante.
 
-<strong>b) Gestão Comercial:</strong>
-• Processar pagamentos
-• Emitir notas fiscais
-• Gerenciar o sistema de créditos
-• Controlar a validade dos créditos
+• <strong>Retenção dos Dados:</strong> Manteremos seus dados pessoais enquanto sua conta estiver ativa. Os dados de pedidos e transações financeiras serão mantidos por um período adicional para cumprir com obrigações legais e fiscais (pelo menos 5 anos). Conforme nossos Termos de Serviço, áudios de pedidos antigos podem ser arquivados ou excluídos após um determinado período para otimização da plataforma.
 
-<strong>c) Comunicação:</strong>
-• Enviar notificações sobre o status dos pedidos
-• Comunicar atualizações da Plataforma
-• Responder dúvidas e solicitações
-• Enviar informações promocionais (com seu consentimento)
+<strong>5. Seus Direitos como Titular de Dados (LGPD)</strong>
+A LGPD lhe garante uma série de direitos sobre seus dados pessoais, e nós estamos comprometidos a respeitá-los. Você pode, a qualquer momento, solicitar:
 
-<strong>d) Segurança e Conformidade:</strong>
-• Prevenir fraudes e atividades maliciosas
-• Cumprir obrigações legais
-• Resolver disputas
+• Confirmação da existência de tratamento dos seus dados.
+• Acesso aos seus dados.
+• Correção de dados incompletos, inexatos ou desatualizados.
+• Anonimização, bloqueio ou eliminação de dados desnecessários ou tratados em desconformidade com a LGPD.
+• Portabilidade dos seus dados a outro fornecedor de serviço.
+• Eliminação dos dados pessoais tratados com o seu consentimento (sujeito às obrigações legais de retenção).
+• Informação sobre as entidades com as quais compartilhamos seus dados.
 
-<strong>e) Melhoria dos Serviços:</strong>
-• Analisar o uso da Plataforma
-• Desenvolver novos recursos
-• Personalizar a experiência do usuário
+Para exercer qualquer um desses direitos, entre em contato conosco através do e-mail: <strong>atendimento@pontocomaudio.net</strong>
 
-<strong>4. Base Legal para o Tratamento</strong>
-O tratamento dos seus dados pessoais é realizado com base nas seguintes bases legais previstas na LGPD:
+<strong>6. Uso de Cookies</strong>
+Utilizamos cookies essenciais para o funcionamento da Plataforma (ex: manter sua sessão de login) e cookies de análise para entendermos como nossos usuários interagem com o site, o que nos ajuda a melhorar nossos serviços. Para mais detalhes, consulte nossa Política de Cookies (que pode ser uma seção da Política de Privacidade ou um link separado).
 
-• <strong>Execução de Contrato:</strong> Para prestação dos serviços contratados
-• <strong>Legítimo Interesse:</strong> Para segurança, prevenção de fraudes e melhoria dos serviços
-• <strong>Cumprimento de Obrigação Legal:</strong> Para emissão de notas fiscais e cumprimento de obrigações tributárias
-• <strong>Consentimento:</strong> Para comunicações promocionais e cookies não essenciais
+<strong>7. Alterações nesta Política de Privacidade</strong>
+Podemos atualizar esta Política de Privacidade periodicamente para refletir mudanças em nossas práticas ou na legislação. Quando o fizermos, alteraremos a data de "Última atualização" no topo deste documento e, em caso de mudanças significativas, notificaremos você através da Plataforma ou por e-mail.
 
-<strong>5. Compartilhamento de Dados</strong>
-Seus dados pessoais podem ser compartilhados nas seguintes situações:
+<strong>8. Contato</strong>
+Se você tiver qualquer dúvida sobre esta Política de Privacidade ou sobre como seus dados são tratados, por favor, não hesite em nos contatar.
 
-<strong>a) Prestadores de Serviços:</strong>
-• <strong>Mercado Pago:</strong> Para processamento de pagamentos
-• <strong>Provedores de hospedagem:</strong> Para armazenamento seguro dos dados
-• <strong>Serviços de e-mail:</strong> Para comunicações da Plataforma
-
-<strong>b) Locutores e Produtores:</strong>
-• Roteiros e orientações artísticas (apenas o necessário para a produção)
-• Informações de contato (quando necessário para esclarecimentos)
-
-<strong>c) Autoridades Competentes:</strong>
-• Quando exigido por lei ou ordem judicial
-• Para cooperação em investigações legais
-
-<strong>d) Transferência de Negócios:</strong>
-• Em caso de fusão, aquisição ou venda da empresa
-
-<strong>6. Armazenamento e Segurança</strong>
-<strong>a) Localização dos Dados:</strong>
-Seus dados são armazenados em servidores localizados no Brasil, em conformidade com a LGPD.
-
-<strong>b) Medidas de Segurança:</strong>
-• Criptografia de dados em trânsito e em repouso
-• Controle de acesso restrito
-• Monitoramento contínuo de segurança
-• Backups regulares e seguros
-• Treinamento da equipe em proteção de dados
-
-<strong>c) Tempo de Retenção:</strong>
-• <strong>Dados de cadastro:</strong> Mantidos enquanto a conta estiver ativa
-• <strong>Dados de pagamento:</strong> Conforme exigências fiscais (5 anos)
-• <strong>Roteiros e projetos:</strong> Mantidos por 2 anos após a conclusão
-• <strong>Logs de acesso:</strong> Mantidos por 6 meses
-
-<strong>7. Seus Direitos como Titular</strong>
-Você possui os seguintes direitos em relação aos seus dados pessoais:
-
-<strong>a) Confirmação e Acesso:</strong>
-• Confirmar se tratamos seus dados
-• Acessar seus dados pessoais
-
-<strong>b) Correção:</strong>
-• Corrigir dados incompletos, inexatos ou desatualizados
-
-<strong>c) Anonimização, Bloqueio ou Eliminação:</strong>
-• Solicitar anonimização ou eliminação de dados desnecessários
-• Bloquear dados tratados em desconformidade
-
-<strong>d) Portabilidade:</strong>
-• Solicitar a portabilidade dos dados para outro fornecedor
-
-<strong>e) Eliminação:</strong>
-• Solicitar a eliminação dos dados tratados com base no consentimento
-
-<strong>f) Informação:</strong>
-• Obter informações sobre compartilhamento dos dados
-• Conhecer as entidades com as quais compartilhamos dados
-
-<strong>g) Revogação do Consentimento:</strong>
-• Revogar o consentimento a qualquer momento
-
-<strong>Como Exercer seus Direitos:</strong>
-Para exercer qualquer um desses direitos, entre em contato conosco através do e-mail <strong>atendimento@pontocomaudio.net</strong> ou WhatsApp <strong>(27) 99710-1531</strong>.
-
-<strong>8. Cookies e Tecnologias Similares</strong>
-Utilizamos cookies e tecnologias similares para:
-• Manter você logado na Plataforma
-• Lembrar suas preferências
-• Analisar o uso da Plataforma
-• Melhorar a experiência do usuário
-
-Você pode gerenciar suas preferências de cookies através das configurações do seu navegador.
-
-<strong>9. Menores de Idade</strong>
-Nossa Plataforma não é destinada a menores de 18 anos. Não coletamos intencionalmente dados pessoais de menores. Se tomarmos conhecimento de que coletamos dados de um menor, tomaremos medidas para excluí-los imediatamente.
-
-<strong>10. Transferência Internacional de Dados</strong>
-Atualmente, não realizamos transferência internacional de dados pessoais. Caso isso venha a ocorrer no futuro, garantiremos que seja feita em conformidade com a LGPD e com as devidas proteções.
-
-<strong>11. Alterações nesta Política</strong>
-Podemos atualizar esta Política de Privacidade periodicamente. Quando o fizermos:
-• Alteraremos a data de "Última atualização" no topo deste documento
-• Notificaremos você através da Plataforma ou por e-mail sobre mudanças significativas
-• O uso continuado da Plataforma após as alterações constitui aceitação da nova Política
-
-<strong>12. Incidentes de Segurança</strong>
-Em caso de incidente de segurança que possa acarretar risco aos seus direitos e liberdades, notificaremos você e a Autoridade Nacional de Proteção de Dados (ANPD) conforme exigido pela LGPD.
-
-<strong>13. Contato e Dúvidas</strong>
-Para dúvidas sobre esta Política de Privacidade ou sobre o tratamento dos seus dados pessoais:
-
-<strong>E-mail:</strong> atendimento@pontocomaudio.net
-<strong>WhatsApp:</strong> (27) 99710-1531
-<strong>Responsável:</strong> Adelson Ferraz Junior
-
-<strong>Encarregado de Proteção de Dados (DPO):</strong>
-Adelson Ferraz Junior
-<strong>E-mail:</strong> dpo@pontocomaudio.net
-
-Esta Política de Privacidade é parte integrante dos nossos Termos de Serviço e demonstra nosso compromisso com a proteção da sua privacidade e o cumprimento da legislação brasileira de proteção de dados.
+<strong>Encarregado de Proteção de Dados (DPO):</strong> Adelson Ferraz Junior
+<strong>E-mail de Contato:</strong> junior@pontocomaudio.net
 `;
 
   return (
@@ -337,8 +246,8 @@ Esta Política de Privacidade é parte integrante dos nossos Termos de Serviço 
                 onClick={() => setActiveTab('termos')}
                 className={cn(
                   "flex items-center gap-2 transition-all duration-200",
-                  activeTab === 'termos' 
-                    ? "bg-gradient-to-r from-startt-blue to-startt-purple text-white shadow-md" 
+                  activeTab === 'termos'
+                    ? "bg-gradient-to-r from-startt-blue to-startt-purple text-white shadow-md"
                     : "hover:bg-gray-100 dark:hover:bg-gray-700"
                 )}
               >
@@ -351,8 +260,8 @@ Esta Política de Privacidade é parte integrante dos nossos Termos de Serviço 
                 onClick={() => setActiveTab('privacidade')}
                 className={cn(
                   "flex items-center gap-2 transition-all duration-200",
-                  activeTab === 'privacidade' 
-                    ? "bg-gradient-to-r from-startt-blue to-startt-purple text-white shadow-md" 
+                  activeTab === 'privacidade'
+                    ? "bg-gradient-to-r from-startt-blue to-startt-purple text-white shadow-md"
                     : "hover:bg-gray-100 dark:hover:bg-gray-700"
                 )}
               >
@@ -365,10 +274,10 @@ Esta Política de Privacidade é parte integrante dos nossos Termos de Serviço 
           {/* Document Content */}
           <div className="p-6">
             <ScrollArea className="h-[calc(100vh-280px)] w-full">
-              <div className="prose prose-sm max-w-none dark:prose-invert pr-6">
-                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-gray-700 dark:text-gray-300 bg-transparent border-none p-0 m-0">
-                  {activeTab === 'termos' ? termosDeUso : politicaPrivacidade}
-                </pre>
+              <div className="max-w-none pr-6">
+                <div className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                  {processText(activeTab === 'termos' ? termosDeUso : politicaPrivacidade)}
+                </div>
               </div>
             </ScrollArea>
           </div>

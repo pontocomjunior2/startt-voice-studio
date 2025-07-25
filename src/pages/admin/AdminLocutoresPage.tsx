@@ -71,6 +71,7 @@ function AdminLocutoresPage() {
   const [editingLocutor, setEditingLocutor] = useState<Locutor | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [locutorToDelete, setLocutorToDelete] = useState<Locutor | null>(null);
+  const [locutorToDeletePermanently, setLocutorToDeletePermanently] = useState<Locutor | null>(null);
 
   const [locutorFilter, setLocutorFilter] = useState('');
 
@@ -219,12 +220,6 @@ function AdminLocutoresPage() {
         .update({ ativo: false })
         .eq('id', locutorToDelete.id);
       
-      // Se quisesse deletar (cuidado com FK constraints):
-      // const { error } = await supabaseClient
-      //   .from('locutores')
-      //   .delete()
-      //   .eq('id', locutorToDelete.id);
-
       if (error) {
         console.error("Erro ao desativar locutor:", error);
         throw error;
@@ -234,6 +229,48 @@ function AdminLocutoresPage() {
       fetchAllLocutores();
     } catch (err: any) {
       toast.error("Erro ao Desativar Locutor", { description: err.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteLocutorPermanently = (locutor: Locutor) => {
+    setLocutorToDeletePermanently(locutor);
+  };
+
+  const confirmDeleteLocutorPermanently = async () => {
+    if (!locutorToDeletePermanently) return;
+    setIsSaving(true);
+    try {
+      // Primeiro, deletar todas as demos relacionadas
+      const { error: demosError } = await supabase
+        .from('locutor_demos')
+        .delete()
+        .eq('locutor_id', locutorToDeletePermanently.id);
+
+      if (demosError) {
+        console.error("Erro ao deletar demos do locutor:", demosError);
+        throw demosError;
+      }
+
+      // Depois, deletar o locutor
+      const { error } = await supabase
+        .from('locutores')
+        .delete()
+        .eq('id', locutorToDeletePermanently.id);
+
+      if (error) {
+        console.error("Erro ao excluir locutor:", error);
+        throw error;
+      }
+
+      toast.success(`Locutor "${locutorToDeletePermanently.nome_artistico}" excluído permanentemente.`);
+      setLocutorToDeletePermanently(null);
+      fetchAllLocutores();
+    } catch (err: any) {
+      toast.error("Erro ao Excluir Locutor", { 
+        description: err.message || "Verifique se o locutor não possui pedidos associados." 
+      });
     } finally {
       setIsSaving(false);
     }
@@ -306,6 +343,7 @@ function AdminLocutoresPage() {
                   <TableCell className="px-4 py-3 whitespace-nowrap space-x-2">
                     <Button variant="outline" size="sm" onClick={() => handleOpenModal(locutor)}>Editar</Button>
                     <Button variant="destructive" size="sm" onClick={() => setLocutorToDelete(locutor)} disabled={!locutor.ativo}>Desativar</Button>
+                    <Button variant="destructive" size="sm" onClick={() => handleDeleteLocutorPermanently(locutor)} className="bg-red-600 hover:bg-red-700">Excluir</Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -441,6 +479,41 @@ function AdminLocutoresPage() {
             <AlertDialogCancel onClick={() => setLocutorToDelete(null)} disabled={isSaving}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteLocutor} disabled={isSaving} className="bg-destructive hover:bg-destructive/90">
               {isSaving ? 'Desativando...' : 'Confirmar Desativação'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* AlertDialog para Confirmar Exclusão Permanente */}
+      <AlertDialog open={!!locutorToDeletePermanently} onOpenChange={(isOpen) => {
+        if (!isOpen) setLocutorToDeletePermanently(null);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>⚠️ Confirmar Exclusão Permanente</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p className="font-semibold text-destructive">
+                ATENÇÃO: Esta ação é irreversível!
+              </p>
+              <p>
+                Tem certeza que deseja excluir permanentemente o locutor "{locutorToDeletePermanently?.nome_artistico}"?
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Isso irá remover completamente o locutor e todas as suas demos do sistema. 
+                Se houver pedidos associados, a exclusão pode falhar.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setLocutorToDeletePermanently(null)} disabled={isSaving}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteLocutorPermanently} 
+              disabled={isSaving} 
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isSaving ? 'Excluindo...' : 'Excluir Permanentemente'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

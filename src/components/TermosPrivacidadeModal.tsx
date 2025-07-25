@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { FileText, Shield, ArrowRight } from 'lucide-react';
+import { FileText, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TermosPrivacidadeModalProps {
